@@ -1,0 +1,14 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Prodex Config Schema",
+  "type": "object",
+  "properties": {
+    "output": { "type": "string" },
+    "scanDepth": { "type": "number", "minimum": 1 },
+    "baseDirs": { "type": "array", "items": { "type": "string" } },
+    "aliasOverrides": { "type": "object" },
+    "entryExcludes": { "type": "array", "items": { "type": "string" } },
+    "importExcludes": { "type": "array", "items": { "type": "string" } }
+  },
+  "additionalProperties": false
+}
