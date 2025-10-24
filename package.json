@@ -1,13 +1,18 @@
 {
   "name": "prodex",
-  "version": "1.1.0",
+  "version": "1.0.0",
+  "description": "Unified Project Indexer & Dependency Extractor for Laravel + React stacks.",
   "type": "module",
-  "bin": { "prodex": "bin/prodex.js" },
-  "dependencies": {
-    "inquirer": "^10.0.0"
+  "bin": {
+    "prodex": "./bin/prodex.js"
   },
-  "description": "Prodex — Project Dependency Extractor. Flatten, analyze, and index your repo into a single structured file.",
-  "keywords": ["combine", "flatten", "repo", "laravel", "vite", "typescript", "php", "prodex"],
-  "license": "MIT",
-  "author": "Zeki"
+  "files": [
+    "bin/",
+    "src/",
+    "README.md",
+    "LICENSE"
+  ],
+  "keywords": ["laravel", "react", "typescript", "dependency", "analyzer", "cli"],
+  "author": "emxhive",
+  "license": "MIT"
 }
