@@ -10,11 +10,18 @@ import { resolvePhpImports } from "../resolvers/php-resolver.js";
 export async function runCombine() {
   const cfg = loadProdexConfig();
   const { output, baseDirs, scanDepth } = cfg;
+
   const entries = await pickEntries(baseDirs, scanDepth);
-  if (!entries.length) { console.log("❌ No entries selected."); return; }
+  if (!entries.length) {
+    console.log("❌ No entries selected.");
+    return;
+  }
 
   const { chain, limit, proceed } = await pickSettings(entries);
-  if (!proceed) { console.log("⚙️  Aborted."); return; }
+  if (!proceed) {
+    console.log("⚙️  Aborted.");
+    return;
+  }
 
   const finalFiles = chain ? await followChain(entries, limit) : entries;
   fs.writeFileSync(output, [toc(finalFiles), ...finalFiles.map(render)].join(""), "utf8");
@@ -37,12 +44,29 @@ async function pickEntries(baseDirs, depth = 2) {
     choices.push({ name: "🔽 Load more (go deeper)", value: "__loadmore" });
     choices.push({ name: "📝 Enter custom path", value: "__manual" });
 
-    const { picks } = await inquirer.prompt([{ type: "checkbox", name: "picks", message: `Select entry files (depth \${depth})`, choices, loop: false, pageSize: 20, default: selected }]);
+    const { picks } = await inquirer.prompt([
+      {
+        type: "checkbox",
+        name: "picks",
+        message: `Select entry files (depth ${depth})`,
+        choices,
+        loop: false,
+        pageSize: 20,
+        default: selected
+      }
+    ]);
+
     if (picks.includes("__manual")) {
       const { manual } = await inquirer.prompt([{ name: "manual", message: "Enter relative path:" }]);
       if (manual.trim()) selected.push(path.resolve(ROOT, manual.trim()));
     }
-    if (picks.includes("__loadmore")) { depth++; selected = picks.filter(p => !["__manual", "__loadmore"].includes(p)); continue; }
+
+    if (picks.includes("__loadmore")) {
+      depth++;
+      selected = picks.filter(p => !["__manual", "__loadmore"].includes(p));
+      continue;
+    }
+
     selected = picks.filter(p => !["__manual", "__loadmore"].includes(p));
     break;
   }
@@ -50,7 +74,7 @@ async function pickEntries(baseDirs, depth = 2) {
 }
 
 async function pickSettings(entries) {
-  console.log("\\nYou selected:");
+  console.log("\n📋 You selected:");
   for (const e of entries) console.log(" -", rel(e));
   const ans = await inquirer.prompt([
     { type: "confirm", name: "chain", message: "Follow dependency chain?", default: true },
@@ -61,24 +85,32 @@ async function pickSettings(entries) {
 }
 
 // ---------- Combine logic ----------
-function header(p) { return `// ==== path: \${rel(p)} ====`; }
-function regionStart(p) { return `// #region \${rel(p)}`; }
+function header(p) { return `// ==== path: ${rel(p)} ====`; }
+function regionStart(p) { return `// #region ${rel(p)}`; }
 const regionEnd = "// #endregion";
+
 function render(p) {
   const ext = path.extname(p);
   let s = read(p);
   s = stripComments(s, ext);
   s = normalizeIndent(s);
-  return `\${header(p)}\\n\${regionStart(p)}\\n\${s}\\n\${regionEnd}\\n\\n`;
+  return `${header(p)}\n${regionStart(p)}\n${s}\n${regionEnd}\n\n`;
 }
-function toc(files) { return ["// ==== Combined Scope ====", ...files.map(f => "// - " + rel(f))].join("\\n") + "\\n\\n"; }
+
+function toc(files) {
+  return ["// ==== Combined Scope ====", ...files.map(f => "// - " + rel(f))].join("\n") + "\n\n";
+}
 
 async function followChain(entryFiles, limit = 200) {
-  const visited = new Set(); const all = [];
+  console.log("🧩 Following dependency chain...");
+  const visited = new Set();
+  const all = [];
+
   for (const f of entryFiles) {
     if (visited.has(f)) continue;
-    visited.add(f); all.push(f);
+    all.push(f);
     const ext = path.extname(f);
+
     if ([".ts", ".tsx", ".d.ts"].includes(ext)) {
       const { files } = await resolveJsImports(f, visited);
       all.push(...files);
@@ -86,7 +118,12 @@ async function followChain(entryFiles, limit = 200) {
       const { files } = await resolvePhpImports(f, visited);
       all.push(...files);
     }
-    if (all.length >= limit) break;
+
+    if (all.length >= limit) {
+      console.log("⚠️  Limit reached:", limit);
+      break;
+    }
   }
+
   return [...new Set(all)];
 }

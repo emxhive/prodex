@@ -3,7 +3,7 @@ import path from "path";
 import inquirer from "inquirer";
 
 export async function initProdex() {
-  console.log("🪄 Prodex Init — Configuration Wizard\\n");
+  console.log("🪄 Prodex Init — Configuration Wizard\n");
 
   const dest = path.join(process.cwd(), ".prodex.json");
   if (fs.existsSync(dest)) {

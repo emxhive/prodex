@@ -6,6 +6,6 @@ export default async function startProdex() {
   if (args.includes("init")) return await initProdex();
 
   console.clear();
-  console.log("🧩 Prodex — Project Dependency Extractor\\n");
+  console.log("🧩 Prodex — Project Dependency Extractor\n");
   await runCombine();
 }
