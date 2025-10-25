@@ -2,7 +2,7 @@ import fs from "fs";
 import path from "path";
 import {
   ROOT,
-  OUT_FILE,
+
   CODE_EXTS,
   ENTRY_EXCLUDES,
   IMPORT_EXCLUDES,

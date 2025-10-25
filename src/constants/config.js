@@ -3,7 +3,7 @@ import { resolvePhpImports } from "../resolvers/php-resolver.js";
 
 
 export const ROOT = process.cwd();
-export const OUT_FILE = ROOT + "/combined.txt";
+
 export const CODE_EXTS = [".js", ".mjs", ".ts", ".tsx", ".d.ts", ".php"];
 export const ENTRY_EXCLUDES = [
   "resources/js/components/ui/",
