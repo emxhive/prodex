@@ -2,9 +2,9 @@ import fs from "fs";
 import path from "path";
 import inquirer from "inquirer";
 import { ROOT } from "../constants/config.js";
-import { walk, rel } from "../core/helpers.js";
+import { walk, rel, sortWithPriority } from "../core/helpers.js";
 
-export async function pickEntries(baseDirs, depth = 2) {
+export async function pickEntries(baseDirs, depth = 2, cfg = {}) {
   let selected = [];
   while (true) {
     const files = [];
@@ -14,10 +14,23 @@ export async function pickEntries(baseDirs, depth = 2) {
       for (const f of walk(full, 0, depth)) files.push(f);
     }
 
-    const choices = files.map(f => ({ name: rel(f), value: f }));
-    choices.push(new inquirer.Separator());
-    choices.push({ name: "🔽 Load more (go deeper)", value: "__loadmore" });
-    choices.push({ name: "📝 Enter custom path", value: "__manual" });
+    const sorted = sortWithPriority(files, cfg.priorityFiles);
+
+    const prioritized = sorted.filter(f =>
+      cfg.priorityFiles?.some(p =>
+        rel(f).replaceAll("\\", "/").toLowerCase().includes(p.toLowerCase())
+      )
+    );
+
+    const choices = sorted.map(f => ({
+      name: prioritized.includes(f) ? `⭐ ${rel(f)}` : rel(f),
+      value: f
+    }));
+
+    if (prioritized.length) {
+      choices.unshift(new inquirer.Separator("⭐ Recommended entries"));
+      choices.splice(prioritized.length + 1, 0, new inquirer.Separator("─ Other files"));
+    }
 
     const { picks } = await inquirer.prompt([
       {

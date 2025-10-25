@@ -20,7 +20,7 @@ export async function runCombine() {
   const cfg = loadProdexConfig();
   const { baseDirs, scanDepth } = cfg;
 
-  const entries = await pickEntries(baseDirs, scanDepth);
+  const entries = await pickEntries(baseDirs, scanDepth, cfg);
   if (!entries.length) {
     console.log("❌ No entries selected.");
     return;
@@ -41,7 +41,6 @@ export async function runCombine() {
     proceed = true;
 
   if (!yesToAll) {
-    // clone static prompts with dynamic defaults
     const combinePrompts = PROMPTS.combine.map(p => ({
       ...p,
       default:
@@ -64,7 +63,6 @@ export async function runCombine() {
     return;
   }
 
-  // ensure output directory exists
   try {
     fs.mkdirSync(outputDir, { recursive: true });
   } catch {
@@ -104,8 +102,6 @@ const regionEnd = "##endregion";
 function render(p) {
   const ext = path.extname(p);
   let s = read(p);
-  // s = stripComments(s, ext);
-  // s = normalizeIndent(s);
   return `${header(p)}\n${regionStart(p)}\n${s}\n${regionEnd}\n\n`;
 }
 

@@ -141,3 +141,4 @@ prodex
 .setup.sh
 .prodex.json
 prodex-priority-files.patch
+setup.sh

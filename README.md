@@ -5,7 +5,8 @@
 
 ---
 
-## 🧠 Recent Fixes & Updates — v1.0.4
+## 🧠 Recent Fixes & Updates — v1.0.5
+- ⭐ **Priority Files Support**  — priority files will now appear **first** on the entry selection list.
 
 - 🪟 **Windows path resolution fixed** — now uses proper `file://` URLs for full ESM compatibility.  
 - 🧾 **Improved output naming** — automatic, context-aware filenames (e.g. `prodex-[entries]-combined.txt`).  
@@ -24,64 +25,6 @@
 | 🪶 **Clean unified output** | Merges all resolved files into a single `.txt` file with region markers for readability. |
 | 🧠 **Static & safe** | Fully static parsing — no runtime execution or file modification. |
 | 💬 **Interactive CLI** | Select files, confirm settings, or use “Yes to all” for streamlined automation. |
-
----
-
-## 📦 Installation
-
-```bash
-npm install -g prodex
-```
-
-or locally:
-
-```bash
-npm install --save-dev prodex
-```
-
----
-
-## 🧰 Usage
-
-Run from your project root:
-
-```bash
-prodex
-```
-
-or:
-
-```bash
-npx prodex
-```
-
-You’ll be guided through an interactive CLI:
-
-```
-🧩 Prodex — Project Indexer
-🧩 Active Config:
- • Output Directory: ./prodex/
- • Scan Depth: 2
- • Base Dirs: app, routes, resources/js
-```
-
-After selecting entries:
-
-```
-✅ prodex-[entries]-combined.txt written (12 file(s)).
-```
-
----
-
-## 🗂 Output Example
-
-```
-## ==== path: app/Services/Shots/ComputeService.php ====
-## #region app/Services/Shots/ComputeService.php
-<?php
-// your code here...
-## #endregion
-```
 
 ---
 
@@ -107,36 +50,31 @@ Optional `.prodex.json` (in project root):
   "importExcludes": [
     "node_modules",
     "@shadcn/"
-  ]
+  ], 
+  "priorityFiles": [
+  "routes/web.php",
+  "routes/api.php",
+  "index",
+  "main",
+  "app"
+]
 }
 ```
 
----
-
-## ⚡ CLI Flags (UNTESTED)
-
-| Flag | Description |
-|------|-------------|
-| `--limit <n>` | Override max dependency count |
-| `--output <dir>` | Custom output directory |
-| `--depth <n>` | Set scan depth |
-| `--no-chain` | Disable dependency chain following |
-| `--debug` | Enable verbose logging |
-
-Example:
-```bash
-prodex --depth 3 --output ./dump --limit 500
 ```
 
----
 
-## 🧩 Workflow Overview
 
-1. **Config Loader** — merges `.prodex.json` with defaults and alias maps.  
-2. **Resolvers** —  
-   - JS/TS: follows imports, re-exports, dynamic imports.  
-   - PHP: expands `use`, grouped imports, PSR-4 mappings.  
-3. **Combiner** — normalizes indentation, strips comments, merges all code into one readable combined file.
+```
+
+
+
+Files are matched using `.includes()` (case-insensitive), so `"index"` will match `src/index.js`, `app/index.tsx`, etc.  
+Recommended entries appear at the top of the picker under a **⭐ Recommended entries** section.
+
+
+
+
 
 ---
 
@@ -188,4 +126,5 @@ Issues and contributions welcome:
 
 ---
 
-**Prodex** — *because every project deserves a clear map, not a maze.*
+**Prodex** — *Codebase, decoded*
+

@@ -23,14 +23,12 @@ export function normalizeIndent(s) {
 }
 
 export function stripComments(code, ext) {
-  // Fast path for PHP or non-JS files — simple regex is fine
   if (ext === ".php") {
     return code
-      .replace(/\/\*[\s\S]*?\*\//g, "") // block comments
-      .replace(/^\s*#.*$/gm, ""); // line comments
+      .replace(/\/\*[\s\S]*?\*\//g, "")
+      .replace(/^\s*#.*$/gm, "");
   }
 
-  // Robust JS/TS-safe parser — avoids stripping inside strings
   let out = "";
   let inStr = false;
   let strChar = "";
@@ -93,7 +91,6 @@ export function stripComments(code, ext) {
   return out;
 }
 
-
 export function isEntryExcluded(p) {
   const r = rel(p);
   return ENTRY_EXCLUDES.some(ex => r.startsWith(ex) || r.includes(ex));
@@ -113,4 +110,18 @@ export function* walk(dir, depth = 0, maxDepth = 2) {
       }
     }
   }
+}
+
+export function sortWithPriority(files, priorityList = []) {
+  if (!priorityList.length) return files;
+  const prioritized = [];
+  const normal = [];
+
+  for (const f of files) {
+    const normalized = f.replaceAll("\\", "/").toLowerCase();
+    if (priorityList.some(p => normalized.includes(p.toLowerCase()))) prioritized.push(f);
+    else normal.push(f);
+  }
+
+  return [...new Set([...prioritized, ...normal])];
 }

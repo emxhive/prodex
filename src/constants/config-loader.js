@@ -2,7 +2,6 @@ import fs from "fs";
 import path from "path";
 import {
   ROOT,
-
   CODE_EXTS,
   ENTRY_EXCLUDES,
   IMPORT_EXCLUDES,
@@ -28,12 +27,10 @@ export function loadProdexConfig() {
     }
   }
 
-  // Resolve output directory (always a folder now)
   const outputDir = userConfig.output
     ? path.resolve(ROOT, userConfig.output)
     : path.join(ROOT, "prodex");
 
-  // Ensure directory exists
   try {
     fs.mkdirSync(outputDir, { recursive: true });
   } catch (e) {
@@ -48,7 +45,8 @@ export function loadProdexConfig() {
     importExcludes: [...IMPORT_EXCLUDES, ...(userConfig.importExcludes || [])],
     baseDirs: [...new Set([...(userConfig.baseDirs || []), ...BASE_DIRS])],
     aliasOverrides: userConfig.aliasOverrides || {},
-    limit: userConfig.limit || 200
+    limit: userConfig.limit || 200,
+    priorityFiles: userConfig.priorityFiles || []
   };
 
   console.log("?? Active Config:");

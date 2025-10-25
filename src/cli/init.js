@@ -26,6 +26,13 @@ export async function initProdex() {
     "@hooks": "resources/js/hooks",
     "@data": "resources/js/data"
   },
+  "priorityFiles": [
+    "routes/web.php",
+    "routes/api.php",
+    "index",
+    "main",
+    "app"
+  ],
   "entryExcludes": [
     "resources/js/components/ui/",
     "app/DTOs/"
