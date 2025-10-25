@@ -1,15 +1,24 @@
 import fs from "fs";
 import path from "path";
 import inquirer from "inquirer";
-import { ROOT } from "../constants/config.js";
+import {
+  ROOT,
+  CODE_EXTS,
+  RESOLVERS,
+  PROMPTS
+} from "../constants/config.js";
 import { loadProdexConfig } from "../constants/config-loader.js";
-import { read, normalizeIndent, stripComments, walk, rel } from "./helpers.js";
-import { resolveJsImports } from "../resolvers/js-resolver.js";
-import { resolvePhpImports } from "../resolvers/php-resolver.js";
+import { read, normalizeIndent, stripComments, rel } from "./helpers.js";
+import { pickEntries } from "../cli/picker.js";
+import { showSummary } from "../cli/summary.js";
+import { generateOutputName, resolveOutputPath } from "./file-utils.js";
 
 export async function runCombine() {
+  const cliLimitFlag = process.argv.find(arg => arg.startsWith("--limit="));
+  const customLimit = cliLimitFlag ? parseInt(cliLimitFlag.split("=")[1], 10) : null;
+
   const cfg = loadProdexConfig();
-  const { output, baseDirs, scanDepth } = cfg;
+  const { baseDirs, scanDepth } = cfg;
 
   const entries = await pickEntries(baseDirs, scanDepth);
   if (!entries.length) {
@@ -17,77 +26,80 @@ export async function runCombine() {
     return;
   }
 
-  const { chain, limit, proceed } = await pickSettings(entries);
+  const autoName = generateOutputName(entries);
+  const outputDir = cfg.output || path.join(ROOT, "prodex");
+  const defaultLimit = customLimit || cfg.limit || 200;
+
+  console.log("\n📋 You selected:");
+  for (const e of entries) console.log(" -", rel(e));
+
+  const { yesToAll } = await inquirer.prompt([PROMPTS.yesToAll]);
+
+  let outputBase = autoName,
+    limit = defaultLimit,
+    chain = true,
+    proceed = true;
+
+  if (!yesToAll) {
+    // clone static prompts with dynamic defaults
+    const combinePrompts = PROMPTS.combine.map(p => ({
+      ...p,
+      default:
+        p.name === "outputBase"
+          ? autoName
+          : p.name === "limit"
+            ? defaultLimit
+            : p.default
+    }));
+
+    const ans = await inquirer.prompt(combinePrompts);
+    outputBase = ans.outputBase || autoName;
+    limit = ans.limit;
+    chain = ans.chain;
+    proceed = ans.proceed;
+  }
+
   if (!proceed) {
     console.log("⚙️  Aborted.");
     return;
   }
 
+  // ensure output directory exists
+  try {
+    fs.mkdirSync(outputDir, { recursive: true });
+  } catch {
+    console.warn("⚠️  Could not create output directory:", outputDir);
+  }
+
+  const output = resolveOutputPath(outputDir, outputBase);
+
+  showSummary({
+    outputDir,
+    fileName: path.basename(output),
+    entries,
+    scanDepth: cfg.scanDepth,
+    limit,
+    chain
+  });
+
   const finalFiles = chain ? await followChain(entries, limit) : entries;
-  fs.writeFileSync(output, [toc(finalFiles), ...finalFiles.map(render)].join(""), "utf8");
+
+  fs.writeFileSync(
+    output,
+    [toc(finalFiles), ...finalFiles.map(render)].join(""),
+    "utf8"
+  );
+
   console.log(`\n✅ ${output} written (${finalFiles.length} file(s)).`);
 }
 
-// ---------- UI ----------
-async function pickEntries(baseDirs, depth = 2) {
-  let selected = [];
-  while (true) {
-    const files = [];
-    for (const base of baseDirs) {
-      const full = path.join(ROOT, base);
-      if (!fs.existsSync(full)) continue;
-      for (const f of walk(full, 0, depth)) files.push(f);
-    }
-
-    const choices = files.map(f => ({ name: rel(f), value: f }));
-    choices.push(new inquirer.Separator());
-    choices.push({ name: "🔽 Load more (go deeper)", value: "__loadmore" });
-    choices.push({ name: "📝 Enter custom path", value: "__manual" });
-
-    const { picks } = await inquirer.prompt([
-      {
-        type: "checkbox",
-        name: "picks",
-        message: `Select entry files (depth ${depth})`,
-        choices,
-        loop: false,
-        pageSize: 20,
-        default: selected
-      }
-    ]);
-
-    if (picks.includes("__manual")) {
-      const { manual } = await inquirer.prompt([{ name: "manual", message: "Enter relative path:" }]);
-      if (manual.trim()) selected.push(path.resolve(ROOT, manual.trim()));
-    }
-
-    if (picks.includes("__loadmore")) {
-      depth++;
-      selected = picks.filter(p => !["__manual", "__loadmore"].includes(p));
-      continue;
-    }
-
-    selected = picks.filter(p => !["__manual", "__loadmore"].includes(p));
-    break;
-  }
-  return [...new Set(selected)];
+function header(p) {
+  return `##==== path: ${rel(p)} ====`;
 }
-
-async function pickSettings(entries) {
-  console.log("\n📋 You selected:");
-  for (const e of entries) console.log(" -", rel(e));
-  const ans = await inquirer.prompt([
-    { type: "confirm", name: "chain", message: "Follow dependency chain?", default: true },
-    { type: "number", name: "limit", message: "Limit number of merged files:", default: 200, validate: v => (!isNaN(v) && v > 0) || "Enter valid number" },
-    { type: "confirm", name: "proceed", message: "Proceed with combine?", default: true }
-  ]);
-  return ans;
+function regionStart(p) {
+  return `##region ${rel(p)}`;
 }
-
-// ---------- Combine logic ----------
-function header(p) { return `// ==== path: ${rel(p)} ====`; }
-function regionStart(p) { return `// #region ${rel(p)}`; }
-const regionEnd = "// #endregion";
+const regionEnd = "##endregion";
 
 function render(p) {
   const ext = path.extname(p);
@@ -98,7 +110,11 @@ function render(p) {
 }
 
 function toc(files) {
-  return ["// ==== Combined Scope ====", ...files.map(f => "// - " + rel(f))].join("\n") + "\n\n";
+  return (
+    ["// ==== Combined Scope ====", ...files.map(f => "// - " + rel(f))].join(
+      "\n"
+    ) + "\n\n"
+  );
 }
 
 async function followChain(entryFiles, limit = 200) {
@@ -109,13 +125,13 @@ async function followChain(entryFiles, limit = 200) {
   for (const f of entryFiles) {
     if (visited.has(f)) continue;
     all.push(f);
-    const ext = path.extname(f);
 
-    if ([".ts", ".tsx", ".d.ts"].includes(ext)) {
-      const { files } = await resolveJsImports(f, visited);
-      all.push(...files);
-    } else if (ext === ".php") {
-      const { files } = await resolvePhpImports(f, visited);
+    const ext = path.extname(f);
+    if (!CODE_EXTS.includes(ext)) continue;
+
+    const resolver = RESOLVERS[ext];
+    if (resolver) {
+      const { files } = await resolver(f, visited);
       all.push(...files);
     }
 

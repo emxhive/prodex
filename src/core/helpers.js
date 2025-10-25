@@ -23,11 +23,76 @@ export function normalizeIndent(s) {
 }
 
 export function stripComments(code, ext) {
-  let s = code.replace(/\/\*[\s\S]*?\*\//g, "");
-  s = s.replace(/(^|[^:])\/\/.*$/gm, (_m, p1) => p1);
-  if (ext === ".php") s = s.replace(/^\s*#.*$/gm, "");
-  return s;
+  // Fast path for PHP or non-JS files — simple regex is fine
+  if (ext === ".php") {
+    return code
+      .replace(/\/\*[\s\S]*?\*\//g, "") // block comments
+      .replace(/^\s*#.*$/gm, ""); // line comments
+  }
+
+  // Robust JS/TS-safe parser — avoids stripping inside strings
+  let out = "";
+  let inStr = false;
+  let strChar = "";
+  let inBlockComment = false;
+  let inLineComment = false;
+
+  for (let i = 0; i < code.length; i++) {
+    const c = code[i];
+    const next = code[i + 1];
+
+    if (inBlockComment) {
+      if (c === "*" && next === "/") {
+        inBlockComment = false;
+        i++;
+      }
+      continue;
+    }
+
+    if (inLineComment) {
+      if (c === "\n") {
+        inLineComment = false;
+        out += c;
+      }
+      continue;
+    }
+
+    if (inStr) {
+      if (c === "\\" && next) {
+        out += c + next;
+        i++;
+        continue;
+      }
+      if (c === strChar) inStr = false;
+      out += c;
+      continue;
+    }
+
+    if (c === '"' || c === "'" || c === "`") {
+      inStr = true;
+      strChar = c;
+      out += c;
+      continue;
+    }
+
+    if (c === "/" && next === "*") {
+      inBlockComment = true;
+      i++;
+      continue;
+    }
+
+    if (c === "/" && next === "/") {
+      inLineComment = true;
+      i++;
+      continue;
+    }
+
+    out += c;
+  }
+
+  return out;
 }
+
 
 export function isEntryExcluded(p) {
   const r = rel(p);

@@ -15,7 +15,7 @@ export function loadLaravelBindings() {
 
     // Match: $this->app->bind(Interface::class, Implementation::class)
     const re =
-        /\$this->app->(?:bind|singleton)\s*\(\s*([A-Za-z0-9_:\\\\]+)::class\s*,\s*([A-Za-z0-9_:\\\\]+)::class/g;
+        /$this->app->(?:bind|singleton)\s*\(\s*([A-Za-z0-9_:\\\\]+)::class\s*,\s*([A-Za-z0-9_:\\\\]+)::class/g;
 
     for (const file of files) {
         const code = fs.readFileSync(file, "utf8");

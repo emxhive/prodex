@@ -1,19 +1,13 @@
-import inquirer from "inquirer";
-import fs from "fs";
 import path from "path";
 
-export async function runCombine() {
-  console.log("📦 Combine mode active. (Stub)");
-  console.log("This is where the full combine logic from your previous script will go.\n");
+export function generateOutputName(entries) {
+  const names = entries.map(f => path.basename(f, path.extname(f)));
+  if (names.length === 1) return names[0];
+  if (names.length === 2) return `${names[0]}-${names[1]}`;
+  if (names.length > 2) return `${names[0]}-and-${names.length - 1}more`;
+  return "unknown";
+}
 
-  const { confirm } = await inquirer.prompt([
-    { type: "confirm", name: "confirm", message: "Would you like to list project files?", default: true }
-  ]);
-
-  if (confirm) {
-    const files = fs.readdirSync(process.cwd());
-    console.log("Found files:", files);
-  } else {
-    console.log("Aborted.");
-  }
+export function resolveOutputPath(outputDir, base) {
+  return path.join(outputDir, `prodex-${base}-combined.txt`);
 }
