@@ -1,14 +1,18 @@
 {
   "name": "prodex",
   "version": "1.0.2",
-  "description": "Unified Project Indexer & Dependency Extractor for Laravel + React stacks.",
+  "description": "Unified Project Indexer & Dependency Extractor for Laravel + React + Node stacks.",
   "type": "module",
   "bin": {
     "prodex": "./bin/prodex.js"
   },
+  "main": "./dist/core/combine.js",
+  "exports": {
+    ".": "./dist/core/combine.js"
+  },
   "files": [
+    "dist/",
     "bin/",
-    "src/",
     "README.md",
     "LICENSE"
   ],
@@ -18,8 +22,22 @@
     "typescript",
     "dependency",
     "analyzer",
-    "cli"
+    "cli",
+    "node",
+    "indexer"
   ],
+  "scripts": {
+    "clean": "rm -rf dist",
+    "build": "npm run clean && mkdir -p dist && cp -r src bin package.json README.md LICENSE dist/",
+    "prepare": "npm run build"
+  },
   "author": "emxhive",
-  "license": "MIT"
+  "license": "MIT",
+  "devDependencies": {
+    "tsup": "^8.5.0",
+    "typescript": "^5.9.3"
+  },
+  "dependencies": {
+    "inquirer": "^12.10.0"
+  }
 }
