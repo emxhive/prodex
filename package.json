@@ -26,11 +26,12 @@
     "node",
     "indexer"
   ],
-  "scripts": {
-    "clean": "rm -rf dist",
-    "build": "npm run clean && mkdir -p dist && cp -r src bin package.json README.md LICENSE dist/",
-    "prepare": "npm run build"
-  },
+"scripts": {
+  "clean": "rm -rf dist",
+  "build": "npm run clean && node -e \"require('fs').mkdirSync('dist',{recursive:true})\" && cp -r src bin package.json README.md LICENSE dist/",
+  "prepare": "npm run build"
+}
+,
   "author": "emxhive",
   "license": "MIT",
   "devDependencies": {
