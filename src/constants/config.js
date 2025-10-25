@@ -29,7 +29,13 @@ export const IMPORT_EXCLUDES = [
 ];
 export const BASE_DIRS = ["src", "bin", "schema", "app", "routes", "resources/js"];
 
-
+export const PRIORITY_FILES = [
+  "routes/web.php",
+  "routes/api.php",
+  "index.",
+  "main.",
+  "app."
+]
 /**
  * Resolver map — links file extensions to their resolver functions.
  * Extend this to support new formats (.vue, .jsx, etc.).

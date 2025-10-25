@@ -29,9 +29,9 @@ export async function initProdex() {
   "priorityFiles": [
     "routes/web.php",
     "routes/api.php",
-    "index",
-    "main",
-    "app"
+    "index.",
+    "main.",
+    "app."
   ],
   "entryExcludes": [
     "resources/js/components/ui/",

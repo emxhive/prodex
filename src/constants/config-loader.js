@@ -5,7 +5,8 @@ import {
   CODE_EXTS,
   ENTRY_EXCLUDES,
   IMPORT_EXCLUDES,
-  BASE_DIRS
+  BASE_DIRS,
+  PRIORITY_FILES
 } from "./config.js";
 
 /**
@@ -46,18 +47,18 @@ export function loadProdexConfig() {
     baseDirs: [...new Set([...(userConfig.baseDirs || []), ...BASE_DIRS])],
     aliasOverrides: userConfig.aliasOverrides || {},
     limit: userConfig.limit || 200,
-    priorityFiles: userConfig.priorityFiles || []
+    priorityFiles: userConfig.priorityFiles || PRIORITY_FILES
   };
 
-  console.log("?? Active Config:");
-  console.log(" • Output Directory:", merged.output);
-  console.log(" • Scan Depth:", merged.scanDepth);
-  console.log(" • Base Dirs:", merged.baseDirs.join(", "));
-  if (userConfig.entryExcludes || userConfig.importExcludes)
-    console.log(" • Custom Exclusions:", {
-      entries: userConfig.entryExcludes?.length || 0,
-      imports: userConfig.importExcludes?.length || 0
-    });
+  // console.log("?? Active Config:");
+  // console.log(" • Output Directory:", merged.output);
+  // console.log(" • Scan Depth:", merged.scanDepth);
+  // console.log(" • Base Dirs:", merged.baseDirs.join(", "));
+  // if (userConfig.entryExcludes || userConfig.importExcludes)
+  //   console.log(" • Custom Exclusions:", {
+  //     entries: userConfig.entryExcludes?.length || 0,
+  //     imports: userConfig.importExcludes?.length || 0
+  //   });
 
   return merged;
 }

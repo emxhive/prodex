@@ -23,14 +23,14 @@ export async function pickEntries(baseDirs, depth = 2, cfg = {}) {
     );
 
     const choices = sorted.map(f => ({
-      name: prioritized.includes(f) ? `⭐ ${rel(f)}` : rel(f),
+      name: rel(f),
       value: f
     }));
 
-    if (prioritized.length) {
-      choices.unshift(new inquirer.Separator("⭐ Recommended entries"));
-      choices.splice(prioritized.length + 1, 0, new inquirer.Separator("─ Other files"));
-    }
+    // if (prioritized.length) {
+    //   choices.unshift(new inquirer.Separator("⭐ Recommended entries"));
+    //   choices.splice(prioritized.length + 1, 0, new inquirer.Separator("─ Other files"));
+    // }
 
     const { picks } = await inquirer.prompt([
       {

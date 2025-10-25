@@ -5,7 +5,7 @@
 
 ---
 
-## 🧠 Recent Fixes & Updates — v1.0.6
+## 🧠 Recent Fixes & Updates — v1.0.7
 - ⭐ **Priority Files Support**  — priority files will now appear **first** on the entry selection list.
 
 - 🪟 **Windows path resolution fixed** — now uses proper `file://` URLs for full ESM compatibility.  
@@ -13,6 +13,16 @@
 - ⚙️ **“Yes to all” confirmation added** — skip repetitive prompts during CLI runs.
 
 ---
+
+---
+
+## 📦 Installation
+
+### Global install (recommended)
+```bash
+npm install -g prodex
+```
+
 
 ## 🚀 Features
 
@@ -54,9 +64,9 @@ Optional `.prodex.json` (in project root):
   "priorityFiles": [
   "routes/web.php",
   "routes/api.php",
-  "index",
-  "main",
-  "app"
+  "index.",
+  "main.",
+  "app."
 ]
 }
 ```
@@ -69,8 +79,8 @@ Optional `.prodex.json` (in project root):
 
 
 
-Files are matched using `.includes()` (case-insensitive), so `"index"` will match `src/index.js`, `app/index.tsx`, etc.  
-Recommended entries appear at the top of the picker under a **⭐ Recommended entries** section.
+Files are matched using `.includes()` (case-insensitive), so `"index."` will match `src/index.js`, `app/index.tsx`, etc.  
+Popular entries appear at the top of the picker.
 
 
 
