@@ -104,14 +104,14 @@ const regionEnd = "##endregion";
 function render(p) {
   const ext = path.extname(p);
   let s = read(p);
-  s = stripComments(s, ext);
+  // s = stripComments(s, ext);
   s = normalizeIndent(s);
   return `${header(p)}\n${regionStart(p)}\n${s}\n${regionEnd}\n\n`;
 }
 
 function toc(files) {
   return (
-    ["// ==== Combined Scope ====", ...files.map(f => "// - " + rel(f))].join(
+    ["##==== Combined Scope ====", ...files.map(f => "## - " + rel(f))].join(
       "\n"
     ) + "\n\n"
   );

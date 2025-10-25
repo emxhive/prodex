@@ -1,22 +1,29 @@
 # 🧩 Prodex — Unified Project Indexer & Dependency Extractor
 
-**Prodex** *(short for “Project Index”)* is a smart cross-language dependency combiner for modern web stacks — built to traverse **Laravel + React + TypeScript** projects and extract a clean, flattened scope of every linked file.
-
-Whether you’re debugging imports, building AI context files, or simply auditing what your app actually depends on — Prodex builds you a unified **project index** in seconds.
+> **Prodex** *(short for “Project Index”)* — a cross-language dependency combiner for modern full-stack applications.  
+> Traverses **Laravel + React + TypeScript** projects to generate a single, organized view of your project’s true dependency scope.
 
 ---
 
-## 🚀 Key Features
+## 🧠 Recent Fixes & Updates — v1.0.4
+
+- 🪟 **Windows path resolution fixed** — now uses proper `file://` URLs for full ESM compatibility.  
+- 🧾 **Improved output naming** — automatic, context-aware filenames (e.g. `prodex-[entries]-combined.txt`).  
+- ⚙️ **“Yes to all” confirmation added** — skip repetitive prompts during CLI runs.
+
+---
+
+## 🚀 Features
 
 | Feature | Description |
 |----------|-------------|
-| ⚙️ **Cross-language resolver** | Understands both JavaScript / TypeScript (`import`, `require`, `export * from`) and PHP (`use`, `require`, `include`) dependency trees. |
-| 🧩 **Laravel-aware bindings** | Reads your `app/Providers` and automatically maps interfaces to their concrete implementations. |
-| 🧭 **Smart alias detection** | Parses `tsconfig.json` and `vite.config.*` for alias paths (`@/components/...`). |
-| 🗂 **Grouped imports support** | Expands `use App\Http\Controllers\{A,B,C}` into individual files. |
-| 🔄 **Recursive chain following** | Walks through imports, re-exports, and PSR-4 namespaces up to your configured depth. |
-| 🪶 **Clean combined output** | Merges every resolved file into one `.txt` or `.md` file with region markers for readability. |
-| 🧠 **Static & safe** | No runtime PHP execution — everything is parsed statically via regex + PSR-4 mapping. |
+| ⚙️ **Cross-language resolver** | Parses JS/TS (`import`, `export`) and PHP (`use`, `require`, `include`) dependency trees. |
+| 🧭 **Alias detection** | Reads `tsconfig.json` and `vite.config.*` for alias paths (`@/components/...`). |
+| 🧩 **Laravel-aware** | Maps PSR-4 namespaces and detects providers under `app/Providers`. |
+| 🔄 **Recursive chain following** | Resolves dependency graphs up to a configurable depth and file limit. |
+| 🪶 **Clean unified output** | Merges all resolved files into a single `.txt` file with region markers for readability. |
+| 🧠 **Static & safe** | Fully static parsing — no runtime execution or file modification. |
+| 💬 **Interactive CLI** | Select files, confirm settings, or use “Yes to all” for streamlined automation. |
 
 ---
 
@@ -36,86 +43,104 @@ npm install --save-dev prodex
 
 ## 🧰 Usage
 
-Run directly from your project root:
+Run from your project root:
 
 ```bash
-prodex 
+prodex
 ```
 
-OR
+or:
 
 ```bash
-npx prodex 
+npx prodex
 ```
 
 You’ll be guided through an interactive CLI:
 
 ```
-🧩 Prodex — Project Dependency Extractor
+🧩 Prodex — Project Indexer
 🧩 Active Config:
- • Output: ./combined.txt
+ • Output Directory: ./prodex/
  • Scan Depth: 2
  • Base Dirs: app, routes, resources/js
 ```
 
-After selecting files and confirming, Prodex generates:
+After selecting entries:
 
 ```
-✅ combined.txt written (12 file(s)).
+✅ prodex-[entries]-combined.txt written (12 file(s)).
 ```
 
-Each file appears wrapped in annotated regions:
+---
+
+## 🗂 Output Example
 
 ```
-// ==== path: app/Services/Shots/ComputeService.php ====
-// #region app/Services/Shots/ComputeService.php
+## ==== path: app/Services/Shots/ComputeService.php ====
+## #region app/Services/Shots/ComputeService.php
 <?php
 // your code here...
-// #endregion
+## #endregion
 ```
 
 ---
 
 ## ⚙️ Configuration
 
-Create a `.prodex.json` in your project root (optional):
+Optional `.prodex.json` (in project root):
 
-```jsonc
+```json
 {
-  "output": "./combined.txt",
-  "scanDepth": 3,
+  "$schema": "https://raw.githubusercontent.com/emxhive/prodex/main/schema/prodex.schema.json",
+  "output": "prodex",
+  "scanDepth": 2,
+  "limit": 200,
   "baseDirs": ["app", "routes", "resources/js"],
-  "entryExcludes": ["vendor", "node_modules"],
-  "importExcludes": ["vendor", "tests"]
+  "aliasOverrides": {
+    "@hooks": "resources/js/hooks",
+    "@data": "resources/js/data"
+  },
+  "entryExcludes": [
+    "resources/js/components/ui/",
+    "app/DTOs/"
+  ],
+  "importExcludes": [
+    "node_modules",
+    "@shadcn/"
+  ]
 }
 ```
 
-Prodex automatically merges this with sane defaults.
+---
+
+## ⚡ CLI Flags
+
+| Flag | Description |
+|------|-------------|
+| `--limit <n>` | Override max dependency count |
+| `--output <dir>` | Custom output directory |
+| `--depth <n>` | Set scan depth |
+| `--no-chain` | Disable dependency chain following |
+| `--debug` | Enable verbose logging |
+
+Example:
+```bash
+prodex --depth 3 --output ./dump --limit 500
+```
 
 ---
 
-## 🧩 How It Works
+## 🧩 Workflow Overview
 
-**1. Config Loader**
-- Reads `.prodex.json`, `tsconfig.json`, and `vite.config.*`.
-- Builds alias + exclusion map.
-
-**2. JS Resolver**
-- Extracts ES modules, dynamic imports, and re-exports.
-- Resolves alias paths to absolute file locations.
-
-**3. PHP Resolver**
-- Parses `use`, grouped `use {}`, `require`, and `include`.
-- Expands PSR-4 namespaces via `composer.json`.
-- Loads bindings from all `app/Providers/*.php` to link interfaces to implementations.
-
-**4. Combiner**
-- Follows all dependency chains (recursive up to limit).
-- Writes a single combined file with a TOC and inline region markers.
+1. **Config Loader** — merges `.prodex.json` with defaults and alias maps.  
+2. **Resolvers** —  
+   - JS/TS: follows imports, re-exports, dynamic imports.  
+   - PHP: expands `use`, grouped imports, PSR-4 mappings.  
+3. **Combiner** — normalizes indentation, strips comments, merges all code into one readable combined file.
 
 ---
 
-## 🧱 Example: Laravel + React Project
+## 🧱 Example: Laravel + React
 
 ```bash
 prodex
@@ -123,11 +148,10 @@ prodex
 
 ```
 🧩 Following dependency chain...
-✅ combined.txt written (24 file(s)).
+✅ prodex-app-routes-combined.txt written (24 file(s)).
 ```
 
 Included files:
-
 ```
 resources/js/pages/accounts.tsx
 app/Http/Controllers/Shots/AccountsController.php
@@ -141,41 +165,27 @@ app/Support/Shots/CacheKeys.php
 
 ## 🧠 Ideal Use Cases
 
-- 🧩 Feeding combined source to **AI assistants / context engines**
-- 🧪 Static dependency audits or architecture mapping
-- 🧰 Quick “code snapshot” before refactors
-- 📄 Documentation generation / single-file review
+- 📦 Generate single-file **project snapshots**  
+- 🤖 Provide structured context for **AI assistants**  
+- 🧩 Perform **dependency audits** or code reviews  
+- 📄 Simplify documentation and onboarding  
 
 ---
 
-## 🔧 CLI Flags (optional)
+## 🔮 Upcoming Features
 
-| Flag | Description |
-|------|-------------|
-| `--depth <n>` | Override scan depth |
-| `--output <path>` | Custom output path |
-| `--no-chain` | Disable dependency recursion |
-| `--debug` | Enable verbose logging |
-
-Example:
-
-```bash
-prodex --depth 3 --output ./dump.txt --debug
-```
-
----
-
-
-## 💡 Philosophy
-
-Prodex isn’t a linter or bundler —  
-it’s an **indexer** that unifies multi-language project contexts for smarter automation, analysis, and AI-assisted workflows.
-
-Built with care for mixed stacks like **Laravel + Inertia + React**,  
-and designed to be both *safe* and *predictable.*
+- 📝 **Markdown export** (`.md`) with automatic code fences  
+- 📦 **Configurable output formats** (txt / md)  
+- ⚡ **Alias auto-discovery for Laravel Mix and Next.js**  
 
 ---
 
 ## 🧾 License
 
-MIT © 2025 emxhive
+**MIT © 2025 [emxhive](https://github.com/emxhive)**  
+Issues and contributions welcome:  
+👉 [github.com/emxhive/prodex/issues](https://github.com/emxhive/prodex/issues)
+
+---
+
+**Prodex** — *because every project deserves a clear map, not a maze.*

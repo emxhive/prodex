@@ -17,17 +17,10 @@ export async function initProdex() {
   }
 
   const jsonc = `{
-  // -------------------------------------------------------------
-  // 🧩 Prodex Configuration
-  // -------------------------------------------------------------
-  // Customize how Prodex flattens your project.
-  // For docs, visit: https://github.com/emxhive/prodex#configuration
-  // -------------------------------------------------------------
-
   "$schema": "https://raw.githubusercontent.com/emxhive/prodex/main/schema/prodex.schema.json",
-
-  "output": "combined.txt",
+  "output": "prodex",
   "scanDepth": 2,
+  "limit": 200,
   "baseDirs": ["app", "routes", "resources/js"],
   "aliasOverrides": {
     "@hooks": "resources/js/hooks",
@@ -41,7 +34,8 @@ export async function initProdex() {
     "node_modules",
     "@shadcn/"
   ]
-}`;
+}
+`;
 
   fs.writeFileSync(dest, jsonc, "utf8");
   console.log(`✅ Created ${dest}`);
