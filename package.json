@@ -1,6 +1,6 @@
 {
   "name": "prodex",
-  "version": "1.0.4",
+  "version": "1.0.5",
   "description": "Unified Project Indexer & Dependency Extractor for Laravel + React + Node stacks.",
   "type": "module",
   "bin": {
