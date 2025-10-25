@@ -69,7 +69,7 @@ export async function resolvePhpImports(
         .split(",")
         .map(x => x.trim())
         .filter(Boolean);
-      for (const p of parts) matches.add(`${base}\${p}`);
+      for (const p of parts) matches.add(`${base}\\${p}`);
     } else {
       matches.add(imp.trim());
     }

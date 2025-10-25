@@ -5,7 +5,7 @@
 
 ---
 
-## 🧠 Recent Fixes & Updates — v1.0.7
+## 🧠 Recent Fixes & Updates — v1.0.8
 - ⭐ **Priority Files Support**  — priority files will now appear **first** on the entry selection list.
 
 - 🪟 **Windows path resolution fixed** — now uses proper `file://` URLs for full ESM compatibility.  
