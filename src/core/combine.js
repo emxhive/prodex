@@ -105,7 +105,7 @@ function render(p) {
   const ext = path.extname(p);
   let s = read(p);
   // s = stripComments(s, ext);
-  s = normalizeIndent(s);
+  // s = normalizeIndent(s);
   return `${header(p)}\n${regionStart(p)}\n${s}\n${regionEnd}\n\n`;
 }
 
