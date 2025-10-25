@@ -139,3 +139,4 @@ dist
 # Prodex
 prodex
 .setup.sh
+.prodex.json
