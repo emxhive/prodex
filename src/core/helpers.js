@@ -1,11 +1,17 @@
 import fs from "fs";
 import path from "path";
-import { ROOT, CODE_EXTS, ENTRY_EXCLUDES } from "../constants/config.js";
+import micromatch from "micromatch";
 
-export function rel(p) {
-  return path.relative(ROOT, p).replaceAll("\\", "/");
+/**
+ * Get a root-relative version of a path.
+ */
+export function rel(p, root = process.cwd()) {
+  return path.relative(root, p).replaceAll("\\", "/");
 }
 
+/**
+ * Safe text read.
+ */
 export function read(p) {
   try {
     return fs.readFileSync(p, "utf8");
@@ -14,104 +20,47 @@ export function read(p) {
   }
 }
 
-export function normalizeIndent(s) {
-  return s
-    .replace(/\t/g, "  ")
-    .split("\n")
-    .map(l => l.replace(/[ \t]+$/, ""))
-    .join("\n");
+/**
+ * Check if a path/file matches any of the provided glob patterns.
+ */
+export function isExcluded(p, patterns, root = process.cwd()) {
+  if (!patterns?.length) return false;
+  const relPath = rel(p, root);
+  return micromatch.isMatch(relPath, patterns);
 }
 
-export function stripComments(code, ext) {
-  if (ext === ".php") {
-    return code
-      .replace(/\/\*[\s\S]*?\*\//g, "")
-      .replace(/^\s*#.*$/gm, "");
-  }
+/**
+ * Recursive walker that respects glob excludes.
+ * Returns all files under the given directory tree.
+ */
+export function* walk(dir, cfg, depth = 0) {
+  const { scanDepth, entry } = cfg;
+  const root = process.cwd();
+  if (depth > scanDepth) return;
 
-  let out = "";
-  let inStr = false;
-  let strChar = "";
-  let inBlockComment = false;
-  let inLineComment = false;
-
-  for (let i = 0; i < code.length; i++) {
-    const c = code[i];
-    const next = code[i + 1];
-
-    if (inBlockComment) {
-      if (c === "*" && next === "/") {
-        inBlockComment = false;
-        i++;
-      }
-      continue;
-    }
-
-    if (inLineComment) {
-      if (c === "\n") {
-        inLineComment = false;
-        out += c;
-      }
-      continue;
-    }
-
-    if (inStr) {
-      if (c === "\\" && next) {
-        out += c + next;
-        i++;
-        continue;
-      }
-      if (c === strChar) inStr = false;
-      out += c;
-      continue;
-    }
-
-    if (c === '"' || c === "'" || c === "`") {
-      inStr = true;
-      strChar = c;
-      out += c;
-      continue;
-    }
-
-    if (c === "/" && next === "*") {
-      inBlockComment = true;
-      i++;
-      continue;
-    }
-
-    if (c === "/" && next === "/") {
-      inLineComment = true;
-      i++;
-      continue;
-    }
-
-    out += c;
-  }
-
-  return out;
-}
-
-export function isEntryExcluded(p) {
-  const r = rel(p);
-  return ENTRY_EXCLUDES.some(ex => r.startsWith(ex) || r.includes(ex));
-}
-
-export function* walk(dir, depth = 0, maxDepth = 2) {
-  if (depth > maxDepth) return;
   const entries = fs.readdirSync(dir, { withFileTypes: true });
   for (const e of entries) {
     const full = path.join(dir, e.name);
-    if (e.isDirectory()) yield* walk(full, depth + 1, maxDepth);
-    else if (e.isFile()) {
-      const ext = path.extname(e.name).toLowerCase();
-      const relPath = rel(full);
-      if (CODE_EXTS.includes(ext) && !ENTRY_EXCLUDES.some(ex => relPath.startsWith(ex))) {
-        yield full;
-      }
+
+    if (e.isDirectory()) {
+      // Skip excluded directories entirely
+      const relPath = rel(full, root);
+      if (isExcluded(relPath, entry.excludes)) continue;
+      yield* walk(full, cfg, depth + 1);
+      continue;
+    }
+
+    if (e.isFile()) {
+      const relPath = rel(full, root);
+      if (isExcluded(relPath, entry.excludes)) continue;
+      yield full;
     }
   }
 }
 
+/**
+ * Sorts files so that priority items appear first.
+ */
 export function sortWithPriority(files, priorityList = []) {
   if (!priorityList.length) return files;
   const prioritized = [];
@@ -119,7 +68,8 @@ export function sortWithPriority(files, priorityList = []) {
 
   for (const f of files) {
     const normalized = f.replaceAll("\\", "/").toLowerCase();
-    if (priorityList.some(p => normalized.includes(p.toLowerCase()))) prioritized.push(f);
+    if (priorityList.some(p => micromatch.isMatch(normalized, p.toLowerCase())))
+      prioritized.push(f);
     else normal.push(f);
   }
 

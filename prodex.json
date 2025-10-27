@@ -1,0 +1,40 @@
+{
+  "$schema": "https://raw.githubusercontent.com/emxhive/prodex/main/schema/prodex.schema.json",
+  "outDir": "prodex",
+  "scanDepth": 2,
+  "limit": 200,
+  
+  "entry": {
+    "includes": [
+      "src/"
+    ],
+    "excludes": [
+      "**/components/ui/**",
+      "**/DTOs/**",
+      "**/Enums/**",
+      "**/constants/**"
+    ],
+    "priority": [
+      "**/routes/web.php",
+      "**/routes/api.php",
+      "**/*index.*",
+      "**/*main.*",
+      "**/app.*"
+    ]
+  },
+  "imports": {
+    "includes": [
+      "**/*.d.ts",
+      "**/*.interface.ts"
+    ],
+    "excludes": [
+      "node_modules/**",
+      "@shadcn/**",
+      "**/components/ui/**"
+    ],
+    "aliases": {
+      "@hooks": "resources/js/hooks",
+      "@data": "resources/js/data"
+    }
+  }
+}

@@ -4,33 +4,34 @@ import inquirer from "inquirer";
 import { ROOT } from "../constants/config.js";
 import { walk, rel, sortWithPriority } from "../core/helpers.js";
 
+/**
+ * Prodex v2 picker
+ * - Keeps "Load more" (depth++)
+ * - Removes manual path entry
+ * - Uses cfg.entry.includes / cfg.entry.priority
+ */
 export async function pickEntries(baseDirs, depth = 2, cfg = {}) {
   let selected = [];
+
   while (true) {
     const files = [];
+
+    // Use an effective cfg that reflects the current depth for this iteration
+    const effectiveCfg = { ...cfg, scanDepth: depth };
+
     for (const base of baseDirs) {
       const full = path.join(ROOT, base);
       if (!fs.existsSync(full)) continue;
-      for (const f of walk(full, 0, depth)) files.push(f);
+      for (const f of walk(full, effectiveCfg, 0)) files.push(f);
     }
 
-    const sorted = sortWithPriority(files, cfg.priorityFiles);
+    // Priority-aware ordering
+    const sorted = sortWithPriority(files, cfg.entry?.priority || []);
 
-    const prioritized = sorted.filter(f =>
-      cfg.priorityFiles?.some(p =>
-        rel(f).replaceAll("\\", "/").toLowerCase().includes(p.toLowerCase())
-      )
-    );
-
-    const choices = sorted.map(f => ({
-      name: rel(f),
-      value: f
-    }));
-
-    // if (prioritized.length) {
-    //   choices.unshift(new inquirer.Separator("⭐ Recommended entries"));
-    //   choices.splice(prioritized.length + 1, 0, new inquirer.Separator("─ Other files"));
-    // }
+    // Build choices + the "Load more" control
+    const choices = sorted.map(f => ({ name: rel(f), value: f }));
+    choices.push(new inquirer.Separator());
+    choices.push({ name: "🔽 Load more (go deeper)", value: "__loadmore" });
 
     const { picks } = await inquirer.prompt([
       {
@@ -44,21 +45,15 @@ export async function pickEntries(baseDirs, depth = 2, cfg = {}) {
       }
     ]);
 
-    if (picks.includes("__manual")) {
-      const { manual } = await inquirer.prompt([
-        { name: "manual", message: "Enter relative path:" }
-      ]);
-      if (manual.trim()) selected.push(path.resolve(ROOT, manual.trim()));
-    }
-
     if (picks.includes("__loadmore")) {
       depth++;
-      selected = picks.filter(p => !["__manual", "__loadmore"].includes(p));
+      selected = picks.filter(p => p !== "__loadmore");
       continue;
     }
 
-    selected = picks.filter(p => !["__manual", "__loadmore"].includes(p));
+    selected = picks.filter(p => p !== "__loadmore");
     break;
   }
+
   return [...new Set(selected)];
 }

@@ -1,122 +1,116 @@
 import fs from "fs";
-import path from "path";
 import inquirer from "inquirer";
-import {
-  ROOT,
-  CODE_EXTS,
-  RESOLVERS,
-  PROMPTS
-} from "../constants/config.js";
-import { loadProdexConfig } from "../constants/config-loader.js";
-import { read, normalizeIndent, stripComments, rel } from "./helpers.js";
+import path from "path";
+import micromatch from "micromatch";
 import { pickEntries } from "../cli/picker.js";
 import { showSummary } from "../cli/summary.js";
-import { generateOutputName, resolveOutputPath } from "./file-utils.js";
+import { loadProdexConfig } from "../constants/config-loader.js";
+import { CODE_EXTS, RESOLVERS, ROOT } from "../constants/config.js";
+import { generateOutputName, resolveOutDirPath, safeMicromatchScan } from "./file-utils.js";
+import { renderMd, renderTxt, tocMd, tocTxt } from "./renderers.js";
 
-export async function runCombine() {
+
+export async function runCombine(opts = {}) {
   const cliLimitFlag = process.argv.find(arg => arg.startsWith("--limit="));
   const customLimit = cliLimitFlag ? parseInt(cliLimitFlag.split("=")[1], 10) : null;
+  const cliTxtFlag = process.argv.includes("--txt");
 
   const cfg = loadProdexConfig();
-  const { baseDirs, scanDepth } = cfg;
+  const { scanDepth } = cfg;
 
-  const entries = await pickEntries(baseDirs, scanDepth, cfg);
+  let entries = opts.entries;
+
+  // 🧩 Headless mode: expand globs manually
+  if (entries && entries.length) {
+    const all = [];
+    for (const pattern of entries) {
+      const abs = path.resolve(process.cwd(), pattern);
+      if (fs.existsSync(abs) && fs.statSync(abs).isFile()) {
+        // direct file path (no glob)
+        all.push(abs);
+        continue;
+      }
+
+      // glob pattern
+      const result = safeMicromatchScan(pattern, {
+        cwd: process.cwd(),
+        absolute: true,
+      });
+      if (result?.files?.length) all.push(...result.files);
+    }
+    entries = [...new Set(all)];
+  } else {
+    // fallback to interactive picker
+    entries = await pickEntries(cfg.entry.includes, scanDepth, cfg);
+  }
+
+
   if (!entries.length) {
     console.log("❌ No entries selected.");
     return;
   }
 
-  const autoName = generateOutputName(entries);
-  const outputDir = cfg.output || path.join(ROOT, "prodex");
-  const defaultLimit = customLimit || cfg.limit || 200;
-
   console.log("\n📋 You selected:");
-  for (const e of entries) console.log(" -", rel(e));
+  for (const e of entries) console.log(" -", e.replace(ROOT + "/", ""));
 
-  const { yesToAll } = await inquirer.prompt([PROMPTS.yesToAll]);
+  // 🧩 Auto name suggestion
+  const autoName = generateOutputName(entries);
+  const outDir = cfg.outDir || path.join(ROOT, "prodex");
+  const limit = customLimit || cfg.limit || 200;
+  const chain = true;
 
-  let outputBase = autoName,
-    limit = defaultLimit,
-    chain = true,
-    proceed = true;
-
-  if (!yesToAll) {
-    const combinePrompts = PROMPTS.combine.map(p => ({
-      ...p,
-      default:
-        p.name === "outputBase"
-          ? autoName
-          : p.name === "limit"
-            ? defaultLimit
-            : p.default
-    }));
-
-    const ans = await inquirer.prompt(combinePrompts);
-    outputBase = ans.outputBase || autoName;
-    limit = ans.limit;
-    chain = ans.chain;
-    proceed = ans.proceed;
+  // Skip prompt if entries were passed directly
+  let outputBase = autoName;
+  if (!opts.entries?.length) {
+    const { outputBase: answer } = await inquirer.prompt([
+      {
+        type: "input",
+        name: "outputBase",
+        message: "Output file name (without extension):",
+        default: autoName,
+        filter: v => (v.trim() || autoName).replace(/[<>:"/\\|?*]+/g, "_"),
+      },
+    ]);
+    outputBase = answer;
   }
 
-  if (!proceed) {
-    console.log("⚙️  Aborted.");
-    return;
-  }
-
+  // Ensure output directory exists
   try {
-    fs.mkdirSync(outputDir, { recursive: true });
+    fs.mkdirSync(outDir, { recursive: true });
   } catch {
-    console.warn("⚠️  Could not create output directory:", outputDir);
+    console.warn("⚠️  Could not create outDir directory:", outDir);
   }
 
-  const output = resolveOutputPath(outputDir, outputBase);
+  const outputPath = resolveOutDirPath(outDir, outputBase, cliTxtFlag);
 
-  showSummary({
-    outputDir,
-    fileName: path.basename(output),
-    entries,
-    scanDepth: cfg.scanDepth,
-    limit,
-    chain
-  });
+  showSummary({ outDir, fileName: path.basename(outputPath), entries });
 
-  const finalFiles = chain ? await followChain(entries, limit) : entries;
 
-  fs.writeFileSync(
-    output,
-    [toc(finalFiles), ...finalFiles.map(render)].join(""),
-    "utf8"
+  const result = chain ? await followChain(entries, cfg, limit) : { files: entries, stats: { totalImports: 0, totalResolved: 0 } };
+  const sorted = [...result.files].sort((a, b) => a.localeCompare(b));
+
+  const content = cliTxtFlag
+    ? [tocTxt(sorted), ...sorted.map(renderTxt)].join("")
+    : [tocMd(sorted), ...sorted.map((f, i) => renderMd(f, i === 0))].join("\n");
+
+  fs.writeFileSync(outputPath, content, "utf8");
+  console.log(
+    `\n✅ ${outputPath} written (${sorted.length} file(s)) [${cliTxtFlag ? "TXT" : "MD"} mode].`
   );
-
-  console.log(`\n✅ ${output} written (${finalFiles.length} file(s)).`);
+  console.log(`\n🧩 Summary:
+ • Unique files resolved: ${result.files.length}
+ • Direct imports found: ${result.stats.totalImports}
+ • Imports successfully resolved: ${result.stats.totalResolved}
+`);
 }
 
-function header(p) {
-  return `##==== path: ${rel(p)} ====`;
-}
-function regionStart(p) {
-  return `##region ${rel(p)}`;
-}
-const regionEnd = "##endregion";
-
-function render(p) {
-  const ext = path.extname(p);
-  let s = read(p);
-  return `${header(p)}\n${regionStart(p)}\n${s}\n${regionEnd}\n\n`;
-}
-
-function toc(files) {
-  return (
-    ["##==== Combined Scope ====", ...files.map(f => "## - " + rel(f))].join(
-      "\n"
-    ) + "\n\n"
-  );
-}
-
-async function followChain(entryFiles, limit = 200) {
+async function followChain(entryFiles, cfg, limit = 200) {
   console.log("🧩 Following dependency chain...");
   const visited = new Set();
   const all = [];
+  let totalImports = 0;
+  let totalResolved = 0;
+  const resolverDepth = cfg.resolverDepth ?? 10;
 
   for (const f of entryFiles) {
     if (visited.has(f)) continue;
@@ -127,15 +121,21 @@ async function followChain(entryFiles, limit = 200) {
 
     const resolver = RESOLVERS[ext];
     if (resolver) {
-      const { files } = await resolver(f, visited);
+      const result = await resolver(f, cfg, visited, 0, resolverDepth);
+      const { files, stats } = result;
       all.push(...files);
+      totalImports += stats?.found || 0;
+      totalResolved += stats?.resolved || 0;
     }
 
-    if (all.length >= limit) {
+    if (limit && all.length >= limit) {
       console.log("⚠️  Limit reached:", limit);
       break;
     }
   }
 
-  return [...new Set(all)];
+  return {
+    files: [...new Set(all)],
+    stats: { totalImports, totalResolved }
+  };
 }

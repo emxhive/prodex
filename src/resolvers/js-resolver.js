@@ -1,70 +1,65 @@
 import fs from "fs";
 import path from "path";
-import { IMPORT_EXCLUDES, ROOT } from "../constants/config.js";
+import { safeMicromatchScan } from "../core/file-utils.js";
+import micromatch from "micromatch"
+
 
 const debug = process.env.PRODEX_DEBUG === "1";
-const log = (...args) => { if (debug) console.log("🪶 [resolver]", ...args); };
+const log = (...a) => { if (debug) console.log("🪶 [js-resolver]", ...a); };
 
-// --- Loaders --------------------------------------------------
-
-function loadViteAliases() {
-  const files = [
-    "vite.config.ts",
-    "vite.config.js",
-    "vite.config.mts",
-    "vite.config.mjs",
-    "vite.config.cjs",
+/**
+ * Load alias mappings from vite.config.* or tsconfig.json.
+ * Local config aliases (cfg.imports.aliases) override these.
+ */
+function loadProjectAliases(ROOT) {
+  const viteFiles = [
+    "vite.config.ts", "vite.config.js",
+    "vite.config.mts", "vite.config.mjs", "vite.config.cjs"
   ];
   const map = {};
-  for (const f of files) {
+
+  // --- Vite aliases ---------------------------------------------------------
+  for (const f of viteFiles) {
     const p = path.join(ROOT, f);
     if (!fs.existsSync(p)) continue;
     const s = fs.readFileSync(p, "utf8");
-    const obj = /resolve\s*:\s*{[\s\S]*?alias\s*:\s*{([\s\S]*?)}/m.exec(s);
-    if (!obj) continue;
+    const block = /resolve\s*:\s*{[\s\S]*?alias\s*:\s*{([\s\S]*?)}/m.exec(s);
+    if (!block) continue;
     const re = /['"]([^'"]+)['"]\s*:\s*['"]([^'"]+)['"]/g;
     let m;
-    while ((m = re.exec(obj[1]))) {
+    while ((m = re.exec(block[1]))) {
       const key = m[1];
       const raw = m[2].replace(/^\/+/, "");
-      const abs = path.resolve(ROOT, raw);
-      map[key] = abs;
+      map[key] = path.resolve(ROOT, raw);
     }
   }
+
+  // --- TSConfig aliases -----------------------------------------------------
+  const ts = path.join(ROOT, "tsconfig.json");
+  if (fs.existsSync(ts)) {
+    try {
+      const content = fs.readFileSync(ts, "utf8")
+        .replace(/("(?:\\.|[^"\\])*")|\/\/.*$|\/\*[\s\S]*?\*\//gm, (_, q) => q || "")
+        .replace(/,\s*([}\]])/g, "$1");
+      const j = JSON.parse(content);
+      const paths = j.compilerOptions?.paths || {};
+      const base = j.compilerOptions?.baseUrl || ".";
+      for (const k in paths) {
+        const arr = paths[k];
+        if (!Array.isArray(arr) || !arr.length) continue;
+        const from = k.replace(/\*$/, "");
+        const to = arr[0].replace(/\*$/, "");
+        map[from] = path.resolve(ROOT, base, to);
+      }
+    } catch { }
+  }
+
   return map;
 }
 
-function loadTsconfigAliases() {
-  const p = path.join(ROOT, "tsconfig.json");
-  if (!fs.existsSync(p)) return {};
-  let content = fs.readFileSync(p, "utf8")
-    .replace(/("(?:\\.|[^"\\])*")|\/\/.*$|\/\*[\s\S]*?\*\//gm, (_, q) => q || "")
-    .replace(/,\s*([}\]])/g, "$1");
-  let j;
-  try {
-    j = JSON.parse(content);
-  } catch {
-    return {};
-  }
-  const paths = j.compilerOptions?.paths || {};
-  const base = j.compilerOptions?.baseUrl || ".";
-  const map = {};
-  for (const k in paths) {
-    const arr = paths[k];
-    if (!Array.isArray(arr) || !arr.length) continue;
-    const from = k.replace(/\*$/, "");
-    const to = arr[0].replace(/\*$/, "");
-    map[from] = path.resolve(ROOT, base, to);
-  }
-  return map;
-}
-
-function loadJsAliases() {
-  return { ...loadTsconfigAliases(), ...loadViteAliases() };
-}
-
-// --- Resolver Core --------------------------------------------
-
+/**
+ * Try to resolve an import path into a real file.
+ */
 function tryResolveImport(basePath) {
   const ext = path.extname(basePath);
   const tries = [];
@@ -78,27 +73,44 @@ function tryResolveImport(basePath) {
   return null;
 }
 
-function isImportExcluded(p) {
-  return IMPORT_EXCLUDES.some(ex => p.includes(ex));
-}
+/**
+ * Core: resolve JS / TS imports recursively.
+ * @param {string} filePath
+ * @param {object} cfg - full prodex config
+ * @param {Set<string>} visited
+ * @param {number} depth
+ * @param {number} maxDepth
+ */
+export async function resolveJsImports(filePath, cfg, visited = new Set(), depth = 0, maxDepth = 10, ctx = {}) {
+  if (depth >= maxDepth) {
+    if (debug) console.log(`⚠️  JS resolver depth (${maxDepth}) reached at ${filePath}`);
+    return { files: [], visited, stats: { found: 0, resolved: 0 } };
+  }
 
-export async function resolveJsImports(filePath, visited = new Set(), depth = 0, maxDepth = 10) {
-  if (visited.has(filePath)) return { files: [], visited };
+  const { imports } = cfg;
+  const ROOT = process.cwd();
+
+  if (!ctx.aliases)
+    ctx.aliases = { ...loadProjectAliases(ROOT), ...imports.aliases };
+  const aliases = ctx.aliases;
+
+  const isExcluded = p => micromatch.isMatch(p.replaceAll("\\", "/"), imports.excludes || []);
+  if (visited.has(filePath)) return { files: [], visited, stats: { found: 0, resolved: 0 } };
   visited.add(filePath);
-  if (isImportExcluded(filePath) || !fs.existsSync(filePath))
-    return { files: [], visited };
+
+  if (!fs.existsSync(filePath) || isExcluded(filePath))
+    return { files: [], visited, stats: { found: 0, resolved: 0 } };
 
   const code = fs.readFileSync(filePath, "utf8");
   const ext = path.extname(filePath).toLowerCase();
   if (![".ts", ".tsx", ".d.ts", ".js", ".jsx", ".mjs"].includes(ext))
-    return { files: [], visited };
+    return { files: [], visited, stats: { found: 0, resolved: 0 } };
 
-  const aliases = loadJsAliases();
   const patterns = [
     /import\s+[^'"]*['"]([^'"]+)['"]/g,
     /import\(\s*['"]([^'"]+)['"]\s*\)/g,
     /require\(\s*['"]([^'"]+)['"]\s*\)/g,
-    /export\s+\*\s+from\s+['"]([^'"]+)['"]/g,
+    /export\s+\*\s+from\s+['"]([^'"]+)['"]/g
   ];
 
   const matches = new Set();
@@ -108,9 +120,12 @@ export async function resolveJsImports(filePath, visited = new Set(), depth = 0,
   }
 
   const resolved = [];
+  let totalFound = 0, totalResolved = 0;
+
   for (const imp of matches) {
+    totalFound++;
+    if (isExcluded(imp)) continue;
     if (!imp.startsWith(".") && !imp.startsWith("/") && !imp.startsWith("@")) continue;
-    if (isImportExcluded(imp)) continue;
 
     let importPath;
     if (imp.startsWith("@")) {
@@ -119,17 +134,32 @@ export async function resolveJsImports(filePath, visited = new Set(), depth = 0,
         const relPart = imp.slice(aliasKey.length).replace(/^\/+/, "");
         importPath = path.join(aliases[aliasKey], relPart);
       } else continue;
-    } else importPath = path.resolve(path.dirname(filePath), imp);
+    } else {
+      importPath = path.resolve(path.dirname(filePath), imp);
+    }
 
     const resolvedPath = tryResolveImport(importPath);
-    if (!resolvedPath || isImportExcluded(resolvedPath)) continue;
+    if (!resolvedPath || isExcluded(resolvedPath)) continue;
     resolved.push(resolvedPath);
+    totalResolved++;
 
     if (depth < maxDepth) {
-      const sub = await resolveJsImports(resolvedPath, visited, depth + 1, maxDepth);
+      const sub = await resolveJsImports(resolvedPath, cfg, visited, depth + 1, maxDepth, ctx);
       resolved.push(...sub.files);
+      totalFound += sub.stats?.found || 0;
+      totalResolved += sub.stats?.resolved || 0;
     }
   }
 
-  return { files: [...new Set(resolved)], visited };
+  for (const pattern of imports.includes || []) {
+    const scan = safeMicromatchScan(pattern, { cwd: ROOT, absolute: true });
+    if (scan?.files) for (const f of scan.files) resolved.push(path.resolve(ROOT, f));
+  }
+
+  log("✅ JS resolver completed for", filePath, "→", resolved.length, "files");
+  return {
+    files: [...new Set(resolved)],
+    visited,
+    stats: { found: totalFound, resolved: totalResolved }
+  };
 }

@@ -1,36 +1,95 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "Prodex Configuration Schema",
+  "title": "Prodex Configuration Schema (v2.1)",
+  "description": "Defines runtime behavior for the Prodex dependency extractor.",
   "type": "object",
+
   "properties": {
-    "output": { "type": "string" },
-    "scanDepth": { "type": "integer" },
-    "limit": { "type": "integer" },
-    "baseDirs": {
-      "type": "array",
-      "items": { "type": "string" },
-      "default": []
+    "$schema": {
+      "type": "string",
+      "description": "Link to the Prodex schema for IDE validation."
     },
-    "aliasOverrides": {
+
+    "outDir": {
+      "type": "string",
+      "description": "Output directory where the combined file will be written.",
+      "default": "prodex"
+    },
+
+    "scanDepth": {
+      "type": "integer",
+      "description": "How deep to scan when listing entry files in the interactive picker.",
+      "default": 2,
+      "minimum": 0
+    },
+
+    "limit": {
+      "type": "integer",
+      "description": "Maximum number of files to include in the dependency chain before stopping (0 disables limit).",
+      "default": 200,
+      "minimum": 0
+    },
+
+    "resolverDepth": {
+      "type": "integer",
+      "description": "Maximum recursion depth for JS/PHP dependency resolution (prevents infinite circular imports).",
+      "default": 10,
+      "minimum": 1
+    },
+
+    "entry": {
       "type": "object",
-      "additionalProperties": { "type": "string" }
+      "description": "Settings for entry discovery (which source files to start flattening from).",
+      "properties": {
+        "includes": {
+          "type": "array",
+          "description": "Directories or glob patterns to scan for entry files (e.g. app, routes, resources/js).",
+          "items": { "type": "string" },
+          "default": []
+        },
+        "excludes": {
+          "type": "array",
+          "description": "Glob patterns to exclude (supports both directories and files).",
+          "items": { "type": "string" },
+          "default": []
+        },
+        "priority": {
+          "type": "array",
+          "description": "Glob patterns determining the order entries appear in the selection list.",
+          "items": { "type": "string" },
+          "default": []
+        }
+      },
+      "required": ["includes"]
     },
-    "entryExcludes": {
-      "type": "array",
-      "items": { "type": "string" },
-      "default": []
-    },
-    "importExcludes": {
-      "type": "array",
-      "items": { "type": "string" },
-      "default": []
-    },
-    "priorityFiles": {
-      "type": "array",
-      "description": "List of files (partial names) prioritized in the entry picker.",
-      "items": { "type": "string" },
-      "default": []
+
+    "imports": {
+      "type": "object",
+      "description": "Settings controlling how imports are resolved during dependency traversal.",
+      "properties": {
+        "includes": {
+          "type": "array",
+          "description": "Glob patterns for additional files to always include (e.g. .d.ts, interfaces).",
+          "items": { "type": "string" },
+          "default": []
+        },
+        "excludes": {
+          "type": "array",
+          "description": "Glob patterns to exclude from dependency resolution (e.g. node_modules/**, @shadcn/**).",
+          "items": { "type": "string" },
+          "default": []
+        },
+        "aliases": {
+          "type": "object",
+          "description": "Alias path mappings used for import resolution (Vite/TSConfig style).",
+          "additionalProperties": { "type": "string" },
+          "default": {}
+        }
+      },
+      "required": []
     }
   },
-  "required": []
+
+  "required": [],
+  "additionalProperties": false
 }
