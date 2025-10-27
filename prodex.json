@@ -3,7 +3,7 @@
   "outDir": "prodex",
   "scanDepth": 2,
   "limit": 200,
-  
+  "resolverDepth": 99,
   "entry": {
     "includes": [
       "src/"

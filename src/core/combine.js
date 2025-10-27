@@ -95,12 +95,12 @@ export async function runCombine(opts = {}) {
 
   fs.writeFileSync(outputPath, content, "utf8");
   console.log(
-    `\n✅ ${outputPath} written (${sorted.length} file(s)) [${cliTxtFlag ? "TXT" : "MD"} mode].`
+    `\n✅ ${outputPath}`
   );
+  // 🧩 Print resolver summary (clean version)
   console.log(`\n🧩 Summary:
- • Unique files resolved: ${result.files.length}
- • Direct imports found: ${result.stats.totalImports}
- • Imports successfully resolved: ${result.stats.totalResolved}
+ • Unique imports expected: ${result.stats.expected.size}
+ • Unique imports resolved: ${result.stats.resolved.size}
 `);
 }
 
@@ -108,8 +108,8 @@ async function followChain(entryFiles, cfg, limit = 200) {
   console.log("🧩 Following dependency chain...");
   const visited = new Set();
   const all = [];
-  let totalImports = 0;
-  let totalResolved = 0;
+  const expected = new Set();
+  const resolved = new Set();
   const resolverDepth = cfg.resolverDepth ?? 10;
 
   for (const f of entryFiles) {
@@ -124,8 +124,8 @@ async function followChain(entryFiles, cfg, limit = 200) {
       const result = await resolver(f, cfg, visited, 0, resolverDepth);
       const { files, stats } = result;
       all.push(...files);
-      totalImports += stats?.found || 0;
-      totalResolved += stats?.resolved || 0;
+      stats?.expected?.forEach(x => expected.add(x));
+      stats?.resolved?.forEach(x => resolved.add(x));
     }
 
     if (limit && all.length >= limit) {
@@ -136,6 +136,10 @@ async function followChain(entryFiles, cfg, limit = 200) {
 
   return {
     files: [...new Set(all)],
-    stats: { totalImports, totalResolved }
+    stats: {
+      expected,
+      resolved
+    }
   };
 }
+

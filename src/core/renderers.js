@@ -24,7 +24,7 @@ export function renderMd(p, isFirst = false) {
 
   return [
     isFirst ? "" : "---", // only add separator *after* the first file
-    `## File: ${rp}`,
+    `- \`File: ${rp}\``,
     "",
     "```" + lang,
     code,
