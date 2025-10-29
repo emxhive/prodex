@@ -1,6 +1,8 @@
+// @ts-nocheck
+
 import fs from "fs";
 import path from "path";
-import { ROOT } from "../constants/config.js";
+import { ROOT } from "../../constants/config";
 
 export function loadLaravelBindings() {
     const providersDir = path.join(ROOT, "app", "Providers");

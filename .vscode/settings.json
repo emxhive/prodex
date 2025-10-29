@@ -1,7 +1,35 @@
 {
   "files.exclude": {
-    "node_modules": true,
-    ".vscode": true,
-    "package-lock.json": true
+    "*.git": true,
+    "*.git.*": true,
+    "*.gitattributes": true,
+    "*.gitattributes.*": true,
+    "*.gitignore": true,
+    "*.gitignore.*": true,
+    "*.vscode": true,
+    "*.vscode.*": true,
+    "*bin": true,
+    "*bin.*": true,
+    "*dist": true,
+    "*dist.*": true,
+    "*LICENSE": true,
+    "*LICENSE.*": true,
+    "*node_modules": true,
+    "*node_modules.*": true,
+    "*package-lock": true,
+    "*package-lock.*": true,
+    "*package": true,
+    "*package.*": true,
+    "*prodex": true,
+    "*prodex.*": true,
+    "*README": true,
+    "*README.*": true,
+    "*s": true,
+    "*s.*": true,
+    "*schema": true,
+    "*schema.*": true,
+    "*src.*": true,
+    "*tsconfig": true,
+    "*tsconfig.*": true
   }
 }

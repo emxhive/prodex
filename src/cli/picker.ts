@@ -1,35 +1,50 @@
 import fs from "fs";
 import path from "path";
 import inquirer from "inquirer";
-import { ROOT } from "../constants/config.js";
-import { walk, rel, sortWithPriority } from "../core/helpers.js";
+import { ROOT } from "../constants/config";
+import { walk, rel, orderByPriority } from "../core/helpers";
+import { globScan } from "../core/file-utils";
+import { unique } from "../lib/utils";
+import { logger } from "../lib/logger";
 
-/**
- * Prodex v2 picker
- * - Keeps "Load more" (depth++)
- * - Removes manual path entry
- * - Uses cfg.entry.includes / cfg.entry.priority
- */
-export async function pickEntries(baseDirs, depth = 2, cfg = {}) {
-  let selected = [];
 
-  while (true) {
-    const files = [];
 
-    // Use an effective cfg that reflects the current depth for this iteration
-    const effectiveCfg = { ...cfg, scanDepth: depth };
+export async function pickEntries(baseDirs, depth = 2, cfg) {
+  const entryPatterns = cfg.entry?.files || [];
 
-    for (const base of baseDirs) {
-      const full = path.join(ROOT, base);
-      if (!fs.existsSync(full)) continue;
-      for (const f of walk(full, effectiveCfg, 0)) files.push(f);
-    }
+  const priorities = [...entryPatterns, ...(cfg.entry?.priority || [])];
+  const verbose = !!cfg.verbose;
 
-    // Priority-aware ordering
-    const sorted = sortWithPriority(files, cfg.entry?.priority || []);
+  // 1) Resolve patterns to absolute files and preselect them
+  const resolvedEntries = (await globScan(entryPatterns,{cwd : ROOT})).files;
 
-    // Build choices + the "Load more" control
-    const choices = sorted.map(f => ({ name: rel(f), value: f }));
+
+  let selected = [...resolvedEntries];
+
+  // cache: depth -> files[]
+  const scanCache = new Map();
+
+  for (; ;) {
+    const files = await getFilesAtDepth({
+      baseDirs,
+      depth,
+      cfg,
+      scanCache,
+      verbose,
+    });
+
+    // Merge resolved entries with current scan results
+    const combined = unique([...resolvedEntries, ...files]);
+    // Priority-aware ordering: entries first, then other priorities
+    const sorted = orderByPriority(combined, priorities);
+
+    // Build UI selection list
+    const choices = sorted.map(f => ({
+      name: path.relative(ROOT, f).norm(),
+      value: f,
+      checked: selected.includes(f),
+    }));
+
     choices.push(new inquirer.Separator());
     choices.push({ name: "🔽 Load more (go deeper)", value: "__loadmore" });
 
@@ -41,7 +56,6 @@ export async function pickEntries(baseDirs, depth = 2, cfg = {}) {
         choices,
         loop: false,
         pageSize: 20,
-        default: selected
       }
     ]);
 
@@ -55,5 +69,29 @@ export async function pickEntries(baseDirs, depth = 2, cfg = {}) {
     break;
   }
 
-  return [...new Set(selected)];
+  return unique(selected);
 }
+
+
+async function getFilesAtDepth({ baseDirs, depth, cfg, scanCache, verbose }) {
+  if (scanCache.has(depth)) {
+    logger.verbose(`[cache] depth=${depth} ✓`);
+    return scanCache.get(depth);
+  }
+  logger.verbose(`[scan]  depth=${depth} …`);
+
+  const files = [];
+  const effectiveCfg = { ...cfg, scanDepth: depth };
+
+  for (const base of baseDirs) {
+    const full = path.join(ROOT, base);
+    if (!fs.existsSync(full)) continue;
+    for (const f of walk(full, effectiveCfg, 0)) files.push(f.norm());
+  }
+
+  scanCache.set(depth, files);
+  logger.verbose(`[scan]  depth=${depth} found=${files.length}`);
+  return files;
+}
+
+

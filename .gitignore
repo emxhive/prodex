@@ -142,3 +142,4 @@ prodex
 .prodex.json
 prodex-priority-files.patch
 s.sh
+src/test.js

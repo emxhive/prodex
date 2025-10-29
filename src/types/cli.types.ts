@@ -1,0 +1,53 @@
+/**
+ * CLI flag schema for Prodex.
+ * Mirrors the current CLI synopsis:
+ *
+ *   prodex [entries...] [-tcdv]
+ *          [--txt] [--ci] [--debug] [--verbose]
+ *          [--name=<string>|-n=<string>]
+ *          [--limit=<int>|-l=<int>]
+ *          [--inc=<globs>] [--exc=<globs>]
+ */
+
+export interface ProdexFlags {
+  /** Output as .txt instead of .md (-t / --txt) */
+  txt?: boolean;
+
+  /** Headless / non-interactive mode (-c / --ci) */
+  ci?: boolean;
+
+  /** Enable debug logs (-d / --debug) */
+  debug?: boolean;
+
+  /** Verbose logs (-v / --verbose) */
+  verbose?: boolean;
+
+  /** Custom output filename (without extension) (--name / -n) */
+  name?: string | null;
+
+  /** Traversal limit override (--limit / -l) */
+  limit?: number | null;
+
+  /** Comma-separated glob list overriding resolve.includes (--inc) */
+  inc?: string | string[];
+
+  /** Comma-separated glob list overriding resolve.excludes (--exc) */
+  exc?: string | string[];
+
+  /** Optional short alias reference mapping */
+  short?: {
+    t?: boolean;
+    c?: boolean;
+    d?: boolean;
+    v?: boolean;
+    n?: string;
+    l?: number;
+  };
+}
+
+/** Minimal run summary for logging and UX display. */
+export interface CliSummary {
+  outDir: string;
+  fileName: string;
+  entries: string[];
+}

@@ -1,6 +1,6 @@
 import path from "path";
-import { read, rel } from "./helpers.js";
-import { LANG_MAP } from "../constants/render-constants.js";
+import { read, rel } from "./helpers";
+import { LANG_MAP } from "../constants/render-constants";
 
 /**
  * Generate Markdown Table of Contents
@@ -9,22 +9,21 @@ import { LANG_MAP } from "../constants/render-constants.js";
 export function tocMd(files) {
   const sorted = [...files].sort((a, b) => a.localeCompare(b));
   const items = sorted.map(f => "- " + rel(f)).join("\n");
-  return `# Included Source Files\n\n${items}\n\n---\n`;
+  return `# Included Source Files(${sorted.length})\n\n${items}\n\n---\n`;
 }
 
 /**
  * Render a single file section in Markdown format.
  * The first file skips the leading separator to avoid duplicates.
  */
-export function renderMd(p, isFirst = false) {
+export function renderMd(p) {
   const rp = rel(p);
   const ext = path.extname(p).toLowerCase();
   const lang = LANG_MAP[ext] || "txt";
   const code = read(p).trimEnd();
 
   return [
-    isFirst ? "" : "---", // only add separator *after* the first file
-    `- \`File: ${rp}\``,
+    `\`File: ${rp}\``,
     "",
     "```" + lang,
     code,

@@ -58,16 +58,15 @@ export function* walk(dir, cfg, depth = 0) {
   }
 }
 
-/**
- * Sorts files so that priority items appear first.
- */
-export function sortWithPriority(files, priorityList = []) {
+
+export function orderByPriority(files, priorityList = []) {
+
   if (!priorityList.length) return files;
   const prioritized = [];
   const normal = [];
 
   for (const f of files) {
-    const normalized = f.replaceAll("\\", "/").toLowerCase();
+    const normalized = f.norm().toLowerCase();
     if (priorityList.some(p => micromatch.isMatch(normalized, p.toLowerCase())))
       prioritized.push(f);
     else normal.push(f);

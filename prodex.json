@@ -1,40 +1,49 @@
 {
   "$schema": "https://raw.githubusercontent.com/emxhive/prodex/main/schema/prodex.schema.json",
-  "outDir": "prodex",
-  "scanDepth": 2,
-  "limit": 200,
-  "resolverDepth": 99,
-  "entry": {
-    "includes": [
-      "src/"
-    ],
-    "excludes": [
-      "**/components/ui/**",
-      "**/DTOs/**",
-      "**/Enums/**",
-      "**/constants/**"
-    ],
-    "priority": [
-      "**/routes/web.php",
-      "**/routes/api.php",
-      "**/*index.*",
-      "**/*main.*",
-      "**/app.*"
-    ]
+  "version": 3.1,
+  "output": {
+    "dir": "prodex",
+    "versioned": false,
+    "prefix": "prodex",
+    "format": "md"
   },
-  "imports": {
+  "entry": {
+    "files": [""],
+    "ui": {
+      "roots": [
+        "src/core",
+        "routes",
+        "resources/js/"
+      ],
+      "scanDepth": 2,
+      "priority": [
+        "**/routes/web.php",
+        "**/routes/api.php",
+        "**/index.*",
+        "**/main.*",
+        "**/app.*"
+      ]
+    }
+  },
+  "resolve": {
     "includes": [
-      "**/*.d.ts",
+      "**/*.g.ts",
       "**/*.interface.ts"
     ],
+    "aliases": {
+      "@hooks": "resources/js/hooks",
+      "@data": "resources/js/data"
+    },
     "excludes": [
       "node_modules/**",
       "@shadcn/**",
       "**/components/ui/**"
     ],
-    "aliases": {
-      "@hooks": "resources/js/hooks",
-      "@data": "resources/js/data"
-    }
+    "depth": 10,
+    "limit": 200
+  },
+  "debug": {
+    "verbose": false,
+    "showSummary": true
   }
 }
