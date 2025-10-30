@@ -3,13 +3,12 @@ import inquirer from "inquirer";
 import path from "path";
 import { pickEntries } from "../cli/picker";
 import { importSummary, showSummary } from "../cli/summary";
-import { loadProdexConfig } from "../constants/config-loader";
-import "../lib/polyfills";
-import { applyIncludes, followChain } from "./dependency";
+import { applyincludes, followChain } from "./dependency";
 import { generateOutputName, globScan, resolveOutDirPath } from "./file-utils";
 import { renderMd, renderTxt, tocMd, tocTxt } from "./renderers";
 import { logger } from "../lib/logger";
 import { ProdexConfig } from "../types";
+import pkg from "../../package.json";
 
 export async function runCombine(cfg: ProdexConfig, showUi: boolean) {
 	const { output, entry, resolve } = cfg;
@@ -21,7 +20,7 @@ export async function runCombine(cfg: ProdexConfig, showUi: boolean) {
 	let entries = [];
 
 	if (!showUi) {
-    logger.info("CI Mode")
+		logger.info("CI Mode");
 		if (!entryFiles.length) {
 			logger.warn("No entry files defined and UI mode is disabled.");
 			return;
@@ -68,10 +67,12 @@ export async function runCombine(cfg: ProdexConfig, showUi: boolean) {
 	showSummary({ outDir, fileName: path.basename(outputPath), entries });
 
 	const result = await followChain(entries, cfg, limit);
-	const withIncludes = await applyIncludes(cfg, result.files);
-	const sorted = [...withIncludes].sort((a, b) => a.localeCompare(b));
+	const withinclude = await applyincludes(cfg, result.files);
+	const sorted = [...withinclude].sort((a, b) => a.localeCompare(b));
 
-	const content = toMd ? [tocTxt(sorted), ...sorted.map(renderTxt)].join("") : [tocMd(sorted), ...sorted.map((f, i) => renderMd(f, i))].join("\n");
+	const footer = ["\n---", "*Generated with [Prodex](https://github.com/emxhive/prodex) — Codebase decoded.*", `<!-- PRODEx v${pkg.version} | ${new Date().toISOString()} -->`].join("\n");
+
+	const content = toMd ? [tocTxt(sorted), ...sorted.map(renderTxt)].join("") : [tocMd(sorted), ...sorted.map((f, i) => renderMd(f, i)), footer].join("\n");
 
 	fs.writeFileSync(outputPath, content, "utf8");
 

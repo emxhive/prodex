@@ -9,7 +9,7 @@ export function tocMd(files) {
 	const count = files.length;
 	const items = files.map((f, i) => `- [${rel(f)}](#${i + 1})`).join("\n");
 
-	return [`<a id="0"></a>`, `# Included Source Files(${count})`, "", items, "", "---"].join("\n");
+	return [`# Index `, `\nIncluded Source Files (${count})`, "", items, "", "---"].join("\n");
 }
 
 /**
@@ -21,7 +21,7 @@ export function renderMd(p, i) {
 	const lang = LANG_MAP[ext] || "txt";
 	const code = read(p).trimEnd();
 
-	return [`---\n<a id="${i + 1}"></a>`, "<br>", "` File: " + rp + "`  [↑ Back to top](#0)", "", "```" + lang, code, "```", ""].join("\n");
+	return [`---\n#### ${i + 1}`, "\n", "` File: " + rp + "`  [↑ Back to top](#index)", "", "```" + lang, code, "```", ""].join("\n");
 }
 
 /**

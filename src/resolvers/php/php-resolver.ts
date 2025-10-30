@@ -36,7 +36,7 @@ export async function resolvePhpImports(
   if (!fs.existsSync(filePath)) return empty(visited);
 
   const code = fs.readFileSync(filePath, "utf8");
-  const excludes = cfg.imports?.excludes ?? [];
+  const exclude = cfg.imports?.exclude ?? [];
 
   const raw = extractPhpImports(code);
   const imports = expandGroupedUses(raw);
@@ -50,7 +50,7 @@ export async function resolvePhpImports(
     }
 
     if (!startsWithAny(imp, ctx.nsKeys)) continue;
-    if (isExcluded(imp, excludes)) continue;
+    if (isExcluded(imp, exclude)) continue;
 
     stats.expected.add(imp);
 

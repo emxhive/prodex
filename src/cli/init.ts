@@ -15,5 +15,5 @@ export async function initProdex() {
 
   fs.writeFileSync(dest, JSON.stringify(DEFAULT_PRODEX_CONFIG, null, 2) + "\n", "utf8");
   logger.log(`✅ Created ${dest}`);
-  logger.log("💡 Globs supported everywhere (includes, excludes, priority).");
+  logger.log("💡 Globs supported everywhere (include, exclude, priority).");
 }

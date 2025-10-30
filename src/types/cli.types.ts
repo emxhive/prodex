@@ -29,10 +29,10 @@ export interface ProdexFlags {
   /** Traversal limit override (--limit / -l) */
   limit?: number | null;
 
-  /** Comma-separated glob list overriding resolve.includes (--inc) */
+  /** Comma-separated glob list overriding resolve.include (--inc) */
   include?: string[];
 
-  /** Comma-separated glob list overriding resolve.excludes (--exc) */
+  /** Comma-separated glob list overriding resolve.exclude (--exc) */
   exclude?:string[];
   files?: string[];
 

@@ -1,5 +1,5 @@
 import micromatch from "micromatch";
 
-export function isExcluded(imp, excludes = []) {
-  return micromatch.isMatch(imp.replaceAll("\\", "/"), excludes);
+export function isExcluded(imp, exclude = []) {
+  return micromatch.isMatch(imp.replaceAll("\\", "/"), exclude);
 }

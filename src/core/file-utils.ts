@@ -3,11 +3,13 @@ import path from "path";
 import micromatch from "micromatch";
 import fg, { Options } from "fast-glob";
 import { GLOBAL_IGNORE } from "../constants/config";
+import { logger } from "../lib/logger";
 
 /**
  * Safe micromatch.scan wrapper (compatible with micromatch v4 & v5)
  */
 export async function globScan(pattern: string[], opts: Options) {
+	logger.debug("PATTERN", pattern);
 	const { absolute = true, cwd = process.cwd() } = opts;
 	if (!pattern?.length) return { files: [] };
 	const files = await fg(pattern, {
@@ -17,6 +19,7 @@ export async function globScan(pattern: string[], opts: Options) {
 		ignore: GLOBAL_IGNORE,
 		absolute,
 	});
+	logger.debug("GLOB-SCAN_FILES ", _2j(files));
 
 	return { files };
 }

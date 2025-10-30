@@ -30,7 +30,7 @@ export function isExcluded(p, patterns, root = process.cwd()) {
 }
 
 /**
- * Recursive walker that respects glob excludes.
+ * Recursive walker that respects glob exclude.
  * Returns all files under the given directory tree.
  */
 export function* walk(dir, cfg, depth = 0) {
@@ -45,14 +45,14 @@ export function* walk(dir, cfg, depth = 0) {
     if (e.isDirectory()) {
       // Skip excluded directories entirely
       const relPath = rel(full, root);
-      if (isExcluded(relPath, entry.excludes)) continue;
+      if (isExcluded(relPath, entry.exclude)) continue;
       yield* walk(full, cfg, depth + 1);
       continue;
     }
 
     if (e.isFile()) {
       const relPath = rel(full, root);
-      if (isExcluded(relPath, entry.excludes)) continue;
+      if (isExcluded(relPath, entry.exclude)) continue;
       yield full;
     }
   }
