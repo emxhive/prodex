@@ -1,7 +1,7 @@
 
 # 🧩 Prodex v1.2.0
 
-> **Because every project deserves a clear map, not a maze.**
+> **Create the maze, I'll make a map.**
 
 ---
 
