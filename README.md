@@ -1,11 +1,11 @@
 
-# 🧩 Prodex v1.1.0
+# 🧩 Prodex v1.2.0
 
 > **Because every project deserves a clear map, not a maze.**
 
 ---
 
-## 🧠 What’s New — v1.1.0
+## 🧠 What’s New — v1.2.0
 
 - 🆕 **Full CLI support with integrated [Sade](https://github.com/lukeed/sade).**  
   Prodex now runs entirely from the terminal — no `prodex.json` required.  
@@ -28,7 +28,7 @@
 
 ## ⚙️ Usage
 
-Prodex v1.1.0 runs entirely from the command line.  
+Prodex v1.2.0 runs entirely from the command line.  
 Interactive mode is currently unstable — use CLI flags instead.
 
 ### Installation
@@ -174,7 +174,7 @@ then appends any files matched by the `--include` flag.
 
 ## ⚙️ Optional — `prodex.json`
 
-`prodex.json` is **fully optional** in v1.1.0.  
+`prodex.json` is **fully optional** in v1.2.0.  
 You can run Prodex entirely from the command line, but the config file can be useful for saved defaults.
 
 ### 🪄 Quick Setup
@@ -197,7 +197,7 @@ prodex -c
 ```
 
 The `-c` (or `--ci`) flag skips interactive mode and uses the config values automatically.  
-Specifying `--files` from the CLI also disables the picker by default.  
+Specifying `-f` ( or `--files`) from the CLI also disables the picker by default.  
 
 You can permanently disable the picker in the config by setting:
 
