@@ -9,7 +9,7 @@ import { GLOBAL_IGNORE } from "../constants/config";
  */
 export async function globScan(pattern: string[], opts: Options) {
 	const { absolute = true, cwd = process.cwd() } = opts;
-	if (!pattern.length) return { files: [] };
+	if (!pattern?.length) return { files: [] };
 	const files = await fg(pattern, {
 		cwd,
 		dot: true,

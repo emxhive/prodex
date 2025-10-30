@@ -4,7 +4,7 @@ import { DEFAULT_PRODEX_CONFIG } from "../constants/default-config";
 import { logger } from "../lib/logger";
 
 export async function initProdex() {
-  logger.log("🪄 Prodex Init — Configuration Wizard (v2)\n");
+  logger.log("🪄 Prodex Init — Configuration Wizard (v2)");
 
   const dest = path.join(process.cwd(), "prodex.json");
 

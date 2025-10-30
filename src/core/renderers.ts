@@ -3,55 +3,37 @@ import { read, rel } from "./helpers";
 import { LANG_MAP } from "../constants/render-constants";
 
 /**
- * Generate Markdown Table of Contents
- * Sorted alphabetically for deterministic structure.
+ * Generate Markdown Table of Contents with anchors
  */
 export function tocMd(files) {
-  const sorted = [...files].sort((a, b) => a.localeCompare(b));
-  const items = sorted.map(f => "- " + rel(f)).join("\n");
-  return `# Included Source Files(${sorted.length})\n\n${items}\n\n---\n`;
+	const count = files.length;
+	const items = files.map((f, i) => `- [${rel(f)}](#${i + 1})`).join("\n");
+
+	return [`<a id="0"></a>`, `# Included Source Files(${count})`, "", items, "", "---"].join("\n");
 }
 
 /**
- * Render a single file section in Markdown format.
- * The first file skips the leading separator to avoid duplicates.
+ * Render each file section with invisible anchors
  */
-export function renderMd(p) {
-  const rp = rel(p);
-  const ext = path.extname(p).toLowerCase();
-  const lang = LANG_MAP[ext] || "txt";
-  const code = read(p).trimEnd();
+export function renderMd(p, i) {
+	const rp = rel(p);
+	const ext = path.extname(p).toLowerCase();
+	const lang = LANG_MAP[ext] || "txt";
+	const code = read(p).trimEnd();
 
-  return [
-    `\`File: ${rp}\``,
-    "",
-    "```" + lang,
-    code,
-    "```",
-    ""
-  ]
-    .filter(Boolean)
-    .join("\n");
+	return [`---\n<a id="${i + 1}"></a>`, "<br>", "` File: " + rp + "`  [↑ Back to top](#0)", "", "```" + lang, code, "```", ""].join("\n");
 }
 
 /**
  * TXT version (unchanged)
  */
 export function tocTxt(files) {
-  const sorted = [...files].sort((a, b) => a.localeCompare(b));
-  return (
-    ["##==== Combined Scope ====", ...sorted.map(f => "## - " + rel(f))].join("\n") + "\n\n"
-  );
+	const sorted = [...files].sort((a, b) => a.localeCompare(b));
+	return ["##==== Combined Scope ====", ...sorted.map((f) => "## - " + rel(f))].join("\n") + "\n\n";
 }
 
 export function renderTxt(p) {
-  const relPath = rel(p);
-  const code = read(p);
-  return [
-    "##==== path: " + relPath + " ====",
-    "##region " + relPath,
-    code,
-    "##endregion",
-    ""
-  ].join("\n");
+	const relPath = rel(p);
+	const code = read(p);
+	return ["##==== path: " + relPath + " ====", "##region " + relPath, code, "##endregion", ""].join("\n");
 }

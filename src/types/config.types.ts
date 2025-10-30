@@ -23,9 +23,9 @@ export interface ProdexConfig {
 	};
 
 	resolve: {
-		includes: string[];
+		include: string[];
 		aliases: Record<string, string>;
-		excludes: string[];
+		exclude: string[];
 		depth: number;
 		limit: number;
 	};

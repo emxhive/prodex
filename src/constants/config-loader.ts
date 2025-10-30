@@ -4,6 +4,7 @@ import { DEFAULT_PRODEX_CONFIG } from "./default-config";
 import type { ProdexConfig, ProdexFlags } from "../types";
 import { logger } from "../lib/logger";
 
+
 /**
  * 🧩 Load and merge Prodex configuration (v3)
  *
@@ -12,87 +13,85 @@ import { logger } from "../lib/logger";
  * 3️⃣ Normalizes all path-like fields.
  * 4️⃣ Applies CLI flag overrides.
  */
-export async function loadProdexConfig(flags: Partial<ProdexFlags> = {}): Promise<ProdexConfig> {
-	const cwd = process.cwd();
+export async function loadProdexConfig(flags: Partial<ProdexFlags> = {}, cwd: string): Promise<ProdexConfig> {
+
 	const configPath = path.join(cwd, "prodex.json");
 	let userConfig: Partial<ProdexConfig> = {};
 
 	// 1️⃣ Load config if present
-	if (fs.existsSync(configPath)) {
-		try {
-			const content = fs.readFileSync(configPath, "utf8");
-			userConfig = JSON.parse(content);
-			logger.verbose(`Loaded config from prodex.json`);
-		} catch (err: any) {
-			logger.error(`Failed to parse prodex.json: ${err.message}`);
-		}
-	} else {
+	try {
+		const content = fs.readFileSync(configPath, "utf8");
+		userConfig = JSON.parse(content);
+	} catch (err: any) {
 		logger.info("No prodex.json found — using defaults.");
 	}
 
 	// 2️⃣ Merge defaults → user config
+	const { output, entry, resolve, debug } = DEFAULT_PRODEX_CONFIG;
+
 	const cfg: ProdexConfig = {
 		...DEFAULT_PRODEX_CONFIG,
 		...userConfig,
-		output: {
-			...DEFAULT_PRODEX_CONFIG.output,
-			...userConfig.output,
-		},
+		output: { ...output, ...userConfig.output },
 		entry: {
-			...DEFAULT_PRODEX_CONFIG.entry,
+			...entry,
 			...userConfig.entry,
-			ui: {
-				...DEFAULT_PRODEX_CONFIG.entry.ui,
-				...userConfig.entry?.ui,
-			},
+			ui: { ...entry.ui, ...userConfig.entry?.ui },
 		},
-		resolve: {
-			...DEFAULT_PRODEX_CONFIG.resolve,
-			...userConfig.resolve,
-		},
-		debug: {
-			...DEFAULT_PRODEX_CONFIG.debug,
-			...userConfig.debug,
-		},
+		resolve: { ...resolve, ...userConfig.resolve },
+		debug: { ...debug, ...userConfig.debug },
 		root: cwd,
 	};
 
-
-
 	// 4️⃣ Apply CLI flag overrides (if any)
 	applyFlagOverrides(cfg, flags);
-
-	logger.debug("🧩 Final merged config →", JSON.stringify(cfg, null, 2));
 	return cfg;
 }
 
 /** Merge CLI flags into config where relevant. */
+/** Merge CLI flags into config where relevant. */
 function applyFlagOverrides(cfg: ProdexConfig, flags: Partial<ProdexFlags>): void {
 	if (!flags) return;
 
-	const { name, limit, inc, exc, txt, debug, verbose } = flags;
+	const outputOverrides = {
+		name: (cfg: ProdexConfig, v: any) => (cfg.output.prefix = v),
+		txt: (cfg: ProdexConfig) => (cfg.output.format = "txt"),
+	};
 
-	if (name) cfg.output.prefix = String(name);
-	if (txt) cfg.output.format = "txt";
-	if (limit) cfg.resolve.limit = Number(limit);
+	const resolveOverrides = {
+		limit: (cfg: ProdexConfig, v: any) => (cfg.resolve.limit = v),
+		include: (cfg: ProdexConfig, v: any) => (cfg.resolve.include = v),
+		exclude: (cfg: ProdexConfig, v: any) => (cfg.resolve.exclude = v),
+	};
 
-	if (inc)
-		cfg.resolve.includes = Array.isArray(inc)
-			? inc
-			: String(inc)
-					.split(",")
-					.map((s) => s.trim());
+	const entryOverrides = {
+		files: (cfg: ProdexConfig, v: any) => (cfg.entry.files = v),
+	};
 
-	if (exc)
-		cfg.resolve.excludes = Array.isArray(exc)
-			? exc
-			: String(exc)
-					.split(",")
-					.map((s) => s.trim());
+	const envOverrides = {
+		debug: (_, v) => (process.env.PRODEX_DEBUG = v ? "1" : "0"),
+		verbose: (_, v) => (process.env.PRODEX_VERBOSE = v ? "1" : "0"),
+	};
 
-	// Enable runtime log modes via env
-	if (debug) process.env.PRODEX_DEBUG = "1";
-	if (verbose) process.env.PRODEX_VERBOSE = "1";
+	const overrideMap = {
+		...outputOverrides,
+		...resolveOverrides,
+		...entryOverrides,
+		...envOverrides,
+	};
 
-	logger.verbose("Applied CLI flag overrides.");
+	// Apply all flag overrides dynamically
+	for (const [flag, value] of Object.entries(flags)) {
+		if (value == undefined) continue;
+		const apply = overrideMap[flag];
+		if (apply) apply(cfg, value);
+	}
+
+	// Conditional override rule:
+	// If files exist and include was null/undefined → clear include array
+	const hasFiles = Array.isArray(flags.files) ? flags.files.length > 0 : !!flags.files;
+
+	if (hasFiles && flags.include == null) {
+		cfg.resolve.include = [];
+	}
 }

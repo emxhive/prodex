@@ -75,10 +75,10 @@ export async function pickEntries(baseDirs, depth = 2, cfg) {
 
 async function getFilesAtDepth({ baseDirs, depth, cfg, scanCache, verbose }) {
   if (scanCache.has(depth)) {
-    logger.verbose(`[cache] depth=${depth} ✓`);
+    logger.debug(`[cache] depth=${depth} ✓`);
     return scanCache.get(depth);
   }
-  logger.verbose(`[scan]  depth=${depth} …`);
+  logger.debug(`[scan]  depth=${depth} …`);
 
   const files = [];
   const effectiveCfg = { ...cfg, scanDepth: depth };
@@ -90,7 +90,7 @@ async function getFilesAtDepth({ baseDirs, depth, cfg, scanCache, verbose }) {
   }
 
   scanCache.set(depth, files);
-  logger.verbose(`[scan]  depth=${depth} found=${files.length}`);
+  logger.debug(`[scan]  depth=${depth} found=${files.length}`);
   return files;
 }
 

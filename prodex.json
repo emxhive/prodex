@@ -1,5 +1,5 @@
 {
-  "$schema": "https://raw.githubusercontent.com/emxhive/prodex/main/schema/prodex.schema.json",
+
   "version": 3.1,
   "output": {
     "dir": "prodex",
@@ -25,8 +25,9 @@
       ]
     }
   },
+
   "resolve": {
-    "includes": [
+    "include": [
       "**/*.g.ts",
       "**/*.interface.ts"
     ],
@@ -34,7 +35,7 @@
       "@hooks": "resources/js/hooks",
       "@data": "resources/js/data"
     },
-    "excludes": [
+    "exclude": [
       "node_modules/**",
       "@shadcn/**",
       "**/components/ui/**"

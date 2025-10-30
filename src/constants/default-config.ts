@@ -27,12 +27,12 @@ export const DEFAULT_PRODEX_CONFIG: ProdexConfigFile = {
     },
   },
   resolve: {
-    includes: ["**/*.d.ts", "**/*.interface.ts"],
+    include: ["**/*.d.ts", "**/*.interface.ts"],
     aliases: {
       "@hooks": "resources/js/hooks",
       "@data": "resources/js/data",
     },
-    excludes: [
+    exclude: [
       "node_modules/**",
       "@shadcn/**",
       "**/components/ui/**"
@@ -46,3 +46,4 @@ export const DEFAULT_PRODEX_CONFIG: ProdexConfigFile = {
   },
 
 };
+

@@ -5,60 +5,48 @@
 export type FlagType = "boolean" | "string" | "number" | "list";
 
 export enum FlagKey {
-  Txt = "txt",
-  Ci = "ci",
-  Debug = "debug",
-  Verbose = "verbose",
-  Name = "name",
-  Limit = "limit",
-  Inc = "inc",
-  Exc = "exc",
-  Help = "help"
+	Txt = "txt",
+	Ci = "ci",
+	Debug = "debug",
+	Name = "name",
+	Limit = "limit",
+	Inc = "include",
+	Exc = "exclude",
+	Help = "help",
+	Files = "files",
 }
 
-export const PRODEX_FLAGS: Record<
-  FlagKey,
-  {
-    short?: string;
-    type: FlagType;
-    description: string;
-    pathish?: boolean;
-  }
-> = {
-  [FlagKey.Txt]: { short: "t", type: "boolean", description: "Output as .txt instead of .md." },
-  [FlagKey.Ci]: { short: "c", type: "boolean", description: "Headless/no-UI mode." },
-  [FlagKey.Debug]: { short: "d", type: "boolean", description: "Enable debug logs." },
-  [FlagKey.Verbose]: { short: "v", type: "boolean", description: "Enable verbose logs." },
-  [FlagKey.Name]: { short: "n", type: "string", description: "Custom output filename." },
-  [FlagKey.Limit]: { short: "l", type: "number", description: "Override traversal limit." },
-  [FlagKey.Inc]: {
-    type: "list",
-    description: "Comma-separated include globs.",
-    pathish: true
-  },
-  [FlagKey.Exc]: {
-    type: "list",
-    description: "Comma-separated exclude globs.",
-    pathish: true
-  },
-  [FlagKey.Help]: { short: "h", type: "boolean", description: "Show CLI help and exit." }
+type Spec = {
+	short?: string;
+	type: FlagType;
+	description: string;
+};
+export const PRODEX_FLAGS: Record<FlagKey, Spec> = {
+	[FlagKey.Files]: { short: "f", type: "list", description: "Comma-separated entry files." },
+	[FlagKey.Txt]: { short: "t", type: "boolean", description: "Output as .txt instead of .md." },
+	[FlagKey.Ci]: { short: "c", type: "boolean", description: "Headless/no-UI mode." },
+	[FlagKey.Debug]: { short: "d", type: "boolean", description: "Enable debug logs." },
+	[FlagKey.Name]: { short: "n", type: "string", description: "Custom output filename." },
+	[FlagKey.Limit]: { short: "l", type: "number", description: "Override traversal limit." },
+	[FlagKey.Inc]: { type: "list", short: "i", description: "Comma-separated include globs." },
+	[FlagKey.Exc]: { type: "list", short: "x", description: "Comma-separated exclude globs." },
+	[FlagKey.Help]: { short: "h", type: "boolean", description: "Show CLI help and exit." },
 };
 
 /** Reverse lookup for short aliases. */
-export const FLAG_SHORT_MAP: Record<string, FlagKey> = Object.entries(PRODEX_FLAGS).reduce(
-  (acc, [key, meta]) => {
-    if (meta.short) acc[meta.short] = key as FlagKey;
-    return acc;
-  },
-  {} as Record<string, FlagKey>
-);
+export const FLAG_SHORT_MAP: Record<string, FlagKey> = Object.entries(PRODEX_FLAGS).reduce((acc, [key, meta]) => {
+	if (meta.short) acc[meta.short] = key as FlagKey;
+	return acc;
+}, {} as Record<string, FlagKey>);
 
-/** CLI usage text (for --help). */
+
 export const CLI_USAGE = `
-Usage: prodex [entries...] [-tcdv]
-       [--txt] [--ci] [--debug] [--verbose]
+Usage: prodex [-fcdv]
+       [--files=<globs>|-f=<globs>]
+       [--include=<globs>|-i=<globs>]
+       [--exclude=<globs>|-x=<globs>]
+       [--txt|-t] [--ci|-c] [--debug|-d] [--version|-v]
        [--name=<string>|-n=<string>]
        [--limit=<int>|-l=<int>]
-       [--inc=<globs>] [--exc=<globs>]
        [--help|-h]
 `;

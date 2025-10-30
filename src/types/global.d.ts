@@ -7,6 +7,8 @@ declare global {
     /** Normalizes backslashes to forward slashes. */
     norm(): string;
   }
+
+   var _2j: (obj: any) => string;
 }
 
 export {};

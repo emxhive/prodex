@@ -13,6 +13,7 @@ export interface ProdexFlags {
   /** Output as .txt instead of .md (-t / --txt) */
   txt?: boolean;
 
+
   /** Headless / non-interactive mode (-c / --ci) */
   ci?: boolean;
 
@@ -29,10 +30,12 @@ export interface ProdexFlags {
   limit?: number | null;
 
   /** Comma-separated glob list overriding resolve.includes (--inc) */
-  inc?: string | string[];
+  include?: string[];
 
   /** Comma-separated glob list overriding resolve.excludes (--exc) */
-  exc?: string | string[];
+  exclude?:string[];
+  files?: string[];
+
 
   /** Optional short alias reference mapping */
   short?: {
