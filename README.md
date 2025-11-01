@@ -1,7 +1,6 @@
-
 # 🧩 Prodex v1.2.0
 
-> **Create the maze, I'll make a map.**
+> **Build the maze, I'll write a map.**
 
 ---
 
@@ -9,20 +8,24 @@
 
 - 🆕 **Full CLI support with integrated [Sade](https://github.com/lukeed/sade).**  
   Prodex now runs entirely from the terminal — no `prodex.json` required.  
-  Supports short flags and native glob patterns for flexible targeting.  
-  ```bash
-  prodex -f "**/web.php,**/app.tsx" -i "**/*.d.ts" -x "node_modules/**"
-  prodex --files **/web.php **/app.tsx --include **/*.interface.ts --exclude @shadcn/**
-  ```
+  Supports short flags and native glob patterns for flexible targeting.
+
+     ```bash
+     prodex -f "**/web.php,**/app.tsx" -i "**/*.d.ts" -x "node_modules/**"
+     ```
+
+     ```bash
+     prodex --files "**/web.php,**/app.tsx" --include **/*types.ts --exclude "@shadcn/**"
+     ```
 
 - 🧾 **Markdown mode added and now default.**  
   Output is fully fenced and linkable — jump between the index and any code block.  
-  Text mode remains available using `--txt` or `-t`.  
+  Text mode remains available using `--txt` or `-t`.
 
 - 🗂 **Output naming improved.**  
   Output files are now versioned by default.  
   Custom names are supported using `--name` or `-n`.  
-  Naming conventions have been updated for cleaner, consistent results.  
+  Naming conventions have been updated for cleaner, consistent results.
 
 ---
 
@@ -59,16 +62,16 @@ prodex -f "**/web.php,**/app.tsx" -i "**/*.d.ts" -x "node_modules/**" -n "combin
 
 ### Flag Reference
 
-| Flag | Short | Description |
-|------|--------|-------------|
-| `--files` | `-f` | Entry files — starting points for dependency resolution. Accepts multiple names or globs. |
-| `--include` | `-i` | Adds extra files or patterns to include (e.g. `.d.ts`, interface, or type files). These files are **not dependency-resolved** — they’re appended as-is. |
-| `--exclude` | `-x` | Patterns or folders to skip during the scan. |
-| `--name` | `-n` | Custom output filename (without extension). Versioning still applies automatically. |
+| Flag        | Short | Description                                                                                                                                             |
+| ----------- | ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--files`   | `-f`  | Entry files — starting points for dependency resolution. Accepts multiple names or globs.                                                               |
+| `--include` | `-i`  | Adds extra files or patterns to include (e.g. `.d.ts`, interface, or type files). These files are **not dependency-resolved** — they’re appended as-is. |
+| `--exclude` | `-x`  | Patterns or folders to skip during the scan.                                                                                                            |
+| `--name`    | `-n`  | Custom output filename (without extension). Versioning still applies automatically.                                                                     |
 
 > Globs are powered by [Fast-Glob](https://github.com/mrmlnc/fast-glob).  
 > Use **comma-separated values** for multiple entries.  
-> Wrap globs in quotes when they include special characters like `|` or `&`.  
+> Wrap globs in quotes when they include special characters like `|` or `&`.
 
 ---
 
@@ -84,28 +87,28 @@ prodex -f "**/web.php,**/app.tsx" -i "**/*.d.ts" -x "node_modules/**" -n "combin
 
 - **Combined Output**  
   All code from multiple entries is merged into a single output file.  
-  There’s currently **no limit** on output size, but it’s advised to avoid combining *too many large entries* in a single run.  
+  There’s currently **no limit** on output size, but it’s advised to avoid combining _too many large entries_ in a single run.  
   Future versions will include **smart naming** and **automatic splitting** for oversized outputs.
 
 - **Performance Optimizations**  
-  Planned improvements to resolver speed and dependency traversal for faster processing on large projects.  
+  Planned improvements to resolver speed and dependency traversal for faster processing on large projects.
 
 ---
 
 ## 🧩 Features
 
-| Status | Feature | Description |
-|:--:|----------|--------------|
-| ✅ | **Cross-language indexing** | Resolves imports across JS, TS, React, and PHP (Laravel) projects. |
-| ✅ | **Markdown output** | Generates clean `.md` files with anchors, back-to-top links, and fenced code blocks. |
-| ✅ | **Text output** | Optional `.txt` mode using `--txt` or `-t`. |
-| ✅ | **Glob support** | Works with flexible glob patterns powered by [Fast-Glob](https://github.com/mrmlnc/fast-glob). |
-| ✅ | **Custom output names** | Define your own output prefix using `--name` or `-n`. |
-| ⚠️ | **Interactive picker (UI)** | Still unstable — not recommended for production use. |
-| ⚠️ | **Alias resolution** | Basic alias mapping supported; advanced cases in progress. |
-| 🚧 | **Smart file splitting** | Planned for large combined outputs. |
-| 🚧 | **PSR-4 deep scan** | Planned to improve PHP dependency resolution. |
-| 🚧 | **Speed optimization** | Further resolver and I/O improvements under development. |
+| Status | Feature                     | Description                                                                                    |
+| :----: | --------------------------- | ---------------------------------------------------------------------------------------------- |
+|   ✅   | **Cross-language indexing** | Resolves imports across JS, TS, React, and PHP (Laravel) projects.                             |
+|   ✅   | **Markdown output**         | Generates clean `.md` files with anchors, back-to-top links, and fenced code blocks.           |
+|   ✅   | **Text output**             | Optional `.txt` mode using `--txt` or `-t`.                                                    |
+|   ✅   | **Glob support**            | Works with flexible glob patterns powered by [Fast-Glob](https://github.com/mrmlnc/fast-glob). |
+|   ✅   | **Custom output names**     | Define your own output prefix using `--name` or `-n`.                                          |
+|   ⚠️   | **Interactive picker (UI)** | Still unstable — not recommended for production use.                                           |
+|   ⚠️   | **Alias resolution**        | Basic alias mapping supported; advanced cases in progress.                                     |
+|   🚧   | **Smart file splitting**    | Planned for large combined outputs.                                                            |
+|   🚧   | **PSR-4 deep scan**         | Planned to improve PHP dependency resolution.                                                  |
+|   🚧   | **Speed optimization**      | Further resolver and I/O improvements under development.                                       |
 
 ---
 
@@ -148,24 +151,27 @@ then appends any files matched by the `--include` flag.
 ### 🧠 Suggested Pattern
 
 1. **Pick a meaningful entry file**  
-   Example:  
-   - Frontend: `resources/js/**/dashboard.tsx`  
-   - Backend: `routes/**/(web|api).php`  
-   - Shared logic: `app/Services/**/PaymentService.php`
+   Example:
 
-2. **Run Prodex with includes for type or interface files**  
-   ```bash
-   prodex -f "**/dashboard.tsx" -i "**/*.d.ts,**/*.interface.ts"
-   ```
+      - Frontend: `resources/js/**/dashboard.tsx`
+      - Backend: `routes/**/(web|api).php`
+      - Shared logic: `app/Services/**/PaymentService.php`
 
-3. **Export separate maps for each major area**  
-   ```bash
-   prodex -f "**/dashboard.tsx" -n "dashboard-map"
-   prodex -f "**/web|api.php" -n "backend-map"
-   ```
+2. **Run Prodex with includes for type or interface files**
+
+      ```bash
+      prodex -f "**/dashboard.tsx" -i "**/*.d.ts,**/*.interface.ts"
+      ```
+
+3. **Export separate maps for each major area**
+
+      ```bash
+      prodex -f "**/dashboard.tsx" -n "dashboard-map"
+      prodex -f "**/(web|api).php" -n "backend-map"
+      ```
 
 4. **Use them together**  
-   Store each output in `/prodex/` or `/docs/maps/`.  
+   Store each output in `/prodex/`
    These maps can be shared with teammates or loaded into AI tools for structured, code-aware assistance.
 
 > ⚡ Each run recursively resolves every import, applies includes, and outputs one complete dependency map for that section.
@@ -197,7 +203,7 @@ prodex -c
 ```
 
 The `-c` (or `--ci`) flag skips interactive mode and uses the config values automatically.  
-Specifying `-f` ( or `--files`) from the CLI also disables the picker by default.  
+Specifying `-f` ( or `--files`) from the CLI also disables the picker by default.
 
 You can permanently disable the picker in the config by setting:
 
@@ -222,7 +228,7 @@ You can permanently disable the picker in the config by setting:
 
 Prodex is still a **work in progress**.  
 Some parts of the experience may be rough, especially around interactive mode and advanced resolvers.  
-Updates are released **multiple times per week — sometimes daily** — to keep improving stability and support.  
+Updates are released **multiple times per week — sometimes daily** — to keep improving stability and support.
 
 Please stay up to date for the best experience.  
-Thank you for testing Prodex early. ❤️  
+Thank you for testing Prodex early. ❤️

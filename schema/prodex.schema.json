@@ -3,19 +3,16 @@
   "title": "Prodex Configuration Schema (v3.1)",
   "description": "Defines runtime behavior for the Prodex dependency extractor and resolver.",
   "type": "object",
-
   "properties": {
     "$schema": {
       "type": "string",
       "description": "Link to the Prodex schema for IDE validation."
     },
-
     "version": {
       "type": "number",
       "description": "Schema version identifier.",
       "default": 3.1
     },
-
     "output": {
       "type": "object",
       "description": "Output settings for generated combined files.",
@@ -37,14 +34,20 @@
         },
         "format": {
           "type": "string",
-          "enum": ["md", "txt"],
+          "enum": [
+            "md",
+            "txt"
+          ],
           "description": "Output format for generated content.",
           "default": "md"
         }
       },
-      "required": ["dir", "prefix", "format"]
+      "required": [
+        "dir",
+        "prefix",
+        "format"
+      ]
     },
-
     "entry": {
       "type": "object",
       "description": "Defines which directories or files to start dependency resolution from.",
@@ -52,7 +55,9 @@
         "files": {
           "type": "array",
           "description": "Explicit entry files or globs (optional).",
-          "items": { "type": "string" },
+          "items": {
+            "type": "string"
+          },
           "default": []
         },
         "ui": {
@@ -62,8 +67,14 @@
             "roots": {
               "type": "array",
               "description": "Directories scanned when prompting for entries.",
-              "items": { "type": "string" },
-              "default": ["app", "routes", "resources/js/**"]
+              "items": {
+                "type": "string"
+              },
+              "default": [
+                "app",
+                "routes",
+                "resources/js/**"
+              ]
             },
             "scanDepth": {
               "type": "integer",
@@ -74,7 +85,9 @@
             "priority": {
               "type": "array",
               "description": "Patterns controlling entry ordering (e.g. routes/web.php first).",
-              "items": { "type": "string" },
+              "items": {
+                "type": "string"
+              },
               "default": [
                 "**/routes/web.php",
                 "**/routes/api.php",
@@ -89,12 +102,17 @@
               "default": true
             }
           },
-          "required": ["roots", "scanDepth", "priority"]
+          "required": [
+            "roots",
+            "scanDepth",
+            "priority"
+          ]
         }
       },
-      "required": ["ui"]
+      "required": [
+        "ui"
+      ]
     },
-
     "resolve": {
       "type": "object",
       "description": "Settings controlling how imports and dependencies are resolved.",
@@ -102,13 +120,20 @@
         "include": {
           "type": "array",
           "description": "Additional glob patterns to always include (e.g. .d.ts, interfaces).",
-          "items": { "type": "string" },
-          "default": ["**/*.d.ts", "**/*.interface.ts"]
+          "items": {
+            "type": "string"
+          },
+          "default": [
+            "**/*.d.ts",
+            "**/*.interface.ts"
+          ]
         },
         "aliases": {
           "type": "object",
           "description": "Path alias map (TSConfig or Vite style).",
-          "additionalProperties": { "type": "string" },
+          "additionalProperties": {
+            "type": "string"
+          },
           "default": {
             "@hooks": "resources/js/hooks",
             "@data": "resources/js/data"
@@ -117,7 +142,9 @@
         "exclude": {
           "type": "array",
           "description": "Glob patterns to exclude from dependency traversal.",
-          "items": { "type": "string" },
+          "items": {
+            "type": "string"
+          },
           "default": [
             "node_modules/**",
             "@shadcn/**",
@@ -137,28 +164,20 @@
           "minimum": 0
         }
       },
-      "required": ["include", "aliases", "exclude", "depth", "limit"]
-    },
-
-    "debug": {
-      "type": "object",
-      "description": "Logging and diagnostic behavior.",
-      "properties": {
-        "verbose": {
-          "type": "boolean",
-          "description": "Enable verbose logs.",
-          "default": false
-        },
-        "showSummary": {
-          "type": "boolean",
-          "description": "Print import/resolve summary at the end of a run.",
-          "default": true
-        }
-      },
-      "required": ["verbose", "showSummary"]
+      "required": [
+        "include",
+        "aliases",
+        "exclude",
+        "depth",
+        "limit"
+      ]
     }
   },
-
-  "required": ["version", "output", "entry", "resolve", "debug"],
+  "required": [
+    "version",
+    "output",
+    "entry",
+    "resolve"
+  ],
   "additionalProperties": false
 }

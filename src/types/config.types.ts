@@ -4,6 +4,7 @@
  */
 export interface ProdexConfig {
 	version: number;
+	name: string;
 	root: string;
 	output: {
 		dir: string;
@@ -30,10 +31,6 @@ export interface ProdexConfig {
 		limit: number;
 	};
 
-	debug: {
-		verbose: boolean;
-		showSummary: boolean;
-	};
 }
 
 /** Optional helper for typed schema versions. */
@@ -42,4 +39,4 @@ export interface Versioned {
 }
 
 /** Represents the user-saved config file (without runtime fields). */
-export type ProdexConfigFile = Omit<ProdexConfig, "root">;
+export type ProdexConfigFile = Omit<ProdexConfig, "root" | "name">;

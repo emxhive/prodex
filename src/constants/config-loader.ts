@@ -3,7 +3,7 @@ import path from "path";
 import { DEFAULT_PRODEX_CONFIG } from "./default-config";
 import type { ProdexConfig, ProdexFlags } from "../types";
 import { logger } from "../lib/logger";
-
+import { normalizePatterns } from "../lib/utils";
 
 /**
  * 🧩 Load and merge Prodex configuration (v3)
@@ -14,7 +14,6 @@ import { logger } from "../lib/logger";
  * 4️⃣ Applies CLI flag overrides.
  */
 export async function loadProdexConfig(flags: Partial<ProdexFlags> = {}, cwd: string): Promise<ProdexConfig> {
-
 	const configPath = path.join(cwd, "prodex.json");
 	let userConfig: Partial<ProdexConfig> = {};
 
@@ -27,7 +26,7 @@ export async function loadProdexConfig(flags: Partial<ProdexFlags> = {}, cwd: st
 	}
 
 	// 2️⃣ Merge defaults → user config
-	const { output, entry, resolve, debug } = DEFAULT_PRODEX_CONFIG;
+	const { output, entry, resolve } = DEFAULT_PRODEX_CONFIG;
 
 	const cfg: ProdexConfig = {
 		...DEFAULT_PRODEX_CONFIG,
@@ -39,12 +38,13 @@ export async function loadProdexConfig(flags: Partial<ProdexFlags> = {}, cwd: st
 			ui: { ...entry.ui, ...userConfig.entry?.ui },
 		},
 		resolve: { ...resolve, ...userConfig.resolve },
-		debug: { ...debug, ...userConfig.debug },
 		root: cwd,
+		name: flags?.name,
 	};
 
 	// 4️⃣ Apply CLI flag overrides (if any)
 	applyFlagOverrides(cfg, flags);
+	tidyArrayFields(cfg);
 	return cfg;
 }
 
@@ -54,8 +54,7 @@ function applyFlagOverrides(cfg: ProdexConfig, flags: Partial<ProdexFlags>): voi
 	if (!flags) return;
 
 	const outputOverrides = {
-		name: (cfg: ProdexConfig, v: any) => (cfg.output.prefix = v),
-		txt: (cfg: ProdexConfig) => (cfg.output.format = "txt"),
+		txt: (cfg: ProdexConfig, v) => (cfg.output.format = v ? "txt" : "md"),
 	};
 
 	const resolveOverrides = {
@@ -91,7 +90,12 @@ function applyFlagOverrides(cfg: ProdexConfig, flags: Partial<ProdexFlags>): voi
 	// If files exist and include was null/undefined → clear include array
 	const hasFiles = Array.isArray(flags.files) ? flags.files.length > 0 : !!flags.files;
 
-	if (hasFiles && flags.include == null) {
+	if (hasFiles && !flags.include) {
 		cfg.resolve.include = [];
 	}
+}
+
+function tidyArrayFields(cfg: ProdexConfig) {
+	cfg.entry.files = normalizePatterns(cfg.entry.files);
+	["include", "exclude"].forEach((k) => (cfg.resolve[k] = cfg.resolve[k]));
 }

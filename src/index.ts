@@ -1,9 +1,9 @@
 import { runCombine } from "./core/combine";
 import { initProdex } from "./cli/init";
-import { logger } from "./lib/logger";
 import { parseCliInput } from "./cli/cli-input";
 import { loadProdexConfig } from "./constants/config-loader";
 import "./lib/polyfills";
+import { introSummary } from "./cli/summary";
 
 export default async function startProdex() {
 	const args = process.argv;
@@ -14,19 +14,16 @@ export default async function startProdex() {
 	}
 
 	// Parse CLI input
-	const { root, flags, warnings, errors } = parseCliInput(args);
-
-	if (warnings.length) logger.warn("Warnings:", warnings);
-	if (errors.length) logger.error("Errors:", errors);
+	const { root, flags } = parseCliInput(args);
 
 	// Load and merge configuration (with flag overrides)
-
 	const config = await loadProdexConfig(flags, root);
+	introSummary({ flags, config });
 
-	logger.log(`------- PRODEx RUN @ ${new Date().toLocaleTimeString()} — Codebase decoded -------`);
-	// Log parse results for testing
-	logger.debug("🧩 Parsed CLI input:", _2j({ flags }));
-	logger.debug("Final merged config:", _2j(config));
+	const opts = {
+		showUi: !flags.ci && !flags?.files?.length && !config?.entry?.ui?.enablePicker,
+		cliName: config.name,
+	};
 
-	await runCombine(config, !flags.ci && !flags?.files?.length);
+	await runCombine({ cfg: config, opts });
 }

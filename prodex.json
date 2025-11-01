@@ -1,14 +1,15 @@
 {
-
   "version": 3.1,
   "output": {
     "dir": "prodex",
-    "versioned": false,
+    "versioned": true,
     "prefix": "prodex",
     "format": "md"
   },
   "entry": {
-    "files": [""],
+    "files": [
+      "**/index.ts"
+    ],
     "ui": {
       "roots": [
         "src/core",
@@ -25,10 +26,9 @@
       ]
     }
   },
-
   "resolve": {
     "include": [
-      "**/*.g.ts",
+      "**/*.ts",
       "**/*.interface.ts"
     ],
     "aliases": {

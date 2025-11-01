@@ -8,7 +8,7 @@ const env = () => {
 export const logger: Logger = {
 	debug: (...args) => !env().silent && env().debug && console.log("\n🪶 [debug]", ...args),
 	info: (...args) => !env().silent && console.log("\n📌 [info]", ...args),
-	warn: (...args) => !env().silent && console.warn("\n⚠️ [warn]", ...args),
+	warn: (...args) => !env().silent && console.warn("\n⚠️  [warn]", ...args),
 	error: (...args) => !env().silent && console.error("\n💥 [error]", ...args),
-	log: (...args) => !env().silent && console.log("\n",...args),
+	log: (...args) => !env().silent && console.log("\n", ...args),
 };

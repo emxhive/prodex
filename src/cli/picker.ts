@@ -1,97 +1,98 @@
 import fs from "fs";
 import path from "path";
 import inquirer from "inquirer";
-import { ROOT } from "../constants/config";
 import { walk, rel, orderByPriority } from "../core/helpers";
 import { globScan } from "../core/file-utils";
 import { unique } from "../lib/utils";
 import { logger } from "../lib/logger";
+import { prompt } from "../lib/prompt";
+import type { QuestionSet, ProdexConfig } from "../types";
+import { PICK_ENTRIES_QUESTION } from "../lib/questions";
 
+/**
+ * Interactive entry picker for Prodex.
+ * Handles depth-based scanning, caching, and priority ordering.
+ */
+export async function pickEntries(cfg: ProdexConfig) {
+	const {
+		root,
+		entry: {
+			files,
+			ui: { roots = [], priority = [], scanDepth },
+		},
+	} = cfg;
 
+	let depth = scanDepth;
+	const entryPatterns = files || [];
+	const priorities = [...entryPatterns, ...priority];
 
-export async function pickEntries(baseDirs, depth = 2, cfg) {
-  const entryPatterns = cfg.entry?.files || [];
+	// 1️⃣ Resolve pre-defined entry patterns
+	const resolvedEntries = (await globScan(entryPatterns, { cwd: root })).files;
+	let selected = [...resolvedEntries];
 
-  const priorities = [...entryPatterns, ...(cfg.entry?.priority || [])];
-  const verbose = !!cfg.verbose;
+	// cache: depth → files[]
+	const scanCache = new Map<number, string[]>();
 
-  // 1) Resolve patterns to absolute files and preselect them
-  const resolvedEntries = (await globScan(entryPatterns,{cwd : ROOT})).files;
+	for (;;) {
+		const files = await getFilesAtDepth(depth, cfg, scanCache);
 
+		// Merge resolved entries with current scan results
+		const combined = unique([...resolvedEntries, ...files]);
+		const sorted = orderByPriority(combined, priorities);
 
-  let selected = [...resolvedEntries];
+		// Build UI selection list
+		const choices = sorted.map((f) => ({
+			name: rel(f, root),
+			value: f,
+			checked: selected.includes(f),
+		}));
 
-  // cache: depth -> files[]
-  const scanCache = new Map();
+		if (depth < scanDepth + 5) {
+			choices.push(new inquirer.Separator());
+			choices.push({ name: "🔽 Load more (go deeper)", value: "__loadmore" });
+		}
 
-  for (; ;) {
-    const files = await getFilesAtDepth({
-      baseDirs,
-      depth,
-      cfg,
-      scanCache,
-      verbose,
-    });
+		// 🧠 Use unified prompt wrapper
+		const answers = await prompt(PICK_ENTRIES_QUESTION(choices, depth), { picks: [] });
+		if (!answers) return unique(selected);
 
-    // Merge resolved entries with current scan results
-    const combined = unique([...resolvedEntries, ...files]);
-    // Priority-aware ordering: entries first, then other priorities
-    const sorted = orderByPriority(combined, priorities);
+		const { picks } = answers;
 
-    // Build UI selection list
-    const choices = sorted.map(f => ({
-      name: path.relative(ROOT, f).norm(),
-      value: f,
-      checked: selected.includes(f),
-    }));
+		if (picks.includes("__loadmore")) {
+			depth++;
+			selected = picks.filter((p) => p !== "__loadmore");
+			continue;
+		}
 
-    choices.push(new inquirer.Separator());
-    choices.push({ name: "🔽 Load more (go deeper)", value: "__loadmore" });
+		selected = picks.filter((p) => p !== "__loadmore");
+		break;
+	}
 
-    const { picks } = await inquirer.prompt([
-      {
-        type: "checkbox",
-        name: "picks",
-        message: `Select entry files (depth ${depth})`,
-        choices,
-        loop: false,
-        pageSize: 20,
-      }
-    ]);
-
-    if (picks.includes("__loadmore")) {
-      depth++;
-      selected = picks.filter(p => p !== "__loadmore");
-      continue;
-    }
-
-    selected = picks.filter(p => p !== "__loadmore");
-    break;
-  }
-
-  return unique(selected);
+	return unique(selected);
 }
 
+/**
+ * Depth-based directory scanner with caching.
+ */
+async function getFilesAtDepth(depth: number, cfg: ProdexConfig, scanCache: Map<number, string[]>) {
+	const baseDirs = cfg.entry.ui.roots || [];
+	if (scanCache.has(depth)) {
+		logger.debug(`[picker] cache hit → depth=${depth}`);
+		return scanCache.get(depth)!;
+	}
 
-async function getFilesAtDepth({ baseDirs, depth, cfg, scanCache, verbose }) {
-  if (scanCache.has(depth)) {
-    logger.debug(`[cache] depth=${depth} ✓`);
-    return scanCache.get(depth);
-  }
-  logger.debug(`[scan]  depth=${depth} …`);
+	logger.debug(`[picker] scanning → depth=${depth}`);
 
-  const files = [];
-  const effectiveCfg = { ...cfg, scanDepth: depth };
+	const files: string[] = [];
+	const effectiveCfg = { ...cfg, scanDepth: depth };
 
-  for (const base of baseDirs) {
-    const full = path.join(ROOT, base);
-    if (!fs.existsSync(full)) continue;
-    for (const f of walk(full, effectiveCfg, 0)) files.push(f.norm());
-  }
+	for (const base of baseDirs) {
+		const full = path.join(cfg.root, base);
+		if (!fs.existsSync(full)) continue;
+		for (const f of walk(full, effectiveCfg, 0)) files.push(f.norm());
+	}
 
-  scanCache.set(depth, files);
-  logger.debug(`[scan]  depth=${depth} found=${files.length}`);
-  return files;
+	scanCache.set(depth, files);
+	logger.debug(`[picker] depth=${depth} found=${files.length}`);
+	return files;
 }
-
-
