@@ -12,14 +12,16 @@ export async function globScan(patterns: string[], opts: Options) {
 	const { absolute = true, cwd = process.cwd() } = opts;
 
 	if (!patterns?.length) return { files: [] };
-	const files = await fg(patterns, {
-		cwd,
-		extglob: true,
-		dot: true,
-		onlyFiles: true,
-		ignore: GLOBAL_IGNORE,
-		absolute,
-	});
+	const files = (
+		await fg(patterns, {
+			cwd,
+			extglob: true,
+			dot: true,
+			onlyFiles: true,
+			ignore: GLOBAL_IGNORE,
+			absolute,
+		})
+	).map((f) => path.resolve(f));
 	logger.debug("GLOB-SCAN_FILES ", _2j(files));
 
 	return { files };

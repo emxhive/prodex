@@ -19,7 +19,7 @@ export async function produceOutput({ name, files, cfg, showUi }: OutputParams):
 		output: { format, versioned, dir },
 	} = cfg;
 
-	_bpt(format);
+	;
 
 	// 1️⃣ Determine base filename
 	let outputBase = name;

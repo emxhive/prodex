@@ -44,7 +44,7 @@ export async function followChain(entryFiles, cfg: ProdexConfig) {
 }
 
 export async function applyincludes(cfg, files) {
-	_bpt(["APPLY_include", files]);
+	;
 	const { resolve } = cfg;
 	const ROOT = cfg.root;
 
@@ -52,6 +52,6 @@ export async function applyincludes(cfg, files) {
 	logger.debug("APPLY_include", _2j(scan));
 	const combined = unique([...files, ...scan.files]);
 
-	_bpt(combined);
+	;
 	return combined;
 }

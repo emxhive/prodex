@@ -18,6 +18,7 @@ export async function runCombine({ cfg, opts }: CombineParams) {
 
 	entrySummary(entries);
 
+	
 	const result = await followChain(entries, cfg);
 	const withinclude = await applyincludes(cfg, result.files);
 
@@ -40,6 +41,7 @@ async function resolveEntries(showUi: boolean, cfg: ProdexConfig): Promise<strin
 		}
 		return (await globScan(files, { cwd: root })).files;
 	} else {
+		
 		return await pickEntries(cfg);
 	}
 }
