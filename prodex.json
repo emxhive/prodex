@@ -28,7 +28,7 @@
   },
   "resolve": {
     "include": [
-      "**/*.ts",
+      "**/*types.ts",
       "**/*.interface.ts"
     ],
     "aliases": {
