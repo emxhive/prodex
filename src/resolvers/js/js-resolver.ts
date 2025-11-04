@@ -1,113 +1,126 @@
-// @ts-nocheck
-
 import fs from "fs/promises";
 import path from "path";
 import micromatch from "micromatch";
 import { extractImports } from "../../core/parsers/extract-imports";
 import { loadProjectAliases } from "./alias-loader";
-import { BASE_EXTS, DTS_EXT } from "../../constants/config";
-import { setDiff } from "../../lib/utils";
+import { BASE_EXTS, DTS_EXT, REAL_EXTS } from "../../constants/config";
+import { setDiff, unique } from "../../lib/utils";
 import { logger } from "../../lib/logger";
+import { getConfig } from "../../store";
+import type { ResolverParams, ResolverResult, JsResolverCtx } from "../../types";
 
-const IMPORTS_CACHE = new Map();
-const STAT_CACHE = new Map();
+// ---------------------------------------------------------
+// 🧩 JS Resolver — absolute-path, config-getter version
+// ---------------------------------------------------------
 
-export async function resolveJsImports(filePath, cfg, visited = new Set(), depth = 0, maxDepth = cfg?.resolve?.depth ?? 8, ctx = {}) {
-	if (depth >= maxDepth) return empty(visited);
+const IMPORTS_CACHE: Map<string, Set<string>> = new Map();
+const STAT_CACHE: Map<string, import("fs").Stats | null> = new Map();
 
-	const ROOT = cfg.root;
-	const resolveCfg = cfg.resolve ?? {};
+// ---------------------------------------------------------
+// Entry
+// ---------------------------------------------------------
+export async function resolveJsImports({ filePath, visited = new Set(), depth = 0, maxDepth, ctx }: ResolverParams): Promise<ResolverResult> {
+	const limitDepth = maxDepth;
 
-	// Single exclude list, applied to RAW SPECIFIERS only.
-	const exclude = resolveCfg.exclude ?? [];
-	const isExcluded = micromatch.matcher(exclude);
-
+	if (depth >= limitDepth) return empty(visited);
 	if (visited.has(filePath)) return empty(visited);
 	visited.add(filePath);
 
+	const {
+		root: ROOT,
+		resolve: { exclude: excludePatterns, aliases },
+	} = getConfig();
+
+	const isExcluded = micromatch.matcher(excludePatterns);
+
 	const ext = path.extname(filePath).toLowerCase();
 	const isDts = ext === DTS_EXT;
-
 	if (!BASE_EXTS.includes(ext) && !isDts) return empty(visited);
 
-	let code;
+	let code = "";
 	try {
 		code = await fs.readFile(filePath, "utf8");
 	} catch {
 		return empty(visited);
 	}
 
-	if (!ctx.aliases) {
-		ctx.aliases = { ...loadProjectAliases(ROOT), ...(resolveCfg.aliases || {}) };
-	}
-	const aliases = ctx.aliases;
+	// Context (aliases) -------------------------------------
+	const jsCtx: JsResolverCtx =
+		ctx?.kind === "js"
+			? (ctx as JsResolverCtx)
+			: {
+					kind: "js",
+					aliases: {
+						...loadProjectAliases(ROOT),
+						...(aliases || {}),
+					},
+			  };
 
-	const matches = await getImportsCached(filePath, code);
-	if (!matches.size) return empty(visited);
+	// Extract imports ---------------------------------------
+	const imports = await getImportsCached(filePath, code);
+	if (!imports.size) return empty(visited);
 
-	const filesOut = [];
-	const expected = new Set();
-	const resolvedSet = new Set();
+	// Trackers ----------------------------------------------
+	const expected = new Set<string>();
+	const resolved = new Set<string>();
+	const files: string[] = [];
 
-	for (const imp of matches) {
-		// Only consider relative, absolute, or known-alias specifiers
-		if (!imp.startsWith(".") && !imp.startsWith("/") && !startsWithAnyAlias(imp, aliases)) {
-			continue;
-		}
+	// Main resolution loop ----------------------------------
+	for (const imp of imports) {
+		if (!imp.startsWith(".") && !imp.startsWith("/") && !startsWithAnyAlias(imp, jsCtx.aliases)) continue;
 
-		// Apply single exclude matcher to the RAW specifier
 		if (isExcluded(imp)) continue;
 
-		// Always count valid, non-excluded specifiers as "expected"
-		expected.add(imp);
+		const base = resolveBasePath(filePath, imp, jsCtx.aliases);
+		if (!base) continue;
 
-		const basePath = resolveBasePath(filePath, imp, aliases);
-		if (!basePath) continue;
+		const absBase = path.resolve(base);
+		expected.add(absBase);
 
-		const resolvedPath = await tryResolveImport(basePath, ROOT);
+		const resolvedPath = await tryResolveImport(absBase);
 		if (!resolvedPath) continue;
 
-		filesOut.push(resolvedPath);
-		resolvedSet.add(imp);
+		resolved.add(absBase);
+		files.push(resolvedPath);
 
-		// Never recurse into `.d.ts`
-		if (resolvedPath.toLowerCase().endsWith(DTS_EXT)) {
-			continue;
-			logger.debug("HERE HERE");
-		}
+		const sub = await resolveJsImports({
+			filePath: resolvedPath,
+			visited,
+			depth: depth + 1,
+			maxDepth: limitDepth,
+			ctx: jsCtx,
+		});
 
-		const sub = await resolveJsImports(resolvedPath, cfg, visited, depth + 1, maxDepth, ctx);
-
-		if (sub.files.length) filesOut.push(...sub.files);
-		for (const s of sub.stats.expected) expected.add(s);
-		for (const r of sub.stats.resolved) resolvedSet.add(r);
+		files.push(...sub.files);
+		for (const e of sub.stats.expected) expected.add(e);
+		for (const r of sub.stats.resolved) resolved.add(r);
 	}
 
-	const uniqueFiles = [...new Set(filesOut)];
+	const uniqueFiles = unique(files);
+	const diff = setDiff(expected, resolved);
 
-	//Stat Log
-	const expCount = expected.size;
-	const resCount = resolvedSet.size;
-	const diff = setDiff(expected, resolvedSet);
+	logger.debug(`🪶 [js-resolver] ${filePath} → expected: ${expected.size}, resolved: ${resolved.size}`);
+	if (diff.size) logger.debug([...diff], "🔴 THE diff");
 
-	logger.debug(`🪶 [js-resolver] ${filePath} → expected: ${expCount}, resolved: ${resCount}`);
-	logger.debug([...diff], "🔴THE diff");
-
-	return { files: uniqueFiles, visited, stats: { expected, resolved: resolvedSet } };
+	return { files: uniqueFiles, visited, stats: { expected, resolved } };
 }
 
-// ---------- helpers ----------
+// ---------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------
 
-function startsWithAnyAlias(imp, aliases) {
-	return Object.keys(aliases).some((a) => imp === a || imp.startsWith(a + "/"));
+function startsWithAnyAlias(imp: string, aliases: Record<string, string>): boolean {
+	for (const a of Object.keys(aliases)) {
+		if (imp === a || imp.startsWith(a + "/")) return true;
+	}
+	return false;
 }
 
-function resolveBasePath(fromFile, specifier, aliases) {
+function resolveBasePath(fromFile: string, specifier: string, aliases: Record<string, string>): string | null {
 	if (specifier.startsWith("@")) {
 		const key = Object.keys(aliases)
 			.filter((a) => specifier === a || specifier.startsWith(a + "/"))
 			.sort((a, b) => b.length - a.length)[0];
-
 		if (!key) return null;
 		const relPart = specifier.slice(key.length).replace(/^\/+/, "");
 		return path.resolve(aliases[key], relPart);
@@ -124,15 +137,19 @@ function resolveBasePath(fromFile, specifier, aliases) {
 	return null;
 }
 
-async function tryResolveImport(basePath, ROOT) {
-	const candidates = [];
+// ---------------------------------------------------------
+// tryResolveImport (pure)
+// ---------------------------------------------------------
+async function tryResolveImport(basePath: string): Promise<string | null> {
+	const candidates: string[] = [];
 
-	if (path.extname(basePath)) {
+	const ext = path.extname(basePath).toLowerCase();
+	if (ext && REAL_EXTS.has(ext)) {
 		candidates.push(basePath);
 	} else {
-		for (const ext of [...BASE_EXTS, DTS_EXT]) {
-			candidates.push(basePath + ext);
-			candidates.push(path.join(basePath, "index" + ext));
+		for (const e of [...BASE_EXTS, DTS_EXT]) {
+			candidates.push(basePath + e);
+			candidates.push(path.join(basePath, "index" + e));
 		}
 	}
 
@@ -145,8 +162,11 @@ async function tryResolveImport(basePath, ROOT) {
 	return null;
 }
 
-async function safeStat(p) {
-	if (STAT_CACHE.has(p)) return STAT_CACHE.get(p);
+// ---------------------------------------------------------
+// Cached stat + import scanners
+// ---------------------------------------------------------
+async function safeStat(p: string): Promise<import("fs").Stats | null> {
+	if (STAT_CACHE.has(p)) return STAT_CACHE.get(p)!;
 	try {
 		const st = await fs.stat(p);
 		STAT_CACHE.set(p, st);
@@ -157,13 +177,14 @@ async function safeStat(p) {
 	}
 }
 
-async function getImportsCached(filePath, code) {
-	if (IMPORTS_CACHE.has(filePath)) return IMPORTS_CACHE.get(filePath);
+async function getImportsCached(filePath: string, code: string): Promise<Set<string>> {
+	if (IMPORTS_CACHE.has(filePath)) return IMPORTS_CACHE.get(filePath)!;
 	const set = await extractImports(filePath, code);
 	IMPORTS_CACHE.set(filePath, set);
 	return set;
 }
 
-function empty(visited) {
+// ---------------------------------------------------------
+function empty(visited: Set<string>): ResolverResult {
 	return { files: [], visited, stats: { expected: new Set(), resolved: new Set() } };
 }

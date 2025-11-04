@@ -3,33 +3,30 @@
   "output": {
     "dir": "prodex",
     "versioned": true,
-    "prefix": "prodex",
+    "prefix": "combined",
     "format": "md"
   },
   "entry": {
-    "files": [
-      "**/index.ts"
-    ],
+    "files": [],
     "ui": {
       "roots": [
-        "src/core",
+        "app",
         "routes",
-        "resources/js/"
+        "resources/js/**"
       ],
       "scanDepth": 2,
       "priority": [
         "**/routes/web.php",
         "**/routes/api.php",
-        "**/index.*",
-        "**/main.*",
+        "**/*index.*",
+        "**/*main.*",
         "**/app.*"
       ]
     }
   },
   "resolve": {
     "include": [
-      "**/*types.ts",
-      "**/*.interface.ts"
+      "**/*types.ts"
     ],
     "aliases": {
       "@hooks": "resources/js/hooks",
@@ -42,9 +39,5 @@
     ],
     "depth": 10,
     "limit": 200
-  },
-  "debug": {
-    "verbose": false,
-    "showSummary": true
   }
 }

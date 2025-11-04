@@ -5,6 +5,7 @@ import type { ProdexConfig, ProdexConfigFile } from "../types/config.types";
  * Conforms strictly to ProdexConfig for full type safety.
  */
 export const DEFAULT_PRODEX_CONFIG: ProdexConfigFile = {
+
 	version: 3.1,
 	output: {
 		dir: "prodex",

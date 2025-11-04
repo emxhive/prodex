@@ -1,14 +1,37 @@
+import { getFlags } from "../store";
 import { Logger } from "../types";
 
-const env = () => {
-	const obj = { debug: process.env.PRODEX_DEBUG === "1", silent: process.env.PRODEX_SILENT === "1" };
-	return obj;
-};
+let FLAGS: any = null;
+let DEBUG = false;
+let SILENT = false;
+
+function ensureFlags() {
+	if (FLAGS) return;
+	FLAGS = getFlags() || {};
+	DEBUG = !!FLAGS.debug;
+	SILENT = !!FLAGS.silent;
+}
 
 export const logger: Logger = {
-	debug: (...args) => !env().silent && env().debug && console.log("\n🪶 [debug]", ...args),
-	info: (...args) => !env().silent && console.log("\n📌 [info]", ...args),
-	warn: (...args) => !env().silent && console.warn("\n⚠️  [warn]", ...args),
-	error: (...args) => !env().silent && console.error("\n💥 [error]", ...args),
-	log: (...args) => !env().silent && console.log("\n", ...args),
+	debug: (...a) => {
+		ensureFlags();
+		if (DEBUG && !SILENT) console.log("\n🪶 [debug]", ...a);
+	},
+	info: (...a) => {
+		ensureFlags();
+		if (!SILENT) console.log("\n📌 [info]", ...a);
+	},
+	warn: (...a) => {
+		ensureFlags();
+		if (!SILENT) console.warn("\n⚠️  [warn]", ...a);
+	},
+	error: (...a) => {
+		ensureFlags();
+		if (!SILENT) console.error("\n💥 [error]", ...a);
+	},
+	log: (...a) => {
+		ensureFlags();
+		if (!SILENT) console.log("\n", ...a);
+	},
+	clear: () => console.clear(),
 };

@@ -23,6 +23,8 @@ export interface ProdexFlags {
 	/** Verbose logs (-v / --verbose) */
 	verbose?: boolean;
 
+	silent?: boolean;
+
 	/** Custom output filename (without extension) (--name / -n) */
 	name?: string | null;
 

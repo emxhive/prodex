@@ -27,10 +27,10 @@ export async function globScan(patterns: string[], opts: Options) {
 	return { files };
 }
 
-export function produceSmartName(entries: string[]): string {
+export function smartNaming(entries: string[]): string {
 	const names = unique(entries.map((f) => path.basename(f, path.extname(f))));
 	if (names.length === 1) return names[0];
 	if (names.length === 2) return `${names[0]}-${names[1]}`;
 	if (names.length > 2) return `${names[0]}-and-${names.length - 1}more`;
-	return "unknown";
+	return "prodex";
 }

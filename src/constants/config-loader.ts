@@ -2,7 +2,6 @@ import fs from "fs";
 import path from "path";
 import { DEFAULT_PRODEX_CONFIG } from "./default-config";
 import type { ProdexConfig, ProdexFlags } from "../types";
-import { logger } from "../lib/logger";
 import { normalizePatterns } from "../lib/utils";
 
 /**
@@ -22,7 +21,7 @@ export async function loadProdexConfig(flags: Partial<ProdexFlags> = {}, cwd: st
 		const content = fs.readFileSync(configPath, "utf8");
 		userConfig = JSON.parse(content);
 	} catch (err: any) {
-		logger.info("No prodex.json found — using defaults.");
+		console.info("No prodex.json found — using defaults.");
 	}
 
 	// 2️⃣ Merge defaults → user config

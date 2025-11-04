@@ -27,7 +27,8 @@
   "scripts": {
     "build": "tsc",
     "dev": "tsc --watch",
-    "prepare": "npm run build"
+    "prepare": "npm run build",
+    "d:w": "nodemon --watch dist --delay 3000ms --exec node --inspect-brk dist/debug.js"
   },
   "engines": {
     "node": ">=16"
@@ -36,6 +37,8 @@
   "license": "MIT",
   "devDependencies": {
     "@types/node": "^24.9.2",
+    "nodemon": "^3.1.10",
+    "source-map-support": "^0.5.21",
     "typescript": "^5.9.3",
     "vitest": "^4.0.4"
   },

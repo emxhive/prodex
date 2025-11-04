@@ -1,6 +1,5 @@
 import sade, { Value } from "sade";
 import { FlagKey, PRODEX_FLAGS } from "./flags";
-import { logger } from "../lib/logger";
 import path from "path";
 import pkg from "../../package.json";
 import { ParsedInput, ProdexFlags } from "../types";
@@ -13,7 +12,7 @@ import fs from "fs";
 
 export function parseCliInput(argv: string[] = process.argv) {
 	if (argv.includes("-v") || argv.includes("--version")) {
-		logger.log(`prodex v${pkg.version}`);
+		console.log(`prodex v${pkg.version}`);
 		process.exit(0);
 	}
 	const program = sade("prodex [root]");
@@ -109,9 +108,9 @@ function validateArgs(parsed: ParsedInput, warnings: string[], errors: string[])
 		warnings.push(`Unrecognized arguments detected [${unknown.join(", ")}]- They were ignored.`);
 	}
 
-	if (warnings.length) logger.warn("Warnings:", warnings);
+	if (warnings.length) console.warn("Warnings:", warnings);
 	if (errors.length) {
-		for (const err of errors) logger.error(err);
+		for (const err of errors) console.error(err);
 		process.exit(1);
 	}
 }

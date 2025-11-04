@@ -2,18 +2,24 @@ import path from "path";
 import { CODE_EXTS, RESOLVERS } from "../constants/config";
 import { globScan } from "./file-utils";
 import { logger } from "../lib/logger";
-import { ProdexConfig } from "../types";
 import { unique } from "../lib/utils";
+import type { ProdexConfig, ResolverParams, ResolverResult } from "../types";
 
-export async function followChain(entryFiles, cfg: ProdexConfig) {
+/**
+ * 🧩 followChain()
+ * Traverses all dependencies starting from the given entry files.
+ * Uses language-specific resolvers (JS / PHP) under the hood.
+ */
+export async function followChain(entryFiles: string[], cfg: ProdexConfig) {
 	const limit = cfg.resolve.limit;
+	const resolverDepth = cfg.resolve.depth;
 
 	logger.debug("🧩 Following dependency chain...");
-	const visited = new Set();
-	const all = [];
-	const expected = new Set();
-	const resolved = new Set();
-	const resolverDepth = cfg.resolve.depth;
+
+	const visited = new Set<string>();
+	const all: string[] = [];
+	const expected = new Set<string>();
+	const resolved = new Set<string>();
 
 	for (const f of entryFiles) {
 		if (visited.has(f)) continue;
@@ -23,13 +29,29 @@ export async function followChain(entryFiles, cfg: ProdexConfig) {
 		if (!CODE_EXTS.includes(ext)) continue;
 
 		const resolver = RESOLVERS[ext];
-		if (resolver) {
-			const result = await resolver(f, cfg, visited, 0, resolverDepth);
-			const { files, stats } = result;
-			all.push(...files);
-			stats?.expected?.forEach((x) => expected.add(x));
-			stats?.resolved?.forEach((x) => resolved.add(x));
+		if (!resolver) continue;
+
+		const params: ResolverParams = {
+			filePath: f,
+			visited,
+			depth: 0,
+			maxDepth: resolverDepth,
+		};
+
+		let result: ResolverResult | null = null;
+		try {
+			result = await resolver(params);
+		} catch (err: any) {
+			logger.warn(`⚠️ Resolver failed for ${f}:`, err.message || err);
+			continue;
 		}
+
+		if (!result) continue;
+
+		const { files, stats } = result;
+		all.push(...files);
+		stats.expected.forEach((x) => expected.add(x));
+		stats.resolved.forEach((x) => resolved.add(x));
 
 		if (limit && all.length >= limit) {
 			logger.warn("⚠️  Limit reached:", limit);
@@ -43,15 +65,13 @@ export async function followChain(entryFiles, cfg: ProdexConfig) {
 	};
 }
 
-export async function applyincludes(cfg, files) {
-	;
-	const { resolve } = cfg;
-	const ROOT = cfg.root;
-
-	const scan = await globScan(resolve.include, { cwd: ROOT });
+/**
+ * 🧩 applyIncludes()
+ * Scans and appends additional files defined in config.resolve.include.
+ */
+export async function applyIncludes(cfg: ProdexConfig, files: string[]) {
+	const { resolve, root } = cfg;
+	const scan = await globScan(resolve.include, { cwd: root });
 	logger.debug("APPLY_include", _2j(scan));
-	const combined = unique([...files, ...scan.files]);
-
-	;
-	return combined;
+	return unique([...files, ...scan.files]);
 }

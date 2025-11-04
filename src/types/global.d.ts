@@ -14,6 +14,7 @@ declare global {
 	var _2j: (obj: any) => string;
 
 	var _bpt: (params: any) => any;
+	var _bp: (params?: any) => any;
 }
 
 export {};
