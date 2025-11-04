@@ -28,7 +28,7 @@
     "build": "tsc",
     "dev": "tsc --watch",
     "prepare": "npm run build",
-    "d:w": "nodemon --watch dist --delay 3000ms --exec node --inspect-brk dist/debug.js"
+    "d:w": "nodemon --watch dist --delay 500ms --exec node --inspect-brk dist/debug.js"
   },
   "engines": {
     "node": ">=16"

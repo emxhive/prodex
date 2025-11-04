@@ -2,15 +2,15 @@ import fs from "fs/promises";
 import path from "path";
 import micromatch from "micromatch";
 import { extractImports } from "../../core/parsers/extract-imports";
-import { loadProjectAliases } from "./alias-loader";
 import { BASE_EXTS, DTS_EXT, REAL_EXTS } from "../../constants/config";
 import { setDiff, unique } from "../../lib/utils";
 import { logger } from "../../lib/logger";
 import { getConfig } from "../../store";
-import type { ResolverParams, ResolverResult, JsResolverCtx } from "../../types";
+import { resolveAliasPath } from "../shared/resolve-alias"; // alias: config + cache + fast-glob
+import type { ResolverParams, ResolverResult } from "../../types";
 
 // ---------------------------------------------------------
-// 🧩 JS Resolver — absolute-path, config-getter version
+// 🧩 JS Resolver — alias cache + fast-glob discovery
 // ---------------------------------------------------------
 
 const IMPORTS_CACHE: Map<string, Set<string>> = new Map();
@@ -19,7 +19,7 @@ const STAT_CACHE: Map<string, import("fs").Stats | null> = new Map();
 // ---------------------------------------------------------
 // Entry
 // ---------------------------------------------------------
-export async function resolveJsImports({ filePath, visited = new Set(), depth = 0, maxDepth, ctx }: ResolverParams): Promise<ResolverResult> {
+export async function resolveJsImports({ filePath, visited = new Set(), depth = 0, maxDepth }: ResolverParams): Promise<ResolverResult> {
 	const limitDepth = maxDepth;
 
 	if (depth >= limitDepth) return empty(visited);
@@ -28,7 +28,7 @@ export async function resolveJsImports({ filePath, visited = new Set(), depth = 
 
 	const {
 		root: ROOT,
-		resolve: { exclude: excludePatterns, aliases },
+		resolve: { exclude: excludePatterns },
 	} = getConfig();
 
 	const isExcluded = micromatch.matcher(excludePatterns);
@@ -44,18 +44,6 @@ export async function resolveJsImports({ filePath, visited = new Set(), depth = 
 		return empty(visited);
 	}
 
-	// Context (aliases) -------------------------------------
-	const jsCtx: JsResolverCtx =
-		ctx?.kind === "js"
-			? (ctx as JsResolverCtx)
-			: {
-					kind: "js",
-					aliases: {
-						...loadProjectAliases(ROOT),
-						...(aliases || {}),
-					},
-			  };
-
 	// Extract imports ---------------------------------------
 	const imports = await getImportsCached(filePath, code);
 	if (!imports.size) return empty(visited);
@@ -67,11 +55,23 @@ export async function resolveJsImports({ filePath, visited = new Set(), depth = 
 
 	// Main resolution loop ----------------------------------
 	for (const imp of imports) {
-		if (!imp.startsWith(".") && !imp.startsWith("/") && !startsWithAnyAlias(imp, jsCtx.aliases)) continue;
-
+		// skip bare packages (react, lodash, etc.)
+		if (!imp.startsWith(".") && !imp.startsWith("/") && !imp.startsWith("@")) continue;
 		if (isExcluded(imp)) continue;
 
-		const base = resolveBasePath(filePath, imp, jsCtx.aliases);
+		let base: string | null = null;
+
+		if (imp.startsWith(".")) {
+			// relative → like original resolver
+			base = path.resolve(path.dirname(filePath), imp);
+		} else if (imp.startsWith("/")) {
+			// absolute path import → like original resolver
+			base = path.resolve(imp);
+		} else {
+			// alias (@...) → unified resolver (config + cache + glob)
+			base = await resolveAliasPath(imp, ROOT, getConfig());
+		}
+
 		if (!base) continue;
 
 		const absBase = path.resolve(base);
@@ -83,12 +83,12 @@ export async function resolveJsImports({ filePath, visited = new Set(), depth = 
 		resolved.add(absBase);
 		files.push(resolvedPath);
 
+		// Recursive traversal
 		const sub = await resolveJsImports({
 			filePath: resolvedPath,
 			visited,
 			depth: depth + 1,
 			maxDepth: limitDepth,
-			ctx: jsCtx,
 		});
 
 		files.push(...sub.files);
@@ -103,38 +103,6 @@ export async function resolveJsImports({ filePath, visited = new Set(), depth = 
 	if (diff.size) logger.debug([...diff], "🔴 THE diff");
 
 	return { files: uniqueFiles, visited, stats: { expected, resolved } };
-}
-
-// ---------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------
-
-function startsWithAnyAlias(imp: string, aliases: Record<string, string>): boolean {
-	for (const a of Object.keys(aliases)) {
-		if (imp === a || imp.startsWith(a + "/")) return true;
-	}
-	return false;
-}
-
-function resolveBasePath(fromFile: string, specifier: string, aliases: Record<string, string>): string | null {
-	if (specifier.startsWith("@")) {
-		const key = Object.keys(aliases)
-			.filter((a) => specifier === a || specifier.startsWith(a + "/"))
-			.sort((a, b) => b.length - a.length)[0];
-		if (!key) return null;
-		const relPart = specifier.slice(key.length).replace(/^\/+/, "");
-		return path.resolve(aliases[key], relPart);
-	}
-
-	if (specifier.startsWith(".")) {
-		return path.resolve(path.dirname(fromFile), specifier);
-	}
-
-	if (specifier.startsWith("/")) {
-		return path.resolve(specifier);
-	}
-
-	return null;
 }
 
 // ---------------------------------------------------------

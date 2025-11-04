@@ -1,0 +1,61 @@
+import path from "path";
+import fg from "fast-glob";
+import { logger } from "../../lib/logger";
+import type { ProdexConfig } from "../../types";
+import { getCache, setCache } from "../../core/cache";
+
+/**
+ * 🧩 resolveAliasPath()
+ * Unifies alias lookup across config, cache, and fallback discovery.
+ *
+ * - Checks cfg.resolve.aliases first.
+ * - Then cached aliases (from Cache Manager).
+ * - If still unresolved, runs Fast-Glob to discover and cache new alias root.
+ */
+export async function resolveAliasPath(specifier: string, root: string, cfg: ProdexConfig): Promise<string | null> {
+	if (!specifier.includes("/")) return null;
+
+	const [aliasName, ...rest] = specifier.split("/");
+	const remainder = rest.join("/");
+	const knownAliases = cfg.resolve.aliases || {};
+	const aliasKey = aliasName.startsWith("@") ? aliasName : `@${aliasName}`;
+
+	// 1️⃣ Check config-defined aliases
+	if (knownAliases[aliasKey]) {
+		const relPart = remainder.replace(/^\/+/, "");
+		return path.resolve(root, knownAliases[aliasKey], relPart);
+	}
+
+	// 2️⃣ Check cached aliases
+	const cached = getCache("aliases", aliasKey);
+	if (cached) {
+		const relPart = remainder.replace(/^\/+/, "");
+		return path.resolve(root, cached, relPart);
+	}
+
+	// 3️⃣ Fallback discovery with Fast-Glob
+	const stripped = remainder; // remove prefix before first '/'
+	const hasExt = /\.[a-z0-9]+$/i.test(stripped);
+	const patterns = hasExt ? [`**/${stripped}`] : [`**/${stripped}.*`, `**/${stripped}/index.*`];
+
+	const matches = await fg(patterns, {
+		cwd: root,
+		absolute: true,
+		ignore: ["**/node_modules/**", "**/vendor/**", "**/dist/**"],
+	});
+
+	if (matches.length === 1) {
+		const foundFile = matches[0];
+		const aliasRoot = foundFile.split(remainder)[0].replace(/\\/g, "/");
+
+		setCache("aliases", aliasKey, aliasRoot);
+		logger.debug(`🧩 Discovered alias ${aliasKey} → ${aliasRoot}`);
+		return foundFile;
+	}
+
+	if (matches.length > 1) {
+		logger.warn(`⚠️ Multiple matches for '${specifier}', skipping cache.`);
+	}
+
+	return null;
+}

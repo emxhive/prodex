@@ -1,9 +1,9 @@
 import startProdex from "./index";
 
 (async () => {
-	const mockArgs = ["node", "prodex", "-f", "src/index.ts", "-c"];
-
+	const mockArgs = ["node", "prodex", "C:\\Users\\USER\\Herd\\fireshot", "-f", "**/dashboard.tsx", "-cd"];
 	process.argv = mockArgs;
+
 
 	console.log("🧩 Debug runner starting...");
 	await startProdex();

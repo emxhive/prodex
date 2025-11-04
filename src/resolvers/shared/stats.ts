@@ -1,6 +1,6 @@
 import { ResolverResult } from "../../types";
 
-export function newStats() {
+export function newStats(): ResolverResult["stats"] {
 	return { expected: new Set(), resolved: new Set() };
 }
 

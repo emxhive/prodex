@@ -13,8 +13,9 @@ export async function runCombine({ cfg, opts }: CombineParams) {
 	let entries = (await resolveEntries(showUi, cfg)) ?? [];
 
 	entrySummary(entries);
+	
 	let result;
-
+	if (!entries.length) logger.info("No entries found");
 	if (entries.length) result = await followChain(entries, cfg);
 	const withinclude = await applyIncludes(cfg, result?.files ?? []);
 	const autoName = smartNaming(entries);

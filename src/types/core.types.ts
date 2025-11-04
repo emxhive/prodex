@@ -36,3 +36,20 @@ export interface CombineParams {
 	cfg: ProdexConfig;
 	opts: CombineOptions;
 }
+
+/**
+ * 🧠 Cache Type Definitions for Prodex
+ * Central store for runtime-discovered aliases and other ephemeral data.
+ */
+
+export interface AliasCache {
+	[alias: string]: string;
+}
+
+/**
+ * Core cache registry shape.
+ * Extend this interface to include other cache namespaces (fileCache, statsCache, etc.)
+ */
+export interface CacheRegistry {
+	aliases: Map<string, string>;
+}
