@@ -1,6 +1,6 @@
 import { initProdex } from "./cli/init";
 import { parseCliInput } from "./cli/cli-input";
-import { ConfigManager } from "./core/managers/config-manager";
+import { ConfigManager } from "./core/managers/config";
 import { setGlobals } from "./store";
 import { runCombine } from "./core/combine";
 

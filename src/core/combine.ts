@@ -2,7 +2,7 @@ import { pickEntries } from "../cli/picker";
 import { endSummary, entrySummary, introSummary } from "../cli/summary";
 import { CACHE_KEYS } from "../constants/cache-keys";
 import { CacheManager } from "./managers/cache";
-import { ConfigManager } from "./managers/config-manager";
+import { ConfigManager } from "./managers/config";
 import { logger } from "../lib/logger";
 import { CombineParams, ProdexConfig } from "../types";
 import { applyIncludes, followChain } from "./dependency";
