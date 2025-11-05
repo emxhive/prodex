@@ -1,5 +1,5 @@
 import { logger } from "../lib/logger";
-import { rel } from "../core/helpers";
+import { rel } from "../shared/io";
 import { getConfig, getFlags } from "../store";
 
 let CONFIG;

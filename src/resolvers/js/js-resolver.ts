@@ -1,29 +1,23 @@
-import fs from "fs/promises";
 import path from "path";
-import micromatch from "micromatch";
-import { extractImports } from "../../core/parsers/extract-imports";
+import { extractImports } from "./extract-imports";
 import { BASE_EXTS, DTS_EXT, REAL_EXTS } from "../../constants/config";
-import { setDiff, unique } from "../../lib/utils";
+import { emptyResult, unique } from "../../shared/collections";
 import { logger } from "../../lib/logger";
 import { getConfig } from "../../store";
-import { resolveAliasPath } from "../shared/resolve-alias"; // alias: config + cache + fast-glob
+import { resolveAliasPath } from "./resolve-alias"; // alias: config + cache + fast-glob
 import type { ResolverParams, ResolverResult } from "../../types";
+import { CacheManager } from "../../core/managers/cache";
+import { CACHE_KEYS } from "../../constants/cache-keys";
+import { isExcluded, readFileSafe, safeStatCached } from "../../shared";
+import { setDiff } from "../../shared";
 
-// ---------------------------------------------------------
-// 🧩 JS Resolver — alias cache + fast-glob discovery
-// ---------------------------------------------------------
+const { JS_STATS, JS_IMPORTS } = CACHE_KEYS;
 
-const IMPORTS_CACHE: Map<string, Set<string>> = new Map();
-const STAT_CACHE: Map<string, import("fs").Stats | null> = new Map();
-
-// ---------------------------------------------------------
-// Entry
-// ---------------------------------------------------------
 export async function resolveJsImports({ filePath, visited = new Set(), depth = 0, maxDepth }: ResolverParams): Promise<ResolverResult> {
 	const limitDepth = maxDepth;
 
-	if (depth >= limitDepth) return empty(visited);
-	if (visited.has(filePath)) return empty(visited);
+	if (depth >= limitDepth) return emptyResult(visited);
+	if (visited.has(filePath)) return emptyResult(visited);
 	visited.add(filePath);
 
 	const {
@@ -31,22 +25,16 @@ export async function resolveJsImports({ filePath, visited = new Set(), depth = 
 		resolve: { exclude: excludePatterns },
 	} = getConfig();
 
-	const isExcluded = micromatch.matcher(excludePatterns);
-
 	const ext = path.extname(filePath).toLowerCase();
 	const isDts = ext === DTS_EXT;
-	if (!BASE_EXTS.includes(ext) && !isDts) return empty(visited);
+	if (!BASE_EXTS.includes(ext) && !isDts) return emptyResult(visited);
 
-	let code = "";
-	try {
-		code = await fs.readFile(filePath, "utf8");
-	} catch {
-		return empty(visited);
-	}
+	let code = readFileSafe(filePath);
+	if (!code) return emptyResult(visited);
 
 	// Extract imports ---------------------------------------
 	const imports = await getImportsCached(filePath, code);
-	if (!imports.size) return empty(visited);
+	if (!imports.size) return emptyResult(visited);
 
 	// Trackers ----------------------------------------------
 	const expected = new Set<string>();
@@ -57,7 +45,7 @@ export async function resolveJsImports({ filePath, visited = new Set(), depth = 
 	for (const imp of imports) {
 		// skip bare packages (react, lodash, etc.)
 		if (!imp.startsWith(".") && !imp.startsWith("/") && !imp.startsWith("@")) continue;
-		if (isExcluded(imp)) continue;
+		if (isExcluded(imp, excludePatterns)) continue;
 
 		let base: string | null = null;
 
@@ -120,11 +108,18 @@ async function tryResolveImport(basePath: string): Promise<string | null> {
 			candidates.push(path.join(basePath, "index" + e));
 		}
 	}
+	// Run all stat checks in parallel
+	const results = await Promise.allSettled(
+		candidates.map(async (c) => {
+			const abs = path.resolve(c);
+			const st = await safeStatCached(JS_STATS, abs);
+			return st && st.isFile() ? abs : null;
+		})
+	);
 
-	for (const c of candidates) {
-		const abs = path.resolve(c);
-		const st = await safeStat(abs);
-		if (st && st.isFile()) return abs;
+	// Find the first fulfilled non-null result
+	for (const r of results) {
+		if (r.status === "fulfilled" && r.value) return r.value;
 	}
 
 	return null;
@@ -133,26 +128,11 @@ async function tryResolveImport(basePath: string): Promise<string | null> {
 // ---------------------------------------------------------
 // Cached stat + import scanners
 // ---------------------------------------------------------
-async function safeStat(p: string): Promise<import("fs").Stats | null> {
-	if (STAT_CACHE.has(p)) return STAT_CACHE.get(p)!;
-	try {
-		const st = await fs.stat(p);
-		STAT_CACHE.set(p, st);
-		return st;
-	} catch {
-		STAT_CACHE.set(p, null);
-		return null;
-	}
-}
 
 async function getImportsCached(filePath: string, code: string): Promise<Set<string>> {
-	if (IMPORTS_CACHE.has(filePath)) return IMPORTS_CACHE.get(filePath)!;
+	const cached = CacheManager.get(JS_IMPORTS, filePath);
+	if (cached) return cached;
 	const set = await extractImports(filePath, code);
-	IMPORTS_CACHE.set(filePath, set);
+	CacheManager.set(JS_IMPORTS, filePath, set);
 	return set;
-}
-
-// ---------------------------------------------------------
-function empty(visited: Set<string>): ResolverResult {
-	return { files: [], visited, stats: { expected: new Set(), resolved: new Set() } };
 }

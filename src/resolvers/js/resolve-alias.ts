@@ -1,8 +1,8 @@
 import path from "path";
-import fg from "fast-glob";
-import { logger } from "../../lib/logger";
+import { CacheManager } from "../../core/managers/cache";
 import type { ProdexConfig } from "../../types";
-import { getCache, setCache } from "../../core/cache";
+import { CACHE_KEYS } from "../../constants";
+import { globScan } from "../../core/helpers";
 
 /**
  * 🧩 resolveAliasPath()
@@ -27,7 +27,8 @@ export async function resolveAliasPath(specifier: string, root: string, cfg: Pro
 	}
 
 	// 2️⃣ Check cached aliases
-	const cached = getCache("aliases", aliasKey);
+	const cached = CacheManager.get(CACHE_KEYS.ALIASES, aliasKey);
+
 	if (cached) {
 		const relPart = remainder.replace(/^\/+/, "");
 		return path.resolve(root, cached, relPart);
@@ -38,24 +39,24 @@ export async function resolveAliasPath(specifier: string, root: string, cfg: Pro
 	const hasExt = /\.[a-z0-9]+$/i.test(stripped);
 	const patterns = hasExt ? [`**/${stripped}`] : [`**/${stripped}.*`, `**/${stripped}/index.*`];
 
-	const matches = await fg(patterns, {
-		cwd: root,
-		absolute: true,
-		ignore: ["**/node_modules/**", "**/vendor/**", "**/dist/**"],
-	});
+	const { files: matches } = await globScan(patterns, { cwd: root });
 
 	if (matches.length === 1) {
-		const foundFile = matches[0];
-		const aliasRoot = foundFile.split(remainder)[0].replace(/\\/g, "/");
-
-		setCache("aliases", aliasKey, aliasRoot);
-		logger.debug(`🧩 Discovered alias ${aliasKey} → ${aliasRoot}`);
-		return foundFile;
+		return resolveMatches(matches, remainder, aliasKey);
 	}
 
+	//There are multiple matches, Assuming they match the target approximate folder.
 	if (matches.length > 1) {
-		logger.warn(`⚠️ Multiple matches for '${specifier}', skipping cache.`);
+		const resolvedMatch = resolveMatches(matches, remainder, aliasKey);
+		return resolvedMatch.replace(/\.[^/.]+$/, "");
 	}
 
 	return null;
+}
+
+function resolveMatches(matches: string[], remainder: string, aliasKey: string) {
+	const foundFile = matches[0];
+	const aliasRoot = foundFile.split(remainder)[0].replace(/\\/g, "/");
+	CacheManager.set(CACHE_KEYS.ALIASES, aliasKey, aliasRoot);
+	return foundFile;
 }

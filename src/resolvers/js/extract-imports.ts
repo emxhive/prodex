@@ -1,11 +1,9 @@
-// @ts-nocheck
-
 import fs from "fs/promises";
 import { init, parse } from "es-module-lexer";
 
 let initialized = false;
 
-export async function extractImports(filePath, code): Set<string> {
+export async function extractImports(filePath, code): Promise<Set<string>> {
 	if (!initialized) {
 		await init;
 		initialized = true;
@@ -22,7 +20,7 @@ export async function extractImports(filePath, code): Set<string> {
 
 	try {
 		const [imports] = parse(src);
-		const out = new Set();
+		const out = new Set<string>();
 		for (const i of imports) if (i.n) out.add(i.n);
 		return out;
 	} catch {
@@ -33,7 +31,7 @@ export async function extractImports(filePath, code): Set<string> {
 function fallbackRegex(code) {
 	const patterns = [/import\s+[^'"]*['"]([^'"]+)['"]/g, /import\(\s*['"]([^'"]+)['"]\s*\)/g, /require\(\s*['"]([^'"]+)['"]\s*\)/g, /export\s+\*\s+from\s+['"]([^'"]+)['"]/g];
 
-	const matches = new Set();
+	const matches = new Set<string>();
 	for (const r of patterns) {
 		let m;
 		while ((m = r.exec(code))) matches.add(m[1]);

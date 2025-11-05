@@ -1,32 +1,15 @@
 import fs from "fs";
-import fsp from "fs/promises";
 import path from "path";
-import micromatch from "micromatch";
-import { extractPhpImports, expandGroupedUses } from "./patterns";
+import { extractPhpImports, expandGroupedUses } from "./extract-imports";
 import { loadLaravelBindings } from "./bindings";
 import { resolvePsr4 } from "./psr4";
 import { logger } from "../../lib/logger";
-import { newStats, mergeStats, emptyStats } from "../shared/stats";
-import { tryResolvePhpFile } from "../shared/file-cache"; // existing sync helper
-import { unique } from "../../lib/utils";
+import { newStats, mergeStats, unique, readFileSafe, makeExcludeMatcher, setDiff } from "../../shared";
 import { getConfig } from "../../store";
 import type { ResolverParams, ResolverResult, PhpResolverCtx } from "../../types";
-
-/** Safe async file read (empty string on failure) */
-async function readFileSafe(p: string): Promise<string> {
-	try {
-		return await fsp.readFile(p, "utf8");
-	} catch {
-		return "";
-	}
-}
-
-/** Precompiled micromatch exclude matcher */
-function makeExcludeMatcher(patterns: string[]) {
-	if (!patterns?.length) return () => false;
-	const mm = micromatch.matcher(patterns);
-	return (s: string) => mm(String(s).replace(/\\/g, "/"));
-}
+import { CACHE_KEYS } from "../../constants";
+import { CacheManager } from "../../core/managers/cache";
+import { emptyResult } from "../../shared/collections";
 
 /** Ensure we have a PHP resolver context for the current root */
 function buildPhpCtx(root: string, prev?: PhpResolverCtx): PhpResolverCtx {
@@ -43,11 +26,6 @@ function startsWithAnyNamespace(imp: string, nsKeys: string[]): boolean {
 	return false;
 }
 
-/** Empty result helper */
-function empty(visited: Set<string>): ResolverResult {
-	return { files: [], visited, stats: emptyStats() };
-}
-
 /**
  * Typed PHP resolver (aligned with JS resolver signature).
  * - Uses global config via getConfig()
@@ -62,14 +40,14 @@ export async function resolvePhpImports({ filePath, visited = new Set<string>(),
 
 	const limitDepth = maxDepth ?? defaultDepth;
 
-	if (depth >= limitDepth) return empty(visited);
-	if (visited.has(filePath)) return empty(visited);
+	if (depth >= limitDepth) return emptyResult(visited);
+	if (visited.has(filePath)) return emptyResult(visited);
 	visited.add(filePath);
 
 	// Fast existence / read
-	if (!fs.existsSync(filePath)) return empty(visited);
-	const code = await readFileSafe(filePath);
-	if (!code) return empty(visited);
+	if (!fs.existsSync(filePath)) return emptyResult(visited);
+	const code = readFileSafe(filePath);
+	if (!code) return emptyResult(visited);
 
 	// Context + exclusions
 	const phpCtx = buildPhpCtx(ROOT, ctx as PhpResolverCtx | undefined);
@@ -99,7 +77,7 @@ export async function resolvePhpImports({ filePath, visited = new Set<string>(),
 		stats.expected.add(imp);
 
 		// Resolve namespace → file path (sync helper retained)
-		const resolvedPath = tryResolvePhpFile(imp, filePath, phpCtx.psr4);
+		const resolvedPath = await tryResolvePhpFile(imp, filePath, phpCtx.psr4);
 		if (!resolvedPath) continue;
 
 		stats.resolved.add(imp);
@@ -119,9 +97,43 @@ export async function resolvePhpImports({ filePath, visited = new Set<string>(),
 	}
 
 	const out = unique(filesOut);
-	const unresolved = new Set([...stats.expected].filter((x) => !stats.resolved.has(x)));
+	const unresolved = setDiff(stats.expected, stats.resolved);
 	logger.debug(`🪶 [php-resolver] ${path.basename(filePath)} → expected: ${stats.expected.size}, resolved: ${stats.resolved.size}`);
 	if (unresolved.size) logger.debug("[php-resolver] unresolved:", [...unresolved]);
 
 	return { files: out, visited, stats };
+}
+
+import fsp from "fs/promises"; // (add near the top if not present)
+
+async function tryResolvePhpFile(imp: string, fromFile: string, psr4: Record<string, string>): Promise<string | null> {
+	const key = `php:${imp}:${fromFile}`;
+	const cached = CacheManager.get(CACHE_KEYS.PHP_FILECACHE, key);
+	if (cached !== undefined) return cached;
+
+	const nsKey = Object.keys(psr4).find((k) => imp.startsWith(k));
+	if (!nsKey) {
+		CacheManager.set(CACHE_KEYS.PHP_FILECACHE, key, null);
+		return null;
+	}
+
+	const rel = imp.slice(nsKey.length).norm();
+	const tries = [path.join(psr4[nsKey], rel), path.join(psr4[nsKey], rel + ".php"), path.join(psr4[nsKey], rel, "index.php")];
+
+	// 🔹 Run all stats concurrently
+	const results = await Promise.allSettled(
+		tries.map(async (p) => {
+			try {
+				const st = await fsp.stat(p);
+				return st.isFile() ? path.resolve(p) : null;
+			} catch {
+				return null;
+			}
+		})
+	);
+
+	//@ts-ignore
+	const resolved = results.find((r) => r.status === "fulfilled" && r.value)?.value ?? null;
+	CacheManager.set(CACHE_KEYS.PHP_FILECACHE, key, resolved);
+	return resolved;
 }

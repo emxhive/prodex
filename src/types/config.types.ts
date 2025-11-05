@@ -30,7 +30,6 @@ export interface ProdexConfig {
 		depth: number;
 		limit: number;
 	};
-
 }
 
 /** Optional helper for typed schema versions. */
@@ -40,3 +39,7 @@ export interface Versioned {
 
 /** Represents the user-saved config file (without runtime fields). */
 export type ProdexConfigFile = Omit<ProdexConfig, "root" | "name">;
+
+export type DeepPartial<T> = {
+	[K in keyof T]?: T[K] extends object ? DeepPartial<T[K]> : T[K];
+};

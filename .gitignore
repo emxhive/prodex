@@ -144,3 +144,4 @@ prodex-priority-files.patch
 s.sh
 src/test.js
 prodex.json
+**/.obsidian

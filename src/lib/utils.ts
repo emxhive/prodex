@@ -1,16 +1,4 @@
-// @ts-nocheck
-
 import { VALID_GLOB_CHARS } from "../constants/config";
-
-export function unique(arr: string[]): string[] {
-	return [...new Set(arr)];
-}
-export function setDiff(A, B) {
-	return new Set([...A].filter((x) => !B.has(x)));
-}
-export function toArray(v) {
-	return Array.isArray(v) ? v : [v];
-}
 
 /** Compact YYMMDD-HHmm timestamp for versioned filenames. */
 export function shortTimestamp(): string {

@@ -1,20 +1,15 @@
 import { initProdex } from "./cli/init";
 import { parseCliInput } from "./cli/cli-input";
-import { loadProdexConfig } from "./constants/config-loader";
+import { ConfigManager } from "./core/managers/config-manager";
 import { setGlobals } from "./store";
 import { runCombine } from "./core/combine";
 
 export default async function startProdex(args = process.argv) {
-	// Handle init mode
-	if (args.includes("init")) {
-		return initProdex();
-	}
+	if (args.includes("init")) return initProdex();
 
-	// Parse CLI input
 	const { root, flags } = parseCliInput(args);
-
-	// Load and merge configuration (with flag overrides)
-	const config = await loadProdexConfig(flags, root);
+	const userConfig = ConfigManager.load(root);
+	const config = ConfigManager.merge(userConfig, flags, root);
 	setGlobals(config, flags);
 
 	const opts = {
@@ -23,6 +18,5 @@ export default async function startProdex(args = process.argv) {
 	};
 
 	await import("./lib/polyfills");
-
 	await runCombine({ cfg: config, opts });
 }

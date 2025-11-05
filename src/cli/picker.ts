@@ -1,9 +1,10 @@
 import fs from "fs";
 import path from "path";
 import inquirer from "inquirer";
-import { walk, rel, orderByPriority } from "../core/helpers";
-import { globScan } from "../core/file-utils";
-import { unique } from "../lib/utils";
+import { walk, orderByPriority } from "../core/helpers";
+import { rel } from "../shared/io";
+import { globScan } from "../core/helpers";
+import { unique } from "../shared/collections";
 import { logger } from "../lib/logger";
 import { prompt } from "../lib/prompt";
 import type { QuestionSet, ProdexConfig } from "../types";

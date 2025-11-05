@@ -1,7 +1,3 @@
-// ================================================================
-// 🧩 Prodex — Render Constants
-// Defines shared constants for renderer outDir formats.
-// ================================================================
 import pkg from "../../package.json";
 
 export const LANG_MAP = {

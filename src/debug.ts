@@ -1,7 +1,7 @@
 import startProdex from "./index";
 
 (async () => {
-	const mockArgs = ["node", "prodex", "C:\\Users\\USER\\Herd\\fireshot", "-f", "**/dashboard.tsx", "-cd"];
+	const mockArgs = ["node", "prodex", "C:\\Users\\USER\\Herd\\fireshot", "-f", "**/(dashboard|accounts).tsx", "-cd"];
 	process.argv = mockArgs;
 
 

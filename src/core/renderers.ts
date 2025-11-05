@@ -1,5 +1,6 @@
 import path from "path";
-import { read, rel } from "./helpers";
+import { readFileSafe } from "../shared/io";
+import { rel } from "../shared/io";
 import { LANG_MAP } from "../constants/render-constants";
 
 /**
@@ -9,7 +10,7 @@ export function tocMd(files) {
 	const count = files.length;
 	const items = files.map((f, i) => `- [${rel(f)}](#${i + 1})`).join("\n");
 
-	return [`\nIncluded Source Files (${count})`, "#### 0 ", items, "", "---"].join("\n");
+	return ["# Index ", `\nIncluded Source Files (${count})`, items, "", "---"].join("\n");
 }
 
 /**
@@ -19,9 +20,9 @@ export function renderMd(p, i) {
 	const rp = rel(p);
 	const ext = path.extname(p).toLowerCase();
 	const lang = LANG_MAP[ext] || "txt";
-	const code = read(p).trimEnd();
+	const code = readFileSafe(p).trimEnd();
 
-	return [`---\n#### ${i + 1}`, "\n", "` File: " + rp + "`  [↑ Back to top](#0)", "", "```" + lang, code, "```", ""].join("\n");
+	return [`---\n#### ${i + 1}`, "\n", "` File: " + rp + "`  [↑ Back to top](#index)", "", "```" + lang, code, "```", ""].join("\n");
 }
 
 /**
@@ -34,6 +35,6 @@ export function tocTxt(files) {
 
 export function renderTxt(p) {
 	const relPath = rel(p);
-	const code = read(p);
+	const code = readFileSafe(p);
 	return ["##==== path: " + relPath + " ====", "##region " + relPath, code, "##endregion", ""].join("\n");
 }

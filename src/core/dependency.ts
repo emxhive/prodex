@@ -1,8 +1,8 @@
 import path from "path";
 import { CODE_EXTS, RESOLVERS } from "../constants/config";
-import { globScan } from "./file-utils";
+import { globScan } from "./helpers";
 import { logger } from "../lib/logger";
-import { unique } from "../lib/utils";
+import { unique } from "../shared/collections";
 import type { ProdexConfig, ResolverParams, ResolverResult } from "../types";
 
 /**

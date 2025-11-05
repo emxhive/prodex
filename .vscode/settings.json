@@ -4,8 +4,6 @@
     "*.git.*": true,
     "*.gitattributes": true,
     "*.gitattributes.*": true,
-    "*.gitignore": true,
-    "*.gitignore.*": true,
     "*.vscode": true,
     "*.vscode.*": true,
     "*bin": true,
