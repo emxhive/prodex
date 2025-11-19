@@ -33,3 +33,8 @@ export function normalizePatterns(input?: string | string[]): string[] {
 			return valid;
 		});
 }
+
+
+export function ArrisEmpty(arr: any): boolean {
+	return !arr || Array.isArray(arr) && arr.length === 0;
+}

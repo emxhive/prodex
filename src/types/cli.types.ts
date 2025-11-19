@@ -38,6 +38,8 @@ export interface ProdexFlags {
 	exclude?: string[];
 	files?: string[];
 
+	shortcut?: string;
+
 	/** Optional short alias reference mapping */
 	short?: {
 		t?: boolean;

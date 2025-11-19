@@ -2,10 +2,41 @@
  * Canonical configuration interface for Prodex.
  * Defines the accepted and guaranteed structure at runtime.
  */
-export interface ProdexConfig {
-	version: number;
+export interface ProdexConfig extends ProdexBase	 {
 	name: string;
 	root: string;
+}
+
+/** Optional helper for typed schema versions. */
+export interface Versioned {
+	version: ProdexConfig["version"];
+}
+
+/** Represents the user-saved config file (without runtime fields). */
+export type ProdexConfigFile = ProdexBase ;
+
+export type DeepPartial<T> = {
+	[K in keyof T]?: T[K] extends object ? DeepPartial<T[K]> : T[K];
+};
+
+
+export type ProdexShortcut = {
+	entry?: {
+		files?: string[];
+		ui?: {
+			roots?: string[];
+			priority?: string[];
+		};
+	};
+	resolve?: {
+		include?: string[];
+		exclude?: string[];
+	};
+};
+interface ProdexBase {
+
+	version: number;
+
 	output: {
 		dir: string;
 		versioned: boolean;
@@ -30,16 +61,6 @@ export interface ProdexConfig {
 		depth: number;
 		limit: number;
 	};
+
+	shortcuts: Record<string, ProdexShortcut>;
 }
-
-/** Optional helper for typed schema versions. */
-export interface Versioned {
-	version: ProdexConfig["version"];
-}
-
-/** Represents the user-saved config file (without runtime fields). */
-export type ProdexConfigFile = Omit<ProdexConfig, "root" | "name">;
-
-export type DeepPartial<T> = {
-	[K in keyof T]?: T[K] extends object ? DeepPartial<T[K]> : T[K];
-};

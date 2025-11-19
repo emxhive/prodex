@@ -52,6 +52,13 @@ export const FLAG_MAP = {
 		description: "Enable debug logs.",
 		apply: () => {},
 	},
+
+	shortcut: {
+	short: "a",
+	type: "string",
+	description: "Apply a config shortcut by name.",
+	apply: () => {},
+},
 	help: {
 		short: "h",
 		type: "boolean",

@@ -1,9 +1,9 @@
 import fs from "fs";
 import path from "path";
 import { DEFAULT_PRODEX_CONFIG } from "../../constants/default-config";
-import { normalizePatterns } from "../../lib/utils";
+import { ArrisEmpty, normalizePatterns } from "../../lib/utils";
 import { FLAG_MAP } from "../../constants/flags";
-import type { ProdexConfig, ProdexFlags, ProdexConfigFile, DeepPartial } from "../../types";
+import type { ProdexConfig, ProdexFlags, ProdexConfigFile, DeepPartial, ProdexShortcut } from "../../types";
 import { logger } from "../../lib/logger";
 import { getConfig } from "../../store";
 
@@ -53,7 +53,34 @@ export class ConfigManager {
 
 		const hasFiles = Array.isArray(flags.files) ? flags.files.length > 0 : !!flags.files;
 		if (hasFiles && !flags.include) cfg.resolve.include = [];
+		if (flags.shortcut && cfg.shortcuts && cfg.shortcuts[flags.shortcut]) return this.applyShortcuts(cfg, flags);
 
+		return cfg;
+	}
+
+	static applyShortcuts(cfg: ProdexConfig, flags: Partial<ProdexFlags>): ProdexConfig {
+		const shortcut = cfg.shortcuts[flags.shortcut];
+		const noFlagIncludes = ArrisEmpty(flags.include);
+		const noFlagExcludes = ArrisEmpty(flags.exclude);
+		const noFlagFiles = ArrisEmpty(flags.files);
+
+		const handleCut = (shortcutSrc, childKey, configSrc, noFlags) => {
+			//shortcut.resolve
+			if (shortcutSrc) {
+				//shortcut.resolve.include
+				if (shortcutSrc?.[childKey]) {
+					if (noFlags) configSrc[childKey] = shortcutSrc[childKey];
+					else configSrc[childKey] = [...flags[childKey], ...shortcutSrc[childKey]];
+				}
+			}
+		};
+
+		handleCut(shortcut.resolve, "include", cfg.resolve, noFlagIncludes);
+	
+		handleCut(shortcut.resolve, "exclude", cfg.resolve, noFlagExcludes);
+
+		handleCut(shortcut.entry, "files", cfg.entry, noFlagFiles);
+	
 		return cfg;
 	}
 
@@ -73,7 +100,6 @@ export class ConfigManager {
 
 		try {
 			fs.writeFileSync(dest, JSON.stringify(merged, null, 2) + "\n", "utf8");
-			console.log(`✅ Updated ${dest}`);
 		} catch (err: any) {
 			console.warn("⚠️ Failed to persist config:", err?.message || err);
 		}

@@ -5,7 +5,6 @@ import type { ProdexConfig, ProdexConfigFile } from "../types/config.types";
  * Conforms strictly to ProdexConfig for full type safety.
  */
 export const DEFAULT_PRODEX_CONFIG: ProdexConfigFile = {
-
 	version: 3.1,
 	output: {
 		dir: "prodex",
@@ -30,5 +29,20 @@ export const DEFAULT_PRODEX_CONFIG: ProdexConfigFile = {
 		exclude: ["node_modules/**", "@shadcn/**", "**/components/ui/**"],
 		depth: 10,
 		limit: 200,
+	},
+
+	shortcuts: {
+		dashboard: {
+			entry: {
+				files: ["**/dashboard.tsx"],
+			},
+			resolve : {
+				include: ["**.app.tsx", "**/*.d.ts"]
+			}
+		},
+
+		web: {
+			entry: {files : ['**/web.php', '**/api.php']},
+		},
 	},
 };

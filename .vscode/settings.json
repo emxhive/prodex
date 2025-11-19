@@ -1,3 +1,36 @@
 {
-  "files.exclude": {}
+  "files.exclude": {
+    "*.git": true,
+    "*.git.*": true,
+    "*.gitattributes": true,
+    "*.gitattributes.*": true,
+    "*.gitignore": true,
+    "*.gitignore.*": true,
+    "*.obsidian": true,
+    "*.obsidian.*": true,
+    "*.vscode": true,
+    "*.vscode.*": true,
+    "*bin": true,
+    "*bin.*": true,
+    "*dist": true,
+    "*dist.*": true,
+    "*LICENSE": true,
+    "*LICENSE.*": true,
+    "*node_modules": true,
+    "*node_modules.*": true,
+    "*package-lock": true,
+    "*package-lock.*": true,
+    "*package": true,
+    "*prodex": true,
+    "*prodex.*": true,
+    "*prodex-1.4.1": true,
+    "*prodex-1.4.1.*": true,
+    "*README": true,
+    "*README.*": true,
+    "*s": true,
+    "*s.*": true,
+    "*schema": true,
+    "*schema.*": true,
+    "*src.*": true
+  }
 }

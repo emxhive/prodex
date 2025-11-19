@@ -13,7 +13,7 @@ export default async function startProdex(args = process.argv) {
 	setGlobals(config, flags);
 
 	const opts = {
-		showUi: !flags.ci && !flags?.files?.length && !config?.entry?.ui?.enablePicker,
+		showUi: !flags.ci && !flags?.files?.length && config?.entry?.ui?.enablePicker && !flags.shortcut,
 		cliName: config.name,
 	};
 

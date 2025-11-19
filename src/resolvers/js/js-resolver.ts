@@ -1,7 +1,7 @@
 import path from "path";
 import { extractImports } from "./extract-imports";
 import { BASE_EXTS, DTS_EXT, REAL_EXTS } from "../../constants/config";
-import { emptyResult, unique } from "../../shared/collections";
+import { emptyResult, mergeStats, newStats, unique } from "../../shared/collections";
 import { logger } from "../../lib/logger";
 import { getConfig } from "../../store";
 import { resolveAliasPath } from "./resolve-alias"; // alias: config + cache + fast-glob
@@ -37,8 +37,7 @@ export async function resolveJsImports({ filePath, visited = new Set(), depth = 
 	if (!imports.size) return emptyResult(visited);
 
 	// Trackers ----------------------------------------------
-	const expected = new Set<string>();
-	const resolved = new Set<string>();
+	const stats = newStats();
 	const files: string[] = [];
 
 	// Main resolution loop ----------------------------------
@@ -63,12 +62,17 @@ export async function resolveJsImports({ filePath, visited = new Set(), depth = 
 		if (!base) continue;
 
 		const absBase = path.resolve(base);
-		expected.add(absBase);
+		// Exclusion check after alias resolution
+		if (isExcluded(absBase, excludePatterns)) continue;
 
 		const resolvedPath = await tryResolveImport(absBase);
+		// Exclusion check after final resolution
+		if (isExcluded(resolvedPath, excludePatterns)) continue;
+
+		stats.expected.add(absBase);
 		if (!resolvedPath) continue;
 
-		resolved.add(absBase);
+		stats.resolved.add(absBase);
 		files.push(resolvedPath);
 
 		// Recursive traversal
@@ -80,17 +84,16 @@ export async function resolveJsImports({ filePath, visited = new Set(), depth = 
 		});
 
 		files.push(...sub.files);
-		for (const e of sub.stats.expected) expected.add(e);
-		for (const r of sub.stats.resolved) resolved.add(r);
+		mergeStats(stats, sub.stats);
 	}
 
 	const uniqueFiles = unique(files);
-	const diff = setDiff(expected, resolved);
+	const diff = setDiff(stats.expected, stats.resolved);
 
-	logger.debug(`🪶 [js-resolver] ${filePath} → expected: ${expected.size}, resolved: ${resolved.size}`);
+	logger.debug(`🪶 [js-resolver] ${filePath} → expected: ${stats.expected.size}, resolved: ${stats.resolved.size}`);
 	if (diff.size) logger.debug([...diff], "🔴 THE diff");
 
-	return { files: uniqueFiles, visited, stats: { expected, resolved } };
+	return { files: uniqueFiles, visited, stats };
 }
 
 // ---------------------------------------------------------

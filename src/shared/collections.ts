@@ -29,3 +29,5 @@ export function unique<T>(arr: T[]): T[] {
 export function emptyResult(visited: Set<string>): ResolverResult {
 	return { files: [], visited, stats: { expected: new Set(), resolved: new Set() } };
 } // ---------------------------------------------------------
+
+

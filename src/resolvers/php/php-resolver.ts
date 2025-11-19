@@ -4,12 +4,14 @@ import { extractPhpImports, expandGroupedUses } from "./extract-imports";
 import { loadLaravelBindings } from "./bindings";
 import { resolvePsr4 } from "./psr4";
 import { logger } from "../../lib/logger";
-import { newStats, mergeStats, unique, readFileSafe, makeExcludeMatcher, setDiff } from "../../shared";
+import { newStats, mergeStats, unique, readFileSafe, makeExcludeMatcher, setDiff, isExcluded } from "../../shared";
 import { getConfig } from "../../store";
 import type { ResolverParams, ResolverResult, PhpResolverCtx } from "../../types";
 import { CACHE_KEYS } from "../../constants";
 import { CacheManager } from "../../core/managers/cache";
 import { emptyResult } from "../../shared/collections";
+import fsp from "fs/promises"; // (add near the top if not present)
+
 
 /** Ensure we have a PHP resolver context for the current root */
 function buildPhpCtx(root: string, prev?: PhpResolverCtx): PhpResolverCtx {
@@ -51,7 +53,6 @@ export async function resolvePhpImports({ filePath, visited = new Set<string>(),
 
 	// Context + exclusions
 	const phpCtx = buildPhpCtx(ROOT, ctx as PhpResolverCtx | undefined);
-	const isExcluded = makeExcludeMatcher(excludePatterns);
 
 	// Parse imports (expand grouped `use` syntax)
 	const raw = extractPhpImports(code);
@@ -72,12 +73,14 @@ export async function resolvePhpImports({ filePath, visited = new Set<string>(),
 
 		// Only resolve PSR-4 mapped namespaces
 		if (!startsWithAnyNamespace(imp, phpCtx.nsKeys)) continue;
-		if (isExcluded(imp)) continue;
-
-		stats.expected.add(imp);
+		if (isExcluded(imp, excludePatterns)) continue;
 
 		// Resolve namespace → file path (sync helper retained)
 		const resolvedPath = await tryResolvePhpFile(imp, filePath, phpCtx.psr4);
+
+		// Exclusion check after final resolution
+		if (isExcluded(resolvedPath, excludePatterns)) continue;
+		stats.expected.add(imp);
 		if (!resolvedPath) continue;
 
 		stats.resolved.add(imp);
@@ -104,7 +107,6 @@ export async function resolvePhpImports({ filePath, visited = new Set<string>(),
 	return { files: out, visited, stats };
 }
 
-import fsp from "fs/promises"; // (add near the top if not present)
 
 async function tryResolvePhpFile(imp: string, fromFile: string, psr4: Record<string, string>): Promise<string | null> {
 	const key = `php:${imp}:${fromFile}`;

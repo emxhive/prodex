@@ -26,4 +26,4 @@ export const SUFFIX = "trace";
  * - Trims and removes empty elements.
  * - Filters out invalid or unusable characters for Fast-Glob.
  */
-export const VALID_GLOB_CHARS = /^[\w\-@./*?|!{}\[\]^$()+]+$/; // allows Fast-Glob-safe symbolsexport const REAL_EXTS = new Set<string>([".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs", ".d.ts", ".json"]);
+export const VALID_GLOB_CHARS = /^[\w\-@./*?|!{}\[\]^$()+]+$/;

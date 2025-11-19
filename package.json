@@ -44,6 +44,7 @@
     "fast-glob": "^3.3.3",
     "inquirer": "^12.10.0",
     "micromatch": "^4.0.8",
-    "sade": "^1.8.1"
+    "sade": "^1.8.1",
+    "source-map-support": "^0.5.21"
   }
 }

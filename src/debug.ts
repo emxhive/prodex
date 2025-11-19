@@ -1,7 +1,9 @@
 import startProdex from "./index";
+import "source-map-support/register";
+
 
 (async () => {
-	const mockArgs = ["node", "prodex", "C:\\Users\\USER\\Herd\\fireshot", "-f", "**/(dashboard|accounts).tsx", "-cd"];
+	const mockArgs = ["node", "prodex", "@web", "-f", "**/(dashboard|accounts).tsx", "-cd"];
 	process.argv = mockArgs;
 
 

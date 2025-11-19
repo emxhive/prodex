@@ -21,10 +21,15 @@ export function parseCliInput(argv: string[] = process.argv) {
 	let parsed: ParsedInput = { rootArg: "", root: undefined, flags: {} };
 
 	program.action((root: string | undefined, opts: Record<string, any>) => {
+		let lroot= root;
 		const cwd = process.cwd();
+		if(root?.startsWith("@")){
+			opts.shortcut= root.slice(1).trim();
+			lroot= undefined;
+		}
 		parsed = {
-			rootArg: root,
-			root: root ? path.resolve(cwd, root) : cwd,
+			rootArg: lroot,
+			root: lroot ? path.resolve(cwd, lroot) : cwd,
 			flags: { ...opts },
 		};
 	});
