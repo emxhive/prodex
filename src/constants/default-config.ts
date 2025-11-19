@@ -33,16 +33,12 @@ export const DEFAULT_PRODEX_CONFIG: ProdexConfigFile = {
 
 	shortcuts: {
 		dashboard: {
-			entry: {
-				files: ["**/dashboard.tsx"],
-			},
-			resolve : {
-				include: ["**.app.tsx", "**/*.d.ts"]
-			}
+			files: ["**/dashboard.tsx"],
+			include: ["**.app.tsx", "**/*.d.ts"],
 		},
 
 		web: {
-			entry: {files : ['**/web.php', '**/api.php']},
+			files: ["**/web.php", "**/api.php"],
 		},
 	},
 };

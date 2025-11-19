@@ -5,6 +5,7 @@ import { ArrisEmpty, normalizePatterns } from "../../lib/utils";
 import { FLAG_MAP } from "../../constants/flags";
 import type { ProdexConfig, ProdexFlags, ProdexConfigFile, DeepPartial, ProdexShortcut } from "../../types";
 import { logger } from "../../lib/logger";
+import "../../lib/polyfills"; 
 import { getConfig } from "../../store";
 
 /**
@@ -12,11 +13,15 @@ import { getConfig } from "../../store";
  * Unified loader, merger, and flag applier.
  */
 export class ConfigManager {
+	static rawFile: ProdexConfigFile | null = null;
+
 	static load(cwd: string): ProdexConfigFile {
 		const file = path.join(cwd, "prodex.json");
 		if (!fs.existsSync(file)) return DEFAULT_PRODEX_CONFIG;
 		try {
-			return JSON.parse(fs.readFileSync(file, "utf8"));
+			const parsed = JSON.parse(fs.readFileSync(file, "utf8"));
+			this.rawFile = parsed; // <-- SAVE RAW COPY
+			return parsed;
 		} catch {
 			console.warn("⚠️ Invalid prodex.json — using defaults.");
 			return DEFAULT_PRODEX_CONFIG;
@@ -75,12 +80,13 @@ export class ConfigManager {
 			}
 		};
 
-		handleCut(shortcut.resolve, "include", cfg.resolve, noFlagIncludes);
-	
-		handleCut(shortcut.resolve, "exclude", cfg.resolve, noFlagExcludes);
+		handleCut(shortcut, "include", cfg.resolve, noFlagIncludes);
 
-		handleCut(shortcut.entry, "files", cfg.entry, noFlagFiles);
-	
+		handleCut(shortcut, "exclude", cfg.resolve, noFlagExcludes);
+
+		handleCut(shortcut, "files", cfg.entry, noFlagFiles);
+		if (shortcut.prefix) cfg.name = shortcut.prefix;
+
 		return cfg;
 	}
 
@@ -95,11 +101,17 @@ export class ConfigManager {
 	static persist(partial: DeepPartial<ProdexConfigFile>): void {
 		const cfg = getConfig();
 		const dest = path.join(cfg.root, "prodex.json");
-		const { root, name, ...pure } = cfg;
-		const merged = deepMerge(pure, partial);
+
+		// Start from the raw config, never the merged runtime version
+		const base: ProdexConfigFile = ConfigManager.rawFile
+			? JSON.parse(JSON.stringify(ConfigManager.rawFile)) // deep clone to avoid mutation
+			: {};
+
+		// Apply only the partial updates (aliases, etc.)
+		const patched = deepMerge(base, partial);
 
 		try {
-			fs.writeFileSync(dest, JSON.stringify(merged, null, 2) + "\n", "utf8");
+			fs.writeFileSync(dest, formatJsonRelaxed(patched) + "\n", "utf8");
 		} catch (err: any) {
 			console.warn("⚠️ Failed to persist config:", err?.message || err);
 		}
@@ -121,3 +133,9 @@ function deepMerge<T extends Record<string, any>>(base: T, patch: DeepPartial<T>
 function isPlainObject(x: any): x is Record<string, any> {
 	return x && typeof x === "object" && !Array.isArray(x);
 }
+
+function formatJsonRelaxed(obj: any): string {
+	return JSON.stringify(obj, null, 4);
+}
+
+

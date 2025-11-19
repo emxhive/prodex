@@ -2,7 +2,7 @@
  * Canonical configuration interface for Prodex.
  * Defines the accepted and guaranteed structure at runtime.
  */
-export interface ProdexConfig extends ProdexBase	 {
+export interface ProdexConfig extends ProdexBase {
 	name: string;
 	root: string;
 }
@@ -13,28 +13,19 @@ export interface Versioned {
 }
 
 /** Represents the user-saved config file (without runtime fields). */
-export type ProdexConfigFile = ProdexBase ;
+export type ProdexConfigFile = ProdexBase;
 
 export type DeepPartial<T> = {
 	[K in keyof T]?: T[K] extends object ? DeepPartial<T[K]> : T[K];
 };
 
-
 export type ProdexShortcut = {
-	entry?: {
-		files?: string[];
-		ui?: {
-			roots?: string[];
-			priority?: string[];
-		};
-	};
-	resolve?: {
-		include?: string[];
-		exclude?: string[];
-	};
+	prefix?: string;
+	files?: string[];
+	include?: string[];
+	exclude?: string[];
 };
 interface ProdexBase {
-
 	version: number;
 
 	output: {

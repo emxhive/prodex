@@ -3,6 +3,7 @@ import { CacheManager } from "../../core/managers/cache";
 import type { ProdexConfig } from "../../types";
 import { CACHE_KEYS } from "../../constants";
 import { globScan } from "../../core/helpers";
+import { rel } from "../../shared";
 
 /**
  * 🧩 resolveAliasPath()
@@ -41,22 +42,21 @@ export async function resolveAliasPath(specifier: string, root: string, cfg: Pro
 
 	const { files: matches } = await globScan(patterns, { cwd: root });
 
-	if (matches.length === 1) {
-		return resolveMatches(matches, remainder, aliasKey);
-	}
-
-	//There are multiple matches, Assuming they match the target approximate folder.
-	if (matches.length > 1) {
-		const resolvedMatch = resolveMatches(matches, remainder, aliasKey);
-		return resolvedMatch.replace(/\.[^/.]+$/, "");
+	if (matches.length) {
+		const resolvedMatch = resolveMatches(matches, remainder);
+		// .replace(/\.[^/.]+$/, "")
+		if (!resolvedMatch) return null;
+		const relPath = rel(resolvedMatch, cfg.root);
+		CacheManager.set(CACHE_KEYS.ALIASES, aliasKey, relPath);
+		return relPath;
 	}
 
 	return null;
 }
 
-function resolveMatches(matches: string[], remainder: string, aliasKey: string) {
-	const foundFile = matches[0];
-	const aliasRoot = foundFile.split(remainder)[0].replace(/\\/g, "/");
-	CacheManager.set(CACHE_KEYS.ALIASES, aliasKey, aliasRoot);
-	return foundFile;
+function resolveMatches(matches: string[], remainder: string) {
+	const foundFile = matches[0].norm();
+	const dSplit = foundFile.split(remainder);
+	if (dSplit.length < 2) return "";
+	return dSplit[0].replace(/\\/g, "/");
 }
