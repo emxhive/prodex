@@ -6,32 +6,32 @@
             "type": "object",
             "additionalProperties": false,
             "properties": {
-                "schema": {
+                "$schema": {
                     "type": "string"
                 },
                 "version": {
                     "type": "number"
                 },
                 "output": {
-                    "$ref": "#/definitions/DeepPartial%3Cstructure-184175265-616-700-184175265-607-701-184175265-584-1015-184175265-0-1016%3E"
+                    "$ref": "#/definitions/DeepPartial%3Cstructure-184175265-617-701-184175265-608-702-184175265-585-1016-184175265-0-1017%3E"
                 },
                 "entry": {
-                    "$ref": "#/definitions/DeepPartial%3Cstructure-184175265-710-839-184175265-701-840-184175265-584-1015-184175265-0-1016%3E"
+                    "$ref": "#/definitions/DeepPartial%3Cstructure-184175265-711-840-184175265-702-841-184175265-585-1016-184175265-0-1017%3E"
                 },
                 "resolve": {
-                    "$ref": "#/definitions/DeepPartial%3Cstructure-184175265-851-967-184175265-840-968-184175265-584-1015-184175265-0-1016%3E"
+                    "$ref": "#/definitions/DeepPartial%3Cstructure-184175265-852-968-184175265-841-969-184175265-585-1016-184175265-0-1017%3E"
                 },
                 "shortcuts": {
-                    "$ref": "#/definitions/DeepPartial%3Cindexed-type-731470504-74242-74263-731470504-74138-74264-731470504-0-218439%3Cstring%2Cdef-alias-184175265-470-584-184175265-0-1016%3E%3E"
+                    "$ref": "#/definitions/DeepPartial%3Cindexed-type-731470504-74242-74263-731470504-74138-74264-731470504-0-218439%3Cstring%2Cdef-alias-184175265-471-585-184175265-0-1017%3E%3E"
                 }
             },
             "required": [
-                "schema",
+                "$schema",
                 "version"
             ],
             "description": "Represents the user-saved config file (without runtime fields)."
         },
-        "DeepPartial<structure-184175265-616-700-184175265-607-701-184175265-584-1015-184175265-0-1016>": {
+        "DeepPartial<structure-184175265-617-701-184175265-608-702-184175265-585-1016-184175265-0-1017>": {
             "type": "object",
             "properties": {
                 "dir": {
@@ -53,14 +53,14 @@
             },
             "additionalProperties": false
         },
-        "DeepPartial<structure-184175265-710-839-184175265-701-840-184175265-584-1015-184175265-0-1016>": {
+        "DeepPartial<structure-184175265-711-840-184175265-702-841-184175265-585-1016-184175265-0-1017>": {
             "type": "object",
             "properties": {
                 "files": {
                     "$ref": "#/definitions/DeepPartial%3Cstring%5B%5D%3E"
                 },
                 "ui": {
-                    "$ref": "#/definitions/DeepPartial%3Cstructure-184175265-737-835-184175265-731-836-184175265-710-839-184175265-701-840-184175265-584-1015-184175265-0-1016%3E"
+                    "$ref": "#/definitions/DeepPartial%3Cstructure-184175265-738-836-184175265-732-837-184175265-711-840-184175265-702-841-184175265-585-1016-184175265-0-1017%3E"
                 }
             },
             "additionalProperties": false
@@ -71,7 +71,7 @@
                 "type": "string"
             }
         },
-        "DeepPartial<structure-184175265-737-835-184175265-731-836-184175265-710-839-184175265-701-840-184175265-584-1015-184175265-0-1016>": {
+        "DeepPartial<structure-184175265-738-836-184175265-732-837-184175265-711-840-184175265-702-841-184175265-585-1016-184175265-0-1017>": {
             "type": "object",
             "properties": {
                 "roots": {
@@ -89,7 +89,7 @@
             },
             "additionalProperties": false
         },
-        "DeepPartial<structure-184175265-851-967-184175265-840-968-184175265-584-1015-184175265-0-1016>": {
+        "DeepPartial<structure-184175265-852-968-184175265-841-969-184175265-585-1016-184175265-0-1017>": {
             "type": "object",
             "properties": {
                 "include": {
@@ -116,7 +116,7 @@
                 "type": "string"
             }
         },
-        "DeepPartial<indexed-type-731470504-74242-74263-731470504-74138-74264-731470504-0-218439<string,def-alias-184175265-470-584-184175265-0-1016>>": {
+        "DeepPartial<indexed-type-731470504-74242-74263-731470504-74138-74264-731470504-0-218439<string,def-alias-184175265-471-585-184175265-0-1017>>": {
             "type": "object",
             "additionalProperties": {
                 "$ref": "#/definitions/DeepPartial%3CProdexShortcut%3E"
