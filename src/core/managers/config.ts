@@ -1,11 +1,10 @@
+
 import fs from "fs";
 import path from "path";
 import { DEFAULT_PRODEX_CONFIG } from "../../constants/default-config";
-import { ArrisEmpty, normalizePatterns } from "../../lib/utils";
+import { ArrisEmpty, normalizePatterns, toJson } from "../../lib/utils";
 import { FLAG_MAP } from "../../constants/flags";
 import type { ProdexConfig, ProdexFlags, ProdexConfigFile, DeepPartial, ProdexShortcut } from "../../types";
-import { logger } from "../../lib/logger";
-import "../../lib/polyfills"; 
 import { getConfig } from "../../store";
 
 /**
@@ -111,7 +110,7 @@ export class ConfigManager {
 		const patched = deepMerge(base, partial);
 
 		try {
-			fs.writeFileSync(dest, formatJsonRelaxed(patched) + "\n", "utf8");
+			fs.writeFileSync(dest, toJson(patched) + "\n", "utf8");
 		} catch (err: any) {
 			console.warn("⚠️ Failed to persist config:", err?.message || err);
 		}
@@ -132,10 +131,6 @@ function deepMerge<T extends Record<string, any>>(base: T, patch: DeepPartial<T>
 }
 function isPlainObject(x: any): x is Record<string, any> {
 	return x && typeof x === "object" && !Array.isArray(x);
-}
-
-function formatJsonRelaxed(obj: any): string {
-	return JSON.stringify(obj, null, 4);
 }
 
 

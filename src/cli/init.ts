@@ -1,6 +1,7 @@
 import fs from "fs";
 import path from "path";
 import { DEFAULT_PRODEX_CONFIG } from "../constants/default-config";
+import { toJson } from "../lib/utils";
 
 export async function initProdex() {
 	console.log("🪄 Prodex Init — Configuration Wizard (v3");
@@ -12,7 +13,7 @@ export async function initProdex() {
 		return;
 	}
 
-	fs.writeFileSync(dest, JSON.stringify(DEFAULT_PRODEX_CONFIG, null, 2) + "\n", "utf8");
+	fs.writeFileSync(dest, toJson(DEFAULT_PRODEX_CONFIG) + "\n", "utf8");
 	console.log(`✅ Created ${dest}`);
 	console.log("💡 Globs supported everywhere (include, exclude, priority).");
 }

@@ -38,3 +38,6 @@ export function normalizePatterns(input?: string | string[]): string[] {
 export function ArrisEmpty(arr: any): boolean {
 	return !arr || Array.isArray(arr) && arr.length === 0;
 }
+export function toJson(obj: any): string {
+	return JSON.stringify(obj, null, 4);
+}

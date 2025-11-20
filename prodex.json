@@ -30,10 +30,7 @@
     "include": [
       "**/*types.ts"
     ],
-    "aliases": {
-      "@hooks": "resources/js/hooks",
-      "@data": "resources/js/data"
-    },
+    "aliases": {},
     "exclude": [
       "node_modules/**",
       "@shadcn/**",
