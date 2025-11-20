@@ -1,183 +1,165 @@
 {
-  "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "Prodex Configuration Schema (v3.1)",
-  "description": "Defines runtime behavior for the Prodex dependency extractor and resolver.",
-  "type": "object",
-  "properties": {
-    "$schema": {
-      "type": "string",
-      "description": "Link to the Prodex schema for IDE validation."
-    },
-    "version": {
-      "type": "number",
-      "description": "Schema version identifier.",
-      "default": 3.1
-    },
-    "output": {
-      "type": "object",
-      "description": "Output settings for generated combined files.",
-      "properties": {
-        "dir": {
-          "type": "string",
-          "description": "Output directory where combined files will be written.",
-          "default": "prodex"
-        },
-        "versioned": {
-          "type": "boolean",
-          "description": "Whether to append schema version to output filename.",
-          "default": false
-        },
-        "prefix": {
-          "type": "string",
-          "description": "Base filename prefix for generated files.",
-          "default": "combined"
-        },
-        "format": {
-          "type": "string",
-          "enum": [
-            "md",
-            "txt"
-          ],
-          "description": "Output format for generated content.",
-          "default": "md"
-        }
-      },
-      "required": [
-        "dir",
-        "prefix",
-        "format"
-      ]
-    },
-    "entry": {
-      "type": "object",
-      "description": "Defines which directories or files to start dependency resolution from.",
-      "properties": {
-        "files": {
-          "type": "array",
-          "description": "Explicit entry files or globs (optional).",
-          "items": {
-            "type": "string"
-          },
-          "default": []
-        },
-        "ui": {
-          "type": "object",
-          "description": "Settings for interactive entry selection.",
-          "properties": {
-            "roots": {
-              "type": "array",
-              "description": "Directories scanned when prompting for entries.",
-              "items": {
-                "type": "string"
-              },
-              "default": [
-                "app",
-                "routes",
-                "resources/js/**"
-              ]
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "$ref": "#/definitions/ProdexConfigFile",
+    "definitions": {
+        "ProdexConfigFile": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "schema": {
+                    "type": "string"
+                },
+                "version": {
+                    "type": "number"
+                },
+                "output": {
+                    "type": "object",
+                    "properties": {
+                        "dir": {
+                            "type": "string"
+                        },
+                        "versioned": {
+                            "type": "boolean"
+                        },
+                        "prefix": {
+                            "type": "string"
+                        },
+                        "format": {
+                            "type": "string",
+                            "enum": [
+                                "md",
+                                "txt"
+                            ]
+                        }
+                    },
+                    "required": [
+                        "dir",
+                        "versioned",
+                        "prefix",
+                        "format"
+                    ],
+                    "additionalProperties": false
+                },
+                "entry": {
+                    "type": "object",
+                    "properties": {
+                        "files": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        },
+                        "ui": {
+                            "type": "object",
+                            "properties": {
+                                "roots": {
+                                    "type": "array",
+                                    "items": {
+                                        "type": "string"
+                                    }
+                                },
+                                "scanDepth": {
+                                    "type": "number"
+                                },
+                                "priority": {
+                                    "type": "array",
+                                    "items": {
+                                        "type": "string"
+                                    }
+                                },
+                                "enablePicker": {
+                                    "type": "boolean"
+                                }
+                            },
+                            "required": [
+                                "roots",
+                                "scanDepth",
+                                "priority"
+                            ],
+                            "additionalProperties": false
+                        }
+                    },
+                    "required": [
+                        "files",
+                        "ui"
+                    ],
+                    "additionalProperties": false
+                },
+                "resolve": {
+                    "type": "object",
+                    "properties": {
+                        "include": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        },
+                        "aliases": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        },
+                        "exclude": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        },
+                        "depth": {
+                            "type": "number"
+                        },
+                        "limit": {
+                            "type": "number"
+                        }
+                    },
+                    "required": [
+                        "include",
+                        "aliases",
+                        "exclude",
+                        "depth",
+                        "limit"
+                    ],
+                    "additionalProperties": false
+                },
+                "shortcuts": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "$ref": "#/definitions/ProdexShortcut"
+                    }
+                }
             },
-            "scanDepth": {
-              "type": "integer",
-              "description": "Depth to recursively scan for entry candidates.",
-              "default": 2,
-              "minimum": 0
+            "required": [
+                "schema"
+            ],
+            "description": "Represents the user-saved config file (without runtime fields)."
+        },
+        "ProdexShortcut": {
+            "type": "object",
+            "properties": {
+                "prefix": {
+                    "type": "string"
+                },
+                "files": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "include": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "exclude": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                }
             },
-            "priority": {
-              "type": "array",
-              "description": "Patterns controlling entry ordering (e.g. routes/web.php first).",
-              "items": {
-                "type": "string"
-              },
-              "default": [
-                "**/routes/web.php",
-                "**/routes/api.php",
-                "**/*index.*",
-                "**/*main.*",
-                "**/app.*"
-              ]
-            },
-            "enablePicker": {
-              "type": "boolean",
-              "description": "Whether to enable the interactive picker.",
-              "default": true
-            }
-          },
-          "required": [
-            "roots",
-            "scanDepth",
-            "priority"
-          ]
+            "additionalProperties": false
         }
-      },
-      "required": [
-        "ui"
-      ]
-    },
-    "resolve": {
-      "type": "object",
-      "description": "Settings controlling how imports and dependencies are resolved.",
-      "properties": {
-        "include": {
-          "type": "array",
-          "description": "Additional glob patterns to always include (e.g. .d.ts, interfaces).",
-          "items": {
-            "type": "string"
-          },
-          "default": [
-            "**/*.d.ts",
-            "**/*.interface.ts"
-          ]
-        },
-        "aliases": {
-          "type": "object",
-          "description": "Path alias map (TSConfig or Vite style).",
-          "additionalProperties": {
-            "type": "string"
-          },
-          "default": {
-            "@hooks": "resources/js/hooks",
-            "@data": "resources/js/data"
-          }
-        },
-        "exclude": {
-          "type": "array",
-          "description": "Glob patterns to exclude from dependency traversal.",
-          "items": {
-            "type": "string"
-          },
-          "default": [
-            "node_modules/**",
-            "@shadcn/**",
-            "**/components/ui/**"
-          ]
-        },
-        "depth": {
-          "type": "integer",
-          "description": "Maximum recursion depth for resolvers (prevents infinite loops).",
-          "default": 10,
-          "minimum": 1
-        },
-        "limit": {
-          "type": "integer",
-          "description": "Maximum number of files to process before stopping (0 disables).",
-          "default": 200,
-          "minimum": 0
-        }
-      },
-      "required": [
-        "include",
-        "aliases",
-        "exclude",
-        "depth",
-        "limit"
-      ]
     }
-  },
-  "required": [
-    "version",
-    "output",
-    "entry",
-    "resolve"
-  ],
-  "additionalProperties": false
 }

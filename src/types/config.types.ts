@@ -7,13 +7,11 @@ export interface ProdexConfig extends ProdexBase {
 	root: string;
 }
 
-/** Optional helper for typed schema versions. */
-export interface Versioned {
-	version: ProdexConfig["version"];
-}
-
 /** Represents the user-saved config file (without runtime fields). */
-export type ProdexConfigFile = ProdexBase;
+export type ProdexConfigFile = ProdexBase & {
+	schema: string;
+	version: number;
+};
 
 export type DeepPartial<T> = {
 	[K in keyof T]?: T[K] extends object ? DeepPartial<T[K]> : T[K];
@@ -26,8 +24,6 @@ export type ProdexShortcut = {
 	exclude?: string[];
 };
 interface ProdexBase {
-	version: number;
-
 	output: {
 		dir: string;
 		versioned: boolean;

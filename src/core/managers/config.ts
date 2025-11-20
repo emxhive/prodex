@@ -1,4 +1,3 @@
-
 import fs from "fs";
 import path from "path";
 import { DEFAULT_PRODEX_CONFIG } from "../../constants/default-config";
@@ -27,9 +26,9 @@ export class ConfigManager {
 		}
 	}
 
-	static merge(user: Partial<ProdexConfigFile>, flags?: Partial<ProdexFlags>, cwd = process.cwd()): ProdexConfig {
+	static merge(user: ProdexConfigFile, flags?: Partial<ProdexFlags>, cwd = process.cwd()): ProdexConfig {
 		const merged: ProdexConfig = {
-			...DEFAULT_PRODEX_CONFIG,
+			// ...rest,
 			...user,
 			output: { ...DEFAULT_PRODEX_CONFIG.output, ...user.output },
 			entry: {
@@ -132,5 +131,3 @@ function deepMerge<T extends Record<string, any>>(base: T, patch: DeepPartial<T>
 function isPlainObject(x: any): x is Record<string, any> {
 	return x && typeof x === "object" && !Array.isArray(x);
 }
-
-

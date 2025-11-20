@@ -26,7 +26,8 @@
   "scripts": {
     "build": "tsc",
     "dev": "tsc --watch",
-    "prepare": "npm run build",
+    "gen:schema": "node schema/generate.js",
+    "prepare": "npm run build && npm run gen:schema",
     "d:w": "nodemon --watch dist --delay 500ms --exec node --inspect-brk dist/debug.js"
   },
   "engines": {
@@ -37,6 +38,7 @@
   "devDependencies": {
     "@types/node": "^24.9.2",
     "nodemon": "^3.1.10",
+    "ts-json-schema-generator": "^2.4.0",
     "typescript": "^5.9.3"
   },
   "dependencies": {
