@@ -139,12 +139,9 @@ dist
 # Prodex
 prodex
 .setup.sh
-.prodex.json
-prodex-priority-files.patch
 s.sh
 src/test.js
 prodex.json
 **/.obsidian
 .vscode/settings.json
-prodex.json
-prodex.json
+

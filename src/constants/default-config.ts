@@ -1,4 +1,4 @@
-import type { ProdexConfig, ProdexConfigFile } from "../types/config.types";
+import type { ProdexConfigFile } from "../types/config.types";
 
 /**
  * Default configuration for Prodex.
@@ -6,7 +6,7 @@ import type { ProdexConfig, ProdexConfigFile } from "../types/config.types";
  */
 export const DEFAULT_PRODEX_CONFIG: ProdexConfigFile = {
 	version: 3.1,
-	"$schema": "https://raw.githubusercontent.com/emxhive/prodex/main/schema/prodex.schema.json",
+	$schema: "https://raw.githubusercontent.com/emxhive/prodex/main/schema/prodex.schema.json",
 	output: {
 		dir: "prodex",
 		versioned: true,
@@ -18,7 +18,7 @@ export const DEFAULT_PRODEX_CONFIG: ProdexConfigFile = {
 		ui: {
 			roots: ["app", "routes", "resources/js/**"],
 			scanDepth: 2,
-			priority: ["**/routes/web.php", "**/routes/api.php", "**/*index.*", "**/*main.*", "**/app.*"],
+			priority: ["**/routes/web.php", "**/app.*"],
 		},
 	},
 	resolve: {
