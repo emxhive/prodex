@@ -6,7 +6,7 @@ import type { ProdexConfig, ProdexConfigFile } from "../types/config.types";
  */
 export const DEFAULT_PRODEX_CONFIG: ProdexConfigFile = {
 	version: 3.1,
-	schema: "https://raw.githubusercontent.com/emxhive/prodex/main/schema/prodex.schema.json",
+	"$schema": "https://raw.githubusercontent.com/emxhive/prodex/main/schema/prodex.schema.json",
 	output: {
 		dir: "prodex",
 		versioned: true,

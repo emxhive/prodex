@@ -1,4 +1,5 @@
 {
+  "$schema": "https://raw.githubusercontent.com/emxhive/prodex/main/schema/prodex.schema.json",
   "version": 3.1,
   "output": {
     "dir": "prodex",
@@ -38,5 +39,10 @@
     ],
     "depth": 10,
     "limit": 200
+  }, 
+"shortcuts": {
+  "dfdf" : {
+    
   }
+}
 }
