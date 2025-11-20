@@ -8,7 +8,7 @@ export interface ProdexConfig extends ProdexBase {
 }
 
 /** Represents the user-saved config file (without runtime fields). */
-export type ProdexConfigFile = ProdexBase & {
+export type ProdexConfigFile = DeepPartial<ProdexBase> & {
 	schema: string;
 	version: number;
 };

@@ -39,7 +39,7 @@ export class ConfigManager {
 			resolve: { ...DEFAULT_PRODEX_CONFIG.resolve, ...user.resolve },
 			root: cwd,
 			name: flags?.name ?? null,
-		};
+		} as unknown as ProdexConfig;
 
 		this.applyFlags(merged, flags);
 		return this.normalize(merged);
