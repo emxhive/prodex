@@ -145,3 +145,4 @@ prodex.json
 **/.obsidian
 .vscode/settings.json
 
+src/debug.ts

@@ -62,27 +62,30 @@ export class ConfigManager {
 	}
 
 	static applyShortcuts(cfg: ProdexConfig, flags: Partial<ProdexFlags>): ProdexConfig {
-		const shortcut = cfg.shortcuts[flags.shortcut];
-		const noFlagIncludes = ArrisEmpty(flags.include);
-		const noFlagExcludes = ArrisEmpty(flags.exclude);
-		const noFlagFiles = ArrisEmpty(flags.files);
+		const shortcut = cfg.shortcuts?.[flags.shortcut];
+		if (!shortcut) return cfg;
 
-		const handleCut = (shortcutSrc, childKey, configSrc, noFlags) => {
-			//shortcut.resolve
-			if (shortcutSrc) {
-				//shortcut.resolve.include
-				if (shortcutSrc?.[childKey]) {
-					if (noFlags) configSrc[childKey] = shortcutSrc[childKey];
-					else configSrc[childKey] = [...flags[childKey], ...shortcutSrc[childKey]];
-				}
+		const mergeOrReplace = (key: keyof ProdexFlags, target: any) => {
+			const flagValues = (flags[key] || []) as unknown as any[];
+			const hasFlags = !ArrisEmpty(flagValues);
+			let values = shortcut[key];
+
+			if (!values && !hasFlags) {
+				target[key] = [];
+				return;
 			}
+			if (!values) values = [];
+			target[key] = hasFlags ? [...flagValues, ...values] : values;
 		};
 
-		handleCut(shortcut, "include", cfg.resolve, noFlagIncludes);
+		// include / exclude live in cfg.resolve
+		mergeOrReplace("include", cfg.resolve);
+		mergeOrReplace("exclude", cfg.resolve);
 
-		handleCut(shortcut, "exclude", cfg.resolve, noFlagExcludes);
+		// files live in cfg.entry
+		mergeOrReplace("files", cfg.entry);
 
-		handleCut(shortcut, "files", cfg.entry, noFlagFiles);
+		// name override
 		if (shortcut.prefix) cfg.name = shortcut.prefix;
 
 		return cfg;
