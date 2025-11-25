@@ -4,7 +4,7 @@ import { extractPhpImports, expandGroupedUses } from "./extract-imports";
 import { loadLaravelBindings } from "./bindings";
 import { resolvePsr4 } from "./psr4";
 import { logger } from "../../lib/logger";
-import { newStats, mergeStats, unique, readFileSafe, makeExcludeMatcher, setDiff, isExcluded } from "../../shared";
+import { newStats, mergeStats, unique, readFileSafe, setDiff, isExcluded } from "../../shared";
 import { getConfig } from "../../store";
 import type { ResolverParams, ResolverResult, PhpResolverCtx } from "../../types";
 import { CACHE_KEYS } from "../../constants";
@@ -73,13 +73,13 @@ export async function resolvePhpImports({ filePath, visited = new Set<string>(),
 
 		// Only resolve PSR-4 mapped namespaces
 		if (!startsWithAnyNamespace(imp, phpCtx.nsKeys)) continue;
-		if (isExcluded(imp, excludePatterns)) continue;
+		// if (isExcluded(imp, excludePatterns, ROOT)) continue;
 
 		// Resolve namespace → file path (sync helper retained)
 		const resolvedPath = await tryResolvePhpFile(imp, filePath, phpCtx.psr4);
 
 		// Exclusion check after final resolution
-		if (isExcluded(resolvedPath, excludePatterns)) continue;
+		if (isExcluded(resolvedPath, excludePatterns, ROOT)) continue;
 		stats.expected.add(imp);
 		if (!resolvedPath) continue;
 

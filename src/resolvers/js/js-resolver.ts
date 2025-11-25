@@ -44,7 +44,7 @@ export async function resolveJsImports({ filePath, visited = new Set(), depth = 
 	for (const imp of imports) {
 		// skip bare packages (react, lodash, etc.)
 		if (!imp.startsWith(".") && !imp.startsWith("/") && !imp.startsWith("@")) continue;
-		if (isExcluded(imp, excludePatterns)) continue;
+		if (isExcluded(imp, excludePatterns, ROOT)) continue;
 
 		let base: string | null = null;
 
@@ -63,11 +63,11 @@ export async function resolveJsImports({ filePath, visited = new Set(), depth = 
 
 		const absBase = path.resolve(base);
 		// Exclusion check after alias resolution
-		if (isExcluded(absBase, excludePatterns)) continue;
+		if (isExcluded(absBase, excludePatterns, ROOT)) continue;
 
 		const resolvedPath = await tryResolveImport(absBase);
 		// Exclusion check after final resolution
-		if (isExcluded(resolvedPath, excludePatterns)) continue;
+		if (isExcluded(resolvedPath, excludePatterns, ROOT)) continue;
 
 		stats.expected.add(absBase);
 		if (!resolvedPath) continue;

@@ -13,7 +13,7 @@ import { getConfig } from "../../store";
 export class ConfigManager {
 	static rawFile: ProdexConfigFile | null = null;
 
-	static load(cwd: string): ProdexConfigFile {
+	static load(cwd: string = process.cwd()): ProdexConfigFile {
 		const file = path.join(cwd, "prodex.json");
 		if (!fs.existsSync(file)) return DEFAULT_PRODEX_CONFIG;
 		try {
