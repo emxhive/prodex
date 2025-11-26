@@ -20,7 +20,7 @@ export class CacheManager {
 	/** Set or update a cached entry */
 	static set<T = any>(ns: string, key: string, val: T): void {
 		this.ns(ns).set(key, val);
-		logger.debug(`🧩 [cache:${ns}] set ${key} → ${String(val)}`);
+		logger.debug(`🧩 [cache:${ns}] set ${key} \n→ ${_2j(val)}`);
 	}
 
 	/** Retrieve a cached entry */

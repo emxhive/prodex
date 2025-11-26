@@ -67,7 +67,7 @@ export async function resolvePhpImports({ filePath, visited = new Set<string>(),
 
 		// Respect Laravel container bindings (Interface → Implementation)
 		if (phpCtx.bindings[imp]) {
-			logger.debug("[php-resolver] binding:", imp, "→", phpCtx.bindings[imp]);
+			// logger.debug("[php-resolver] binding:", imp, "→", _2j(phpCtx.bindings[imp]));
 			imp = phpCtx.bindings[imp];
 		}
 
@@ -107,7 +107,6 @@ export async function resolvePhpImports({ filePath, visited = new Set<string>(),
 	return { files: out, visited, stats };
 }
 
-
 async function tryResolvePhpFile(imp: string, fromFile: string, psr4: Record<string, string>): Promise<string | null> {
 	const key = `php:${imp}:${fromFile}`;
 	const cached = CacheManager.get(CACHE_KEYS.PHP_FILECACHE, key);
@@ -119,7 +118,7 @@ async function tryResolvePhpFile(imp: string, fromFile: string, psr4: Record<str
 		return null;
 	}
 
-	const rel = imp.slice(nsKey.length).norm();
+	const rel = imp.replace(nsKey, "").norm();
 	const tries = [path.join(psr4[nsKey], rel), path.join(psr4[nsKey], rel + ".php"), path.join(psr4[nsKey], rel, "index.php")];
 
 	// 🔹 Run all stats concurrently
