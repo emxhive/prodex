@@ -4,6 +4,8 @@ import { globScan } from "./helpers";
 import { logger } from "../lib/logger";
 import { unique } from "../shared/collections";
 import type { ProdexConfig, ResolverParams, ResolverResult } from "../types";
+import fs from "fs";
+
 
 /**
  * 🧩 followChain()
@@ -69,9 +71,37 @@ export async function followChain(entryFiles: string[], cfg: ProdexConfig) {
  * 🧩 applyIncludes()
  * Scans and appends additional files defined in config.resolve.include.
  */
+// src/core/dependency.ts
+
+// (existing imports stay)
+
 export async function applyIncludes(cfg: ProdexConfig, files: string[]) {
 	const { resolve, root } = cfg;
-	const scan = await globScan(resolve.include, { cwd: root });
-	logger.debug("APPLY_include", _2j(scan));
-	return unique([...files, ...scan.files]);
+
+	const absFiles: string[] = [];
+	const patterns: string[] = [];
+
+	for (const raw of resolve.include) {
+		const p = String(raw ?? "").trim();
+		if (!p) continue;
+
+		const norm = p.norm(); // uses your polyfill (slashes -> "/")
+
+		// absolute *file* paths bypass globScan (and its ignores)
+		if (path.isAbsolute(norm)) {
+			try {
+				if (fs.statSync(norm).isFile()) {
+					absFiles.push(path.resolve(norm));
+					continue;
+				}
+			} catch {
+				// doesn't exist / can't stat → treat as pattern
+			}
+		}
+
+		patterns.push(norm);
+	}
+
+	const scan = await globScan(patterns, { cwd: root });
+	return unique([...files, ...absFiles, ...scan.files]);
 }

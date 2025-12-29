@@ -55,8 +55,14 @@ export class ConfigManager {
 		}
 
 		const hasFiles = Array.isArray(flags.files) ? flags.files.length > 0 : !!flags.files;
-		if (hasFiles && !flags.include) cfg.resolve.include = [];
+		const hasInclude = Array.isArray(flags.include) ? flags.include.length > 0 : !!flags.include;
+
+		if (hasInclude && !hasFiles) cfg.entry.files = [];
+
+		if (hasFiles && !hasInclude) cfg.resolve.include = [];
+
 		if (flags.shortcut && cfg.shortcuts && cfg.shortcuts[flags.shortcut]) return this.applyShortcuts(cfg, flags);
+
 
 		return cfg;
 	}

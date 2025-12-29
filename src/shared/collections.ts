@@ -19,7 +19,7 @@ export function setDiff<A>(A: Set<A>, B: Set<A>): Set<A> {
 }
 /**
  * Removes duplicates from an array.
- * Stateless helper used across resolvers and dependency chain.
+ * Stateless helper used across resolvers and dependency chain.  
  */
 
 export function unique<T>(arr: T[]): T[] {

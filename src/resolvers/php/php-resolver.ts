@@ -12,22 +12,6 @@ import { CacheManager } from "../../core/managers/cache";
 import { emptyResult } from "../../shared/collections";
 import fsp from "fs/promises"; // (add near the top if not present)
 
-
-/** Ensure we have a PHP resolver context for the current root */
-function buildPhpCtx(root: string, prev?: PhpResolverCtx): PhpResolverCtx {
-	if (prev?.kind === "php") return prev;
-	const psr4 = resolvePsr4(root);
-	const nsKeys = Object.keys(psr4).sort((a, b) => b.length - a.length);
-	const bindings = loadLaravelBindings(root);
-	return { kind: "php", psr4, nsKeys, bindings };
-}
-
-/** Namespace prefix check */
-function startsWithAnyNamespace(imp: string, nsKeys: string[]): boolean {
-	for (const k of nsKeys) if (imp.startsWith(k)) return true;
-	return false;
-}
-
 /**
  * Typed PHP resolver (aligned with JS resolver signature).
  * - Uses global config via getConfig()
@@ -51,6 +35,9 @@ export async function resolvePhpImports({ filePath, visited = new Set<string>(),
 	const code = readFileSafe(filePath);
 	if (!code) return emptyResult(visited);
 
+	const nsMatch = code.match(/\bnamespace\s+([^;]+);/);
+	const currentNamespace = nsMatch ? nsMatch[1].trim() : null;
+
 	// Context + exclusions
 	const phpCtx = buildPhpCtx(ROOT, ctx as PhpResolverCtx | undefined);
 
@@ -64,6 +51,14 @@ export async function resolvePhpImports({ filePath, visited = new Set<string>(),
 
 	for (const imp0 of imports) {
 		let imp = imp0;
+		if (!imp || typeof imp !== "string") continue;
+
+		// Fully-qualified check
+		const isFullyQualified = imp.includes("\\") || imp.startsWith("\\");
+
+		if (!isFullyQualified && currentNamespace) {
+			imp = `${currentNamespace}\\${imp}`;
+		}
 
 		// Respect Laravel container bindings (Interface → Implementation)
 		if (phpCtx.bindings[imp]) {
@@ -73,7 +68,6 @@ export async function resolvePhpImports({ filePath, visited = new Set<string>(),
 
 		// Only resolve PSR-4 mapped namespaces
 		if (!startsWithAnyNamespace(imp, phpCtx.nsKeys)) continue;
-		// if (isExcluded(imp, excludePatterns, ROOT)) continue;
 
 		// Resolve namespace → file path (sync helper retained)
 		const resolvedPath = await tryResolvePhpFile(imp, filePath, phpCtx.psr4);
@@ -137,4 +131,19 @@ async function tryResolvePhpFile(imp: string, fromFile: string, psr4: Record<str
 	const resolved = results.find((r) => r.status === "fulfilled" && r.value)?.value ?? null;
 	CacheManager.set(CACHE_KEYS.PHP_FILECACHE, key, resolved);
 	return resolved;
+}
+
+/** Ensure we have a PHP resolver context for the current root */
+function buildPhpCtx(root: string, prev?: PhpResolverCtx): PhpResolverCtx {
+	if (prev?.kind === "php") return prev;
+	const psr4 = resolvePsr4(root);
+	const nsKeys = Object.keys(psr4).sort((a, b) => b.length - a.length);
+	const bindings = loadLaravelBindings(root);
+	return { kind: "php", psr4, nsKeys, bindings };
+}
+
+/** Namespace prefix check */
+function startsWithAnyNamespace(imp: string, nsKeys: string[]): boolean {
+	for (const k of nsKeys) if (imp.startsWith(k)) return true;
+	return false;
 }

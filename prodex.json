@@ -8,7 +8,9 @@
         "format": "md"
     },
     "entry": {
-        "files": [],
+        "files": [
+            "src/index.ts"
+        ],
         "ui": {
             "roots": [
                 "app",
@@ -26,9 +28,7 @@
         }
     },
     "resolve": {
-        "include": [
-            "**/*.d.ts"
-        ],
+        "include": [],
         "aliases": {
             "@": "resources/js"
         },
@@ -40,21 +40,5 @@
         "depth": 10,
         "limit": 200
     },
-    "shortcuts": {
-        "dashboard": {
-            "files": [
-                "**/dashboard.tsx"
-            ],
-            "include": [
-                "**.app.tsx",
-                "**/*.d.ts"
-            ]
-        },
-        "web": {
-            "files": [
-                "**/web.php",
-                "**/api.php"
-            ]
-        }
-    }
+    "shortcuts": {}
 }
