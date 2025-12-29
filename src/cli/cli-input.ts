@@ -5,6 +5,34 @@ import fs from "fs";
 import {FLAG_MAP} from "../constants/flags";
 import type {ParsedInput} from "../types";
 
+type ShortcutExtract = {
+    argv: string[];
+    shortcutAll: boolean;
+    shortcuts: string[];
+};
+
+function extractShortcutTokens(argv: string[]): ShortcutExtract {
+    const cleaned: string[] = [];
+    const shortcuts: string[] = [];
+    let shortcutAll = false;
+
+    for (const arg of argv) {
+        if (arg === "@") {
+            shortcutAll = true;
+            continue;
+        }
+        if (arg?.startsWith("@")) {
+            const name = arg.slice(1).trim();
+            if (!name) shortcutAll = true;
+            else shortcuts.push(name);
+            continue;
+        }
+        cleaned.push(arg);
+    }
+
+    return {argv: cleaned, shortcutAll, shortcuts};
+}
+
 /**
  * Unified CLI parser powered by Sade and FLAG_MAP.
  * Returns { root, flags, warnings, errors }.
@@ -15,26 +43,39 @@ export function parseCliInput(argv: string[] = process.argv) {
         process.exit(0);
     }
 
+    const extracted = extractShortcutTokens(argv);
+    const argvCleaned = extracted.argv;
+
     const program = sade("prodex [root]");
     registerFlags(program);
 
     let parsed: ParsedInput = {rootArg: "", root: undefined, flags: {}};
 
     program.action((root: string | undefined, opts: Record<string, any>) => {
-        let lroot = root;
         const cwd = process.cwd();
-        if (root?.startsWith("@")) {
-            opts.shortcut = root.slice(1).trim();
-            lroot = undefined;
-        }
         parsed = {
-            rootArg: lroot,
-            root: lroot ? path.resolve(cwd, lroot) : cwd,
+            rootArg: root,
+            root: root ? path.resolve(cwd, root) : cwd,
             flags: {...opts},
         };
     });
 
-    program.parse(argv);
+    program.parse(argvCleaned);
+
+    // Merge shortcut tokens (@a @b @c / @) with existing --shortcut usage.
+    const fromTokens = extracted.shortcuts;
+    const shortcutAll = extracted.shortcutAll;
+    const fromFlag =
+        typeof parsed.flags.shortcut === "string" ? parsed.flags.shortcut.trim() : "";
+
+    const selected = [...fromTokens, ...(fromFlag ? [fromFlag] : [])].filter(Boolean);
+    const uniq = Array.from(new Set(selected));
+
+    if (shortcutAll) (parsed.flags as any).shortcutAll = true;
+    if (uniq.length) (parsed.flags as any).shortcuts = uniq;
+
+    if (!shortcutAll && uniq.length === 1) (parsed.flags as any).shortcut = uniq[0];
+    else if (uniq.length > 1 || shortcutAll) delete (parsed.flags as any).shortcut;
 
     const warnings: string[] = [];
     const errors: string[] = [];
@@ -47,15 +88,13 @@ export function parseCliInput(argv: string[] = process.argv) {
 
 function registerFlags(program: ReturnType<typeof sade>) {
     for (const [key, meta] of Object.entries(FLAG_MAP)) {
-        const short = meta.short ? `-${meta.short}, ` : "";
-        const long = `--${key}`;
-        const desc = meta.description;
+        const short = meta.short ? `-${meta.short},` : "";
         const defaultVal = meta.type === "boolean" ? false : undefined;
-        program.option(`${short}${long}`, desc, defaultVal);
+        program.option(`${short}--${key}`, meta.description, defaultVal);
     }
 }
 
-/** Convert flag values to correct types based on FLAG_MAP metadata. */
+
 function normalizeFlags(flags: Record<string, any>, warnings: string[], errors: string[]) {
     for (const [key, meta] of Object.entries(FLAG_MAP)) {
         const raw = flags[key];
@@ -75,7 +114,10 @@ function normalizeFlags(flags: Record<string, any>, warnings: string[], errors: 
                     .filter(Boolean);
                 break;
             }
-
+            case "boolean": {
+                flags[key] = Boolean(raw);
+                break;
+            }
             default: {
                 if (meta.type === "string") flags[key] = String(raw);
             }
@@ -90,7 +132,7 @@ function validateArgs(parsed: ParsedInput, warnings: string[], errors: string[])
 
     if (rootArg) {
         if (!fs.existsSync(parsed.root)) {
-            errors.push(`Invalid path argument: "${rootArg}" does not exist.`);
+            errors.push(`Invalid path "${rootArg}"`);
         } else if (!fs.statSync(parsed.root).isDirectory()) {
             errors.push(`Path argument "${rootArg}" is not a directory.`);
         }
