@@ -76,9 +76,10 @@ function buildToc(opts: {
 }) {
     const {files, count, listingStart, listingEnd, trace, withRanges} = opts;
 
-
     const tocHead = [
         `# Index ${withRanges ? rangeText(listingStart, listingEnd) : ""} `,
+        "",
+        "> Note for LLMs: `Lx-Ly` ranges refer to lines in this Prodex trace file, not the original source files.",
         "",
         MD_HEADER,
         "",
@@ -98,7 +99,7 @@ function buildToc(opts: {
 }
 
 /**
- * Analyze the already-generated markdown to compute:
+ * Analyze the already-generated Markdown to compute:
  * - listing start/end lines
  * - each section start/end line (per file index)
  *
