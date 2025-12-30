@@ -6,8 +6,7 @@ import {logger} from "../lib/logger";
 import type {OutputParams} from "../types";
 import {shortTimestamp} from "../lib/utils";
 import {OUTPUT_NAME_QUESTION} from "../lib/questions";
-import {MD_FOOTER, MD_HEADER} from "../constants/render-constants";
-import {SUFFIX} from "../constants/config";
+import {SUFFIX} from "../constants";
 import {rel} from "../shared";
 
 /**

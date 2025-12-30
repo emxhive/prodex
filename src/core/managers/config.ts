@@ -1,6 +1,6 @@
 import fs from "fs";
 import path from "path";
-import { DEFAULT_PRODEX_CONFIG } from "../../constants/default-config";
+import { DEFAULT_PRODEX_CONFIG } from "../../constants";
 import { ArrisEmpty, normalizePatterns, toJson } from "../../lib/utils";
 import { FLAG_MAP } from "../../constants/flags";
 import type { ProdexConfig, ProdexFlags, ProdexConfigFile, DeepPartial, ProdexShortcut } from "../../types";
