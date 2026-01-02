@@ -76,14 +76,18 @@ function buildToc(opts: {
 }) {
     const {files, count, listingStart, listingEnd, trace, withRanges} = opts;
 
+    const indexRange = withRanges && listingStart && listingEnd
+        ? `L${listingStart}-L${listingEnd}`
+        : "L?-L?";
+
     const tocHead = [
-        `# Index ${withRanges ? rangeText(listingStart, listingEnd) : ""} `,
-        "",
-        "> Note for LLMs: `Lx-Ly` ranges refer to lines in this Prodex trace file, not the original source files.",
-        "",
         MD_HEADER,
+        "> Note for LLMs: `Lx-Ly` ranges refer to lines in this Prodex trace file, not the original source files. Index metadata is provided via the HTML comment markers below.",
         "",
-        `Included Source Files: ${count}`,
+        "# Index",
+        `<!-- PRODEX_INDEX_RANGE: ${indexRange} -->`,
+        `<!-- PRODEX_FILE_COUNT: ${count} -->`,
+        "<!-- PRODEX_INDEX_LIST_START -->",
     ];
 
     const items = files.map((f, i) => {
@@ -93,7 +97,7 @@ function buildToc(opts: {
         return `- [${rp}](#${i + 1}) ${rangeText(t.startLine, t.endLine)}`;
     });
 
-    const tocTail = ["", "---"];
+    const tocTail = ["<!-- PRODEX_INDEX_LIST_END -->", "", "---"];
 
     return [...tocHead, ...items, ...tocTail].join("\n");
 }
@@ -113,10 +117,28 @@ function analyzeTrace(content: string, count: number): {
     const lines = content.split("\n");
 
     // --- Listing range ---
-    const includedIdx = lines.findIndex((l) => /^Included Source Files\b/.test(l.trim()));
-    // listing begins on the next line after the header
-    const listingStart = includedIdx >= 0 ? includedIdx + 2 : 0; // 1-based
-    const listingEnd = count ? listingStart + count - 1 : listingStart;
+    const startMarkerIdx = lines.findIndex((l) => l.includes("<!-- PRODEX_INDEX_LIST_START -->"));
+    const endMarkerIdx = lines.findIndex((l) => l.includes("<!-- PRODEX_INDEX_LIST_END -->"));
+
+    let listingStart = 0;
+    let listingEnd = 0;
+
+    if (startMarkerIdx >= 0 && endMarkerIdx > startMarkerIdx) {
+        const itemIdxs: number[] = [];
+        for (let i = startMarkerIdx + 1; i < endMarkerIdx; i++) {
+            if (lines[i].trim().startsWith("- ")) itemIdxs.push(i);
+        }
+
+        if (itemIdxs.length) {
+            listingStart = itemIdxs[0] + 1; // 1-based
+            const effectiveCount = itemIdxs.length !== count && count > 0 ? Math.min(itemIdxs.length, count) : itemIdxs.length;
+            const lastItemIdx = itemIdxs[Math.max(0, effectiveCount - 1)] ?? itemIdxs[itemIdxs.length - 1];
+            listingEnd = lastItemIdx + 1;
+        } else {
+            listingStart = startMarkerIdx + 2;
+            listingEnd = listingStart;
+        }
+    }
 
     // --- Footer start (exclude footer from last file range) ---
     let footerMarkerIdx = lines.findIndex((l) => l.includes("<!-- PRODEx v"));
@@ -173,8 +195,20 @@ function analyzeTrace(content: string, count: number): {
  */
 export function tocMd(files: string[]) {
     const count = files.length;
-    const items = files.map((f, i) => `- [${rel(f)}](#${i + 1})`).join("\n");
-    return ["# Index ", `\nIncluded Source Files (${count})`, items, "", "---"].join("\n");
+    const items = files.map((f, i) => `- [${rel(f)}](#${i + 1})`);
+    return [
+        MD_HEADER,
+        "> Note for LLMs: `Lx-Ly` ranges refer to lines in this Prodex trace file, not the original source files. Index metadata is provided via the HTML comment markers below.",
+        "",
+        "# Index",
+        "<!-- PRODEX_INDEX_RANGE: L?-L? -->",
+        `<!-- PRODEX_FILE_COUNT: ${count} -->`,
+        "<!-- PRODEX_INDEX_LIST_START -->",
+        ...items,
+        "<!-- PRODEX_INDEX_LIST_END -->",
+        "",
+        "---",
+    ].join("\n");
 }
 
 export function renderMd(p, i) {
