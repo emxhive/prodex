@@ -65,6 +65,8 @@ export function renderTraceMd(files: string[]) {
 }
 
 const rangeText = (start: number, end: number) => ` L${start}-L${end}`;
+const INDEX_RANGE_PLACEHOLDER = "L?-L?";
+const LLM_NOTE = "> Note for LLMs: `Lx-Ly` ranges refer to lines in this Prodex trace file, not the original source files. Index metadata is provided via the HTML comment markers in this section.";
 
 function buildToc(opts: {
     files: string[];
@@ -78,11 +80,11 @@ function buildToc(opts: {
 
     const indexRange = withRanges && listingStart && listingEnd
         ? `L${listingStart}-L${listingEnd}`
-        : "L?-L?";
+        : INDEX_RANGE_PLACEHOLDER;
 
     const tocHead = [
         MD_HEADER,
-        "> Note for LLMs: `Lx-Ly` ranges refer to lines in this Prodex trace file, not the original source files. Index metadata is provided via the HTML comment markers below.",
+        LLM_NOTE,
         "",
         "# Index",
         `<!-- PRODEX_INDEX_RANGE: ${indexRange} -->`,
@@ -117,8 +119,8 @@ function analyzeTrace(content: string, count: number): {
     const lines = content.split("\n");
 
     // --- Listing range ---
-    const startMarkerIdx = lines.findIndex((l) => l.includes("<!-- PRODEX_INDEX_LIST_START -->"));
-    const endMarkerIdx = lines.findIndex((l) => l.includes("<!-- PRODEX_INDEX_LIST_END -->"));
+    const startMarkerIdx = lines.findIndex((l) => l.trim() === "<!-- PRODEX_INDEX_LIST_START -->");
+    const endMarkerIdx = lines.findIndex((l) => l.trim() === "<!-- PRODEX_INDEX_LIST_END -->");
 
     let listingStart = 0;
     let listingEnd = 0;
@@ -131,11 +133,12 @@ function analyzeTrace(content: string, count: number): {
 
         if (itemIdxs.length) {
             listingStart = itemIdxs[0] + 1; // 1-based
-            const effectiveCount = itemIdxs.length !== count && count > 0 ? Math.min(itemIdxs.length, count) : itemIdxs.length;
-            const lastItemIdx = itemIdxs[Math.max(0, effectiveCount - 1)] ?? itemIdxs[itemIdxs.length - 1];
+            // count is zero during the first (placeholder) pass; cap to the requested count when provided, otherwise use the discovered items
+            const cappedCount = count > 0 ? Math.min(itemIdxs.length, count) : itemIdxs.length;
+            const lastItemIdx = itemIdxs[cappedCount - 1];
             listingEnd = lastItemIdx + 1;
         } else {
-            listingStart = startMarkerIdx + 2;
+            listingStart = startMarkerIdx + 2; // move past the marker line (0-based) and convert to 1-based line numbers
             listingEnd = listingStart;
         }
     }
@@ -198,10 +201,10 @@ export function tocMd(files: string[]) {
     const items = files.map((f, i) => `- [${rel(f)}](#${i + 1})`);
     return [
         MD_HEADER,
-        "> Note for LLMs: `Lx-Ly` ranges refer to lines in this Prodex trace file, not the original source files. Index metadata is provided via the HTML comment markers below.",
+        LLM_NOTE,
         "",
         "# Index",
-        "<!-- PRODEX_INDEX_RANGE: L?-L? -->",
+        `<!-- PRODEX_INDEX_RANGE: ${INDEX_RANGE_PLACEHOLDER} -->`,
         `<!-- PRODEX_FILE_COUNT: ${count} -->`,
         "<!-- PRODEX_INDEX_LIST_START -->",
         ...items,
