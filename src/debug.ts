@@ -3,7 +3,7 @@ import "source-map-support/register";
 
 
 (async () => {
-	const mockArgs = ["node", "prodex", "@web",  "-cd"];
+	const mockArgs = ["node", "prodex", "-i", "src/**",  "-d"];
 	process.argv = mockArgs;
 
 //"-f", "**/(dashboard|accounts).tsx",

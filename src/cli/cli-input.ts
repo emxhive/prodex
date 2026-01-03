@@ -2,7 +2,7 @@ import sade from "sade";
 import path from "path";
 import pkg from "../../package.json";
 import fs from "fs";
-import {FLAG_MAP} from "../constants/flags";
+import {FLAG_MAP, FLAG_SHORT_MAP} from "../constants/flags";
 import type {ParsedInput} from "../types";
 
 type ShortcutExtract = {
@@ -88,14 +88,22 @@ export function parseCliInput(argv: string[] = process.argv) {
 
 function registerFlags(program: ReturnType<typeof sade>) {
     for (const [key, meta] of Object.entries(FLAG_MAP)) {
-        const short = meta.short ? `-${meta.short},` : "";
-        const defaultVal = meta.type === "boolean" ? false : undefined;
+        const short = meta.short ? `-${meta.short}, ` : "";
+        const defaultVal = meta.type === "boolean" ? false : "";
         program.option(`${short}--${key}`, meta.description, defaultVal);
     }
 }
 
 
 function normalizeFlags(flags: Record<string, any>, warnings: string[], errors: string[]) {
+    // Remap short aliases (-i/-f/-d) to long keys (include/files/debug)
+    for (const [short, longKey] of Object.entries(FLAG_SHORT_MAP)) {
+        if (flags[longKey] === undefined && flags[short] !== undefined) {
+            flags[longKey] = flags[short];
+            delete flags[short];
+        }
+    }
+
     for (const [key, meta] of Object.entries(FLAG_MAP)) {
         const raw = flags[key];
         if (raw === undefined) continue;

@@ -1,7 +1,6 @@
 import path from "path";
-import {readFileSafe} from "../shared";
-import {rel} from "../shared";
-import {LANG_MAP, MD_FOOTER, MD_HEADER} from "../constants";
+import {readFileSafe, rel} from "../shared";
+import {INDEX_RANGE_PLACEHOLDER, LANG_MAP, LLM_NOTE, MD_FOOTER, MD_HEADER} from "../constants";
 
 export interface MdTraceEntry {
     file: string;
@@ -12,7 +11,7 @@ export interface MdTraceEntry {
 
 /**
  * renderTraceMd()
- * Builds the full markdown document AND computes:
+ * Builds the full Markdown document AND computes:
  * - listing start/end lines
  * - each file section start/end lines (in the final output)
  */
@@ -21,7 +20,7 @@ export interface MdTraceEntry {
 export function renderTraceMd(files: string[]) {
     const count = files.length;
 
-    // Render sections once (content of each file)
+    // Render sections at once (content of each file)
     const sections = files.map((f, i) => renderMd(f, i));
 
     // 1) Build a FIRST PASS doc with placeholder TOC (no line ranges)
@@ -65,8 +64,6 @@ export function renderTraceMd(files: string[]) {
 }
 
 const rangeText = (start: number, end: number) => ` L${start}-L${end}`;
-const INDEX_RANGE_PLACEHOLDER = "L?-L?";
-const LLM_NOTE = "> Note for LLMs: `Lx-Ly` ranges refer to lines in this Prodex trace file, not the original source files. Index metadata is provided via the HTML comment markers in this section.";
 
 function buildToc(opts: {
     files: string[];
