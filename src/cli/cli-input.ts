@@ -89,7 +89,7 @@ export function parseCliInput(argv: string[] = process.argv) {
 function registerFlags(program: ReturnType<typeof sade>) {
     for (const [key, meta] of Object.entries(FLAG_MAP)) {
         const short = meta.short ? `-${meta.short}, ` : "";
-        const defaultVal = meta.type === "boolean" ? false : "";
+        const defaultVal = meta.type === "boolean" ? false : undefined;
         program.option(`${short}--${key}`, meta.description, defaultVal);
     }
 }
