@@ -1,52 +1,36 @@
 import fs from "fs";
 import path from "path";
-import {prompt} from "../lib/prompt";
-import {renderMd, renderTraceMd, renderTxt, tocMd, tocTxt} from "./renderers";
-import {logger} from "../lib/logger";
-import type {OutputParams} from "../types";
-import {shortTimestamp} from "../lib/utils";
-import {OUTPUT_NAME_QUESTION} from "../lib/questions";
-import {SUFFIX} from "../constants";
-import {rel} from "../shared";
+import { logger } from "../lib/logger";
+import type { OutputParams } from "../types";
+import { shortTimestamp } from "../lib/utils";
+import { SUFFIX } from "../constants";
+import { renderTraceMd, renderTxt, tocTxt } from "./renderers";
+import { sanitizeFileName } from "../platform/path";
 
-/**
- * 🧩 produceOutput()
- * Handles rendering and writing of the final trace file.
- * Receives resolved files and configuration from combine.ts.
- */
-export async function produceOutput({name, files, cfg, showUi}: OutputParams): Promise<string> {
-    const {
-        output: {format, versioned, dir},
-    } = cfg;
+export async function produceOutput({ name, files, cfg }: OutputParams): Promise<string> {
+	const {
+		output: { format, versioned, dir },
+	} = cfg;
 
-    // 1️⃣ Determine base filename
-    let outputBase = name;
-    if (showUi) {
-        const result = await prompt<{ outputBase: string }>(OUTPUT_NAME_QUESTION);
-        if (result?.outputBase) outputBase = result.outputBase;
-    }
+	let outputBase = sanitizeFileName(name || cfg.output.prefix);
+	outputBase = `${outputBase}-${SUFFIX}`;
+	if (versioned) outputBase = `${outputBase}_${shortTimestamp()}`;
 
-    // 2️⃣ Prefix timestamp if versioned
-    outputBase = `${outputBase}-${SUFFIX}`;
-    if (versioned) outputBase = `${outputBase}_${shortTimestamp()}`;
+	const outputDir = path.isAbsolute(dir) ? dir : path.join(cfg.root, dir);
 
-    // 3️⃣ Ensure output directory
-    try {
-        fs.mkdirSync(dir, {recursive: true});
-    } catch {
-        logger.warn("Could not create dir directory:", dir);
-    }
+	try {
+		fs.mkdirSync(outputDir, { recursive: true });
+	} catch {
+		logger.warn("Could not create output directory:", outputDir);
+	}
 
-    // 4️⃣ Prepare and write content
-    const outputPath = path.join(dir, `${outputBase}.${format}`);
+	const outputPath = path.join(outputDir, `${outputBase}.${format}`);
+	const sorted = [...files].sort((a, b) => a.localeCompare(b));
+	const content =
+		format === "txt"
+			? [tocTxt(sorted), ...sorted.map(renderTxt)].join("")
+			: renderTraceMd(sorted).content;
 
-    const sorted = [...files].sort((a, b) => a.localeCompare(b));
-    //[tocMd(sorted), ...sorted.map((f, i) => renderMd(f, i)), MD_FOOTER].join("\n")
-    const content = format === "txt"
-        ? [tocTxt(sorted), ...sorted.map(renderTxt)].join("")
-        : renderTraceMd(sorted).content;
-
-    fs.writeFileSync(outputPath, content, "utf8");
-
-    return outputPath;
+	fs.writeFileSync(outputPath, content, "utf8");
+	return outputPath;
 }

@@ -1,4 +1,5 @@
 import { logger } from "../../lib/logger";
+import { inspectValue } from "../../platform/inspect";
 
 /**
  * 🧩 CacheManager
@@ -6,7 +7,7 @@ import { logger } from "../../lib/logger";
  *
  * - Namespaced storage (e.g., "aliases", "stats", "resolver")
  * - Purely in-memory (no file I/O)
- * - Static API for symmetry with ConfigManager
+ * - Static API for shared resolver caches
  */
 export class CacheManager {
 	private static registry = new Map<string, Map<string, any>>();
@@ -20,7 +21,7 @@ export class CacheManager {
 	/** Set or update a cached entry */
 	static set<T = any>(ns: string, key: string, val: T): void {
 		this.ns(ns).set(key, val);
-		logger.debug(`🧩 [cache:${ns}] set ${key} \n→ ${_2j(val)}`);
+		logger.debug(`[cache:${ns}] set ${key}\n-> ${inspectValue(val)}`);
 	}
 
 	/** Retrieve a cached entry */

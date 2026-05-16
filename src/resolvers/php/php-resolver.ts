@@ -5,24 +5,23 @@ import { loadLaravelBindings } from "./bindings";
 import { resolvePsr4 } from "./psr4";
 import { logger } from "../../lib/logger";
 import { newStats, mergeStats, unique, readFileSafe, setDiff, isExcluded } from "../../shared";
-import { getConfig } from "../../store";
 import type { ResolverParams, ResolverResult, PhpResolverCtx } from "../../types";
 import { CACHE_KEYS } from "../../constants";
 import { CacheManager } from "../../core/managers/cache";
 import { emptyResult } from "../../shared/collections";
 import fsp from "fs/promises"; // (add near the top if not present)
+import { normalizePath } from "../../platform/path";
 
 /**
  * Typed PHP resolver (aligned with JS resolver signature).
- * - Uses global config via getConfig()
  * - Returns ResolverResult (files + stats)
  * - Depth/visited guarded recursion
  */
-export async function resolvePhpImports({ filePath, visited = new Set<string>(), depth = 0, maxDepth, ctx }: ResolverParams): Promise<ResolverResult> {
+export async function resolvePhpImports({ cfg, filePath, visited = new Set<string>(), depth = 0, maxDepth, ctx }: ResolverParams): Promise<ResolverResult> {
 	const {
 		root: ROOT,
 		resolve: { exclude: excludePatterns = [], depth: defaultDepth = 10 },
-	} = getConfig();
+	} = cfg;
 
 	const limitDepth = maxDepth ?? defaultDepth;
 
@@ -62,7 +61,6 @@ export async function resolvePhpImports({ filePath, visited = new Set<string>(),
 
 		// Respect Laravel container bindings (Interface → Implementation)
 		if (phpCtx.bindings[imp]) {
-			// logger.debug("[php-resolver] binding:", imp, "→", _2j(phpCtx.bindings[imp]));
 			imp = phpCtx.bindings[imp];
 		}
 
@@ -82,6 +80,7 @@ export async function resolvePhpImports({ filePath, visited = new Set<string>(),
 
 		// Recurse
 		const sub = await resolvePhpImports({
+			cfg,
 			filePath: resolvedPath,
 			visited,
 			depth: depth + 1,
@@ -112,7 +111,7 @@ async function tryResolvePhpFile(imp: string, fromFile: string, psr4: Record<str
 		return null;
 	}
 
-	const rel = imp.replace(nsKey, "").norm();
+	const rel = normalizePath(imp.replace(nsKey, ""));
 	const tries = [path.join(psr4[nsKey], rel), path.join(psr4[nsKey], rel + ".php"), path.join(psr4[nsKey], rel, "index.php")];
 
 	// 🔹 Run all stats concurrently

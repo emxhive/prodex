@@ -7,5 +7,3 @@ export interface Logger {
 	log: LogFn;
 	clear: LogFn;
 }
-
-export type QuestionSet<T = any> = ReadonlyArray<Record<string, any>> | Record<string, any>;

@@ -3,7 +3,6 @@ import { extractImports } from "./extract-imports";
 import { BASE_EXTS, DTS_EXT, REAL_EXTS } from "../../constants/config";
 import { emptyResult, mergeStats, newStats, unique } from "../../shared/collections";
 import { logger } from "../../lib/logger";
-import { getConfig } from "../../store";
 import { resolveAliasPath } from "./resolve-alias"; // alias: config + cache + fast-glob
 import type { ResolverParams, ResolverResult } from "../../types";
 import { CacheManager } from "../../core/managers/cache";
@@ -13,7 +12,7 @@ import { setDiff } from "../../shared";
 
 const { JS_STATS, JS_IMPORTS } = CACHE_KEYS;
 
-export async function resolveJsImports({ filePath, visited = new Set(), depth = 0, maxDepth }: ResolverParams): Promise<ResolverResult> {
+export async function resolveJsImports({ cfg, filePath, visited = new Set(), depth = 0, maxDepth }: ResolverParams): Promise<ResolverResult> {
 	const limitDepth = maxDepth;
 
 	if (depth >= limitDepth) return emptyResult(visited);
@@ -23,7 +22,7 @@ export async function resolveJsImports({ filePath, visited = new Set(), depth = 
 	const {
 		root: ROOT,
 		resolve: { exclude: excludePatterns },
-	} = getConfig();
+	} = cfg;
 
 	const ext = path.extname(filePath).toLowerCase();
 	const isDts = ext === DTS_EXT;
@@ -56,7 +55,7 @@ export async function resolveJsImports({ filePath, visited = new Set(), depth = 
 			base = path.resolve(imp);
 		} else {
 			// alias (@...) → unified resolver (config + cache + glob)
-			base = await resolveAliasPath(imp, ROOT, getConfig());
+			base = await resolveAliasPath(imp, ROOT, cfg);
 		}
 
 		if (!base) continue;
@@ -77,6 +76,7 @@ export async function resolveJsImports({ filePath, visited = new Set(), depth = 
 
 		// Recursive traversal
 		const sub = await resolveJsImports({
+			cfg,
 			filePath: resolvedPath,
 			visited,
 			depth: depth + 1,

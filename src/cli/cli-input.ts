@@ -1,159 +1,209 @@
-import sade from "sade";
 import path from "path";
-import pkg from "../../package.json";
-import fs from "fs";
-import {FLAG_MAP, FLAG_SHORT_MAP} from "../constants/flags";
-import type {ParsedInput} from "../types";
+import type { CliParseResult, ProdexFlags } from "../types";
 
-type ShortcutExtract = {
-    argv: string[];
-    shortcutAll: boolean;
-    shortcuts: string[];
+type FlagSpec = {
+	long: keyof ProdexFlags | "help" | "version" | "shortcuts";
+	short?: string;
+	type: "boolean" | "string" | "number" | "list";
 };
 
-function extractShortcutTokens(argv: string[]): ShortcutExtract {
-    const cleaned: string[] = [];
-    const shortcuts: string[] = [];
-    let shortcutAll = false;
+const FLAGS: FlagSpec[] = [
+	{ long: "files", short: "f", type: "list" },
+	{ long: "include", short: "i", type: "list" },
+	{ long: "exclude", short: "x", type: "list" },
+	{ long: "name", short: "n", type: "string" },
+	{ long: "txt", short: "t", type: "boolean" },
+	{ long: "limit", short: "l", type: "number" },
+	{ long: "ci", short: "c", type: "boolean" },
+	{ long: "debug", short: "d", type: "boolean" },
+	{ long: "shortcut", short: "a", type: "string" },
+	{ long: "shortcuts", type: "boolean" },
+	{ long: "help", short: "h", type: "boolean" },
+	{ long: "version", short: "v", type: "boolean" },
+];
 
-    for (const arg of argv) {
-        if (arg === "@") {
-            shortcutAll = true;
-            continue;
-        }
-        if (arg?.startsWith("@")) {
-            const name = arg.slice(1).trim();
-            if (!name) shortcutAll = true;
-            else shortcuts.push(name);
-            continue;
-        }
-        cleaned.push(arg);
-    }
+const BY_LONG = new Map(FLAGS.map((flag) => [flag.long, flag]));
+const BY_SHORT = new Map(FLAGS.filter((flag) => flag.short).map((flag) => [flag.short!, flag]));
 
-    return {argv: cleaned, shortcutAll, shortcuts};
+export function parseCliInput(argv: string[] = process.argv): CliParseResult {
+	const tokens = stripExecutable(argv);
+	const warnings: string[] = [];
+	const errors: string[] = [];
+	const flags: Partial<ProdexFlags> = {};
+	const shortcuts: string[] = [];
+	let shortcutAll = false;
+	let commandName = "run";
+	let rootArg: string | undefined;
+
+	for (let i = 0; i < tokens.length; i++) {
+		const token = tokens[i];
+
+		if (!token) continue;
+		if (i === 0 && isCommand(token)) {
+			commandName = token;
+			continue;
+		}
+		if (token === "@") {
+			shortcutAll = true;
+			continue;
+		}
+		if (token.startsWith("@")) {
+			const name = token.slice(1).trim();
+			if (name) shortcuts.push(name);
+			else shortcutAll = true;
+			continue;
+		}
+		if (token.startsWith("--")) {
+			const consumed = readLongFlag(tokens, i, flags, errors);
+			i += consumed;
+			continue;
+		}
+		if (token.startsWith("-") && token !== "-") {
+			const consumed = readShortFlag(tokens, i, flags, errors);
+			i += consumed;
+			continue;
+		}
+		if (rootArg) {
+			errors.push(`Unexpected positional argument "${token}". Only one root path is accepted.`);
+			continue;
+		}
+		rootArg = token;
+	}
+
+	if ((flags as any).help) return { command: { kind: "help" }, warnings, errors };
+	if ((flags as any).version) return { command: { kind: "version" }, warnings, errors };
+	if ((flags as any).shortcuts === true) return { command: { kind: "shortcuts", rootArg }, warnings, errors };
+	if (commandName === "help") return { command: { kind: "help" }, warnings, errors };
+	if (commandName === "version") return { command: { kind: "version" }, warnings, errors };
+
+	const selected = unique([
+		...shortcuts,
+		...(typeof flags.shortcut === "string" && flags.shortcut.trim() ? [flags.shortcut.trim()] : []),
+	]);
+
+	if (shortcutAll) flags.shortcutAll = true;
+	if (selected.length) flags.shortcuts = selected;
+	if (!shortcutAll && selected.length === 1) flags.shortcut = selected[0];
+	if (shortcutAll || selected.length > 1) delete flags.shortcut;
+
+	if (commandName === "init") {
+		return { command: { kind: "init", rootArg }, warnings, errors };
+	}
+	if (commandName === "shortcuts") {
+		return { command: { kind: "shortcuts", rootArg }, warnings, errors };
+	}
+	if (commandName !== "run") {
+		errors.push(`Unknown command "${commandName}".`);
+		return { warnings, errors };
+	}
+
+	return { command: { kind: "run", rootArg, flags }, warnings, errors };
 }
 
-/**
- * Unified CLI parser powered by Sade and FLAG_MAP.
- * Returns { root, flags, warnings, errors }.
- */
-export function parseCliInput(argv: string[] = process.argv) {
-    if (argv.includes("-v") || argv.includes("--version")) {
-        console.log(`prodex v${pkg.version}`);
-        process.exit(0);
-    }
+function stripExecutable(argv: string[]): string[] {
+	const [first, second, ...rest] = argv;
+	const firstBase = first ? path.basename(first).toLowerCase() : "";
+	const secondBase = second ? path.basename(second).toLowerCase() : "";
 
-    const extracted = extractShortcutTokens(argv);
-    const argvCleaned = extracted.argv;
-
-    const program = sade("prodex [root]");
-    registerFlags(program);
-
-    let parsed: ParsedInput = {rootArg: "", root: undefined, flags: {}};
-
-    program.action((root: string | undefined, opts: Record<string, any>) => {
-        const cwd = process.cwd();
-        parsed = {
-            rootArg: root,
-            root: root ? path.resolve(cwd, root) : cwd,
-            flags: {...opts},
-        };
-    });
-
-    program.parse(argvCleaned);
-
-    // Merge shortcut tokens (@a @b @c / @) with existing --shortcut usage.
-    const fromTokens = extracted.shortcuts;
-    const shortcutAll = extracted.shortcutAll;
-    const fromFlag =
-        typeof parsed.flags.shortcut === "string" ? parsed.flags.shortcut.trim() : "";
-
-    const selected = [...fromTokens, ...(fromFlag ? [fromFlag] : [])].filter(Boolean);
-    const uniq = Array.from(new Set(selected));
-
-    if (shortcutAll) (parsed.flags as any).shortcutAll = true;
-    if (uniq.length) (parsed.flags as any).shortcuts = uniq;
-
-    if (!shortcutAll && uniq.length === 1) (parsed.flags as any).shortcut = uniq[0];
-    else if (uniq.length > 1 || shortcutAll) delete (parsed.flags as any).shortcut;
-
-    const warnings: string[] = [];
-    const errors: string[] = [];
-
-    parsed.flags = normalizeFlags(parsed.flags, warnings, errors);
-    validateArgs(parsed, warnings, errors);
-
-    return {...parsed, warnings, errors};
+	if (/^node(\.exe)?$/.test(firstBase)) return rest;
+	if (secondBase.startsWith("prodex") && firstBase) return rest;
+	if (firstBase.startsWith("prodex")) return argv.slice(1);
+	return argv;
 }
 
-function registerFlags(program: ReturnType<typeof sade>) {
-    for (const [key, meta] of Object.entries(FLAG_MAP)) {
-        const short = meta.short ? `-${meta.short}, ` : "";
-        const defaultVal = meta.type === "boolean" ? false : undefined;
-        program.option(`${short}--${key}`, meta.description, defaultVal);
-    }
+function isCommand(token: string): boolean {
+	return ["run", "init", "shortcuts", "help", "version"].includes(token);
 }
 
+function readLongFlag(tokens: string[], index: number, flags: Partial<ProdexFlags>, errors: string[]): number {
+	const token = tokens[index];
+	const raw = token.slice(2);
+	const equalsAt = raw.indexOf("=");
+	const name = equalsAt === -1 ? raw : raw.slice(0, equalsAt);
+	const inlineValue = equalsAt === -1 ? undefined : raw.slice(equalsAt + 1);
+	const spec = BY_LONG.get(name as any);
 
-function normalizeFlags(flags: Record<string, any>, warnings: string[], errors: string[]) {
-    // Remap short aliases (-i/-f/-d) to long keys (include/files/debug)
-    for (const [short, longKey] of Object.entries(FLAG_SHORT_MAP)) {
-        if (flags[longKey] === undefined && flags[short] !== undefined) {
-            flags[longKey] = flags[short];
-            delete flags[short];
-        }
-    }
+	if (!spec) {
+		errors.push(`Unknown flag "--${name}".`);
+		return 0;
+	}
 
-    for (const [key, meta] of Object.entries(FLAG_MAP)) {
-        const raw = flags[key];
-        if (raw === undefined) continue;
+	if (spec.type === "boolean") {
+		(flags as any)[spec.long] = inlineValue === undefined ? true : coerceBoolean(inlineValue);
+		return 0;
+	}
 
-        switch (meta.type) {
-            case "number": {
-                const num = Number(raw);
-                if (Number.isNaN(num)) errors.push(`Flag --${key} expected a number but got "${raw}"`);
-                else flags[key] = num;
-                break;
-            }
-            case "list": {
-                flags[key] = String(raw)
-                    .split(",")
-                    .map((v) => v.trim())
-                    .filter(Boolean);
-                break;
-            }
-            case "boolean": {
-                flags[key] = Boolean(raw);
-                break;
-            }
-            default: {
-                if (meta.type === "string") flags[key] = String(raw);
-            }
-        }
-    }
-    return flags;
+	const value = inlineValue ?? tokens[index + 1];
+	if (value === undefined || value.startsWith("-")) {
+		errors.push(`Flag "--${name}" expects a value.`);
+		return 0;
+	}
+
+	assignFlag(flags, spec, value, errors);
+	return inlineValue === undefined ? 1 : 0;
 }
 
-/** Validate path argument and report unrecognized flags. */
-function validateArgs(parsed: ParsedInput, warnings: string[], errors: string[]) {
-    const {rootArg} = parsed;
+function readShortFlag(tokens: string[], index: number, flags: Partial<ProdexFlags>, errors: string[]): number {
+	const token = tokens[index];
+	const cluster = token.slice(1);
 
-    if (rootArg) {
-        if (!fs.existsSync(parsed.root)) {
-            errors.push(`Invalid path "${rootArg}"`);
-        } else if (!fs.statSync(parsed.root).isDirectory()) {
-            errors.push(`Path argument "${rootArg}" is not a directory.`);
-        }
-    }
+	if (cluster.length > 1) {
+		for (const ch of cluster) {
+			const spec = BY_SHORT.get(ch);
+			if (!spec) {
+				errors.push(`Unknown flag "-${ch}".`);
+				continue;
+			}
+			if (spec.type !== "boolean") {
+				errors.push(`Flag "-${ch}" expects a value and cannot be used in a short flag cluster.`);
+				continue;
+			}
+			(flags as any)[spec.long] = true;
+		}
+		return 0;
+	}
 
-    const unknown = parsed.flags?._ || [];
-    if (unknown.length) {
-        warnings.push(`Unrecognized arguments detected [${unknown.join(", ")}]- They were ignored.`);
-    }
+	const spec = BY_SHORT.get(cluster);
+	if (!spec) {
+		errors.push(`Unknown flag "-${cluster}".`);
+		return 0;
+	}
+	if (spec.type === "boolean") {
+		(flags as any)[spec.long] = true;
+		return 0;
+	}
 
-    if (warnings.length) console.warn("Warnings:", warnings);
-    if (errors.length) {
-        for (const err of errors) console.error(err);
-        process.exit(1);
-    }
+	const value = tokens[index + 1];
+	if (value === undefined || value.startsWith("-")) {
+		errors.push(`Flag "-${cluster}" expects a value.`);
+		return 0;
+	}
+
+	assignFlag(flags, spec, value, errors);
+	return 1;
+}
+
+function assignFlag(flags: Partial<ProdexFlags>, spec: FlagSpec, value: string, errors: string[]): void {
+	if (spec.type === "number") {
+		const numeric = Number(value);
+		if (!Number.isFinite(numeric)) errors.push(`Flag "--${spec.long}" expected a number but got "${value}".`);
+		else (flags as any)[spec.long] = numeric;
+		return;
+	}
+	if (spec.type === "list") {
+		(flags as any)[spec.long] = value
+			.split(",")
+			.map((part) => part.trim())
+			.filter(Boolean);
+		return;
+	}
+	(flags as any)[spec.long] = value;
+}
+
+function coerceBoolean(value: string): boolean {
+	return !["0", "false", "no", "off"].includes(value.toLowerCase());
+}
+
+function unique<T>(values: T[]): T[] {
+	return [...new Set(values)];
 }

@@ -15,11 +15,6 @@ export const DEFAULT_PRODEX_CONFIG: ProdexConfigFile = {
 	},
 	entry: {
 		files: [],
-		ui: {
-			roots: ["app", "routes", "resources/js/**"],
-			scanDepth: 2,
-			priority: ["**/routes/web.php", "**/app.*"],
-		},
 	},
 	resolve: {
 		include: ["**/*.d.ts"],

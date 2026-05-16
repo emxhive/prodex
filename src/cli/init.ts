@@ -3,17 +3,28 @@ import path from "path";
 import { DEFAULT_PRODEX_CONFIG } from "../constants/default-config";
 import { toJson } from "../lib/utils";
 
-export async function initProdex() {
-	console.log("🪄 Prodex Init — Configuration Wizard (v3");
+export interface InitResult {
+	ok: boolean;
+	path: string;
+	message?: string;
+	error?: string;
+}
 
-	const dest = path.join(process.cwd(), "prodex.json");
+export function initProdex(root = process.cwd(), opts: { force?: boolean } = {}): InitResult {
+	const dest = path.join(root, "prodex.json");
 
-	if (fs.existsSync(dest)) {
-		console.error("prodex.json already exists. Delete or modify it manually.\n");
-		return;
+	if (fs.existsSync(dest) && !opts.force) {
+		return {
+			ok: false,
+			path: dest,
+			error: "prodex.json already exists. Use an explicit overwrite path if you want to replace it.",
+		};
 	}
 
 	fs.writeFileSync(dest, toJson(DEFAULT_PRODEX_CONFIG) + "\n", "utf8");
-	console.log(`✅ Created ${dest}`);
-	console.log("💡 Globs supported everywhere (include, exclude, priority).");
+	return {
+		ok: true,
+		path: dest,
+		message: `Created ${dest}`,
+	};
 }

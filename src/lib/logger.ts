@@ -1,37 +1,28 @@
-import { getFlags } from "../store";
-import { Logger } from "../types";
+import type { Logger, ProdexFlags } from "../types";
 
-let FLAGS: any = null;
 let DEBUG = false;
 let SILENT = false;
 
-function ensureFlags() {
-	if (FLAGS) return;
-	FLAGS = getFlags() || {};
-	DEBUG = !!FLAGS.debug;
-	SILENT = !!FLAGS.silent;
+export function setLoggerOptions(flags: Partial<ProdexFlags> = {}): void {
+	DEBUG = !!flags.debug;
+	SILENT = !!(flags as any).silent;
 }
 
 export const logger: Logger = {
-	debug: (...a) => {
-		ensureFlags();
-		if (DEBUG && !SILENT) console.log("\n🪶 [debug]", ...a);
+	debug: (...args) => {
+		if (DEBUG && !SILENT) console.log("\n[debug]", ...args);
 	},
-	info: (...a) => {
-		ensureFlags();
-		if (!SILENT) console.log("\n📌 [info]", ...a);
+	info: (...args) => {
+		if (!SILENT) console.log("\n[info]", ...args);
 	},
-	warn: (...a) => {
-		ensureFlags();
-		if (!SILENT) console.warn("\n⚠️  [warn]", ...a);
+	warn: (...args) => {
+		if (!SILENT) console.warn("\n[warn]", ...args);
 	},
-	error: (...a) => {
-		ensureFlags();
-		if (!SILENT) console.error("\n💥 [error]", ...a);
+	error: (...args) => {
+		if (!SILENT) console.error("\n[error]", ...args);
 	},
-	log: (...a) => {
-		ensureFlags();
-		if (!SILENT) console.log("\n", ...a);
+	log: (...args) => {
+		if (!SILENT) console.log("\n", ...args);
 	},
 	clear: () => console.clear(),
 };

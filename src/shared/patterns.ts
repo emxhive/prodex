@@ -2,6 +2,7 @@
 import micromatch from "micromatch";
 import path from "path";
 import { rel } from ".";
+import { normalizePath } from "../platform/path";
 
 
 /**
@@ -13,11 +14,11 @@ export function isExcluded(p: string, patterns: string[] = [], root: string = pr
 	if (!patterns?.length) return false;
 	if (!p) return false;
 
-	let norm = p.norm();
+	let norm = normalizePath(p);
 
 	if (!path.isAbsolute(norm) && /^[A-Z]/.test(norm)) return false;
 
-	if (path.isAbsolute(norm)) norm = rel(norm, root).norm();
+	if (path.isAbsolute(norm)) norm = normalizePath(rel(norm, root));
 
 	return micromatch.isMatch(norm, patterns);
 }

@@ -33,12 +33,6 @@ interface ProdexBase {
 
 	entry: {
 		files: string[];
-		ui: {
-			roots: string[];
-			scanDepth: number;
-			priority: string[];
-			enablePicker?: boolean;
-		};
 	};
 
 	resolve: {

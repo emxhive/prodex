@@ -1,71 +1,87 @@
-import { initProdex } from "./cli/init";
+import path from "path";
+import { createRunPlans } from "./app/create-run-plan";
+import { executeRun } from "./app/execute-run";
+import { listShortcuts } from "./app/list-shortcuts";
 import { parseCliInput } from "./cli/cli-input";
-import { ConfigManager } from "./core/managers/config";
-import { setGlobals } from "./store";
-import { runCombine } from "./core/combine";
+import { initProdex } from "./cli/init";
+import { renderHelp, renderVersion, reportCommandResult } from "./cli/reporter";
+import type { CommandResult } from "./types";
 
-export default async function startProdex(args = process.argv) {
-	if (args.includes("init")) return initProdex();
+export default async function startProdex(args = process.argv): Promise<CommandResult> {
+	const result = await runProdexCommand(args, process.cwd());
+	reportCommandResult(result);
+	process.exitCode = result.exitCode;
+	return result;
+}
 
-	const { root, flags } = parseCliInput(args);
-	const userConfig = ConfigManager.load(root);
+export async function runProdexCommand(args = process.argv, cwd = process.cwd()): Promise<CommandResult> {
+	const parsed = parseCliInput(args);
+	const warnings = [...parsed.warnings];
+	const errors = [...parsed.errors];
 
-	// Determine which shortcut runs to execute (order irrelevant).
-	const selected: string[] = [];
-	if (flags.shortcutAll) {
-		selected.push(...Object.keys(userConfig.shortcuts ?? {}));
-	} else if (Array.isArray(flags.shortcuts) && flags.shortcuts.length) {
-		selected.push(...flags.shortcuts);
-	} else if (flags.shortcut) {
-		selected.push(flags.shortcut);
+	if (errors.length || !parsed.command) {
+		return { ok: false, exitCode: 1, warnings, errors, runs: [] };
 	}
 
-	const shortcutRuns = Array.from(
-		new Set(selected.map((s) => String(s).trim()).filter(Boolean)),
-	).sort();
-
-	await import("./lib/polyfills");
-
-	// Multi-run mode (shortcuts)
-	if (shortcutRuns.length) {
-		for (const shortcut of shortcutRuns) {
-			const runFlags = {
-				...flags,
-				shortcut,
-				shortcuts: undefined,
-				shortcutAll: false,
-			};
-
-			const config = ConfigManager.merge(userConfig, runFlags, root);
-			setGlobals(config, runFlags);
-
-			const opts = {
-				showUi: false,
-				// Avoid output collisions when running multiple shortcuts.
-				cliName: config.name ?? shortcut,
-			};
-
-			await runCombine({ cfg: config, opts });
-		}
-		return;
+	if (parsed.command.kind === "help") {
+		return { ok: true, exitCode: 0, message: renderHelp(), warnings, errors, runs: [] };
 	}
 
-	// If "@" was used but no shortcuts exist, fall back to a normal single run.
-	const baseFlags = flags.shortcutAll ? { ...flags, shortcutAll: false } : flags;
+	if (parsed.command.kind === "version") {
+		return { ok: true, exitCode: 0, message: renderVersion(), warnings, errors, runs: [] };
+	}
 
-	const config = ConfigManager.merge(userConfig, baseFlags, root);
-	setGlobals(config, baseFlags);
+	if (parsed.command.kind === "init") {
+		const root = parsed.command.rootArg ? path.resolve(cwd, parsed.command.rootArg) : cwd;
+		const init = initProdex(root, { force: parsed.command.force });
+		return {
+			ok: init.ok,
+			exitCode: init.ok ? 0 : 1,
+			message: init.message,
+			warnings,
+			errors: init.error ? [...errors, init.error] : errors,
+			runs: [],
+		};
+	}
 
-	const opts = {
-		showUi:
-			!baseFlags.ci &&
-			!baseFlags?.files?.length &&
-			config?.entry?.ui?.enablePicker &&
-			!baseFlags.shortcut &&
-			!baseFlags.shortcuts?.length &&
-			!baseFlags.shortcutAll,
-		cliName: config.name,
+	if (parsed.command.kind === "shortcuts") {
+		const listed = listShortcuts(parsed.command.rootArg, cwd);
+		warnings.push(...listed.warnings);
+		errors.push(...listed.errors);
+		return {
+			ok: !errors.length,
+			exitCode: errors.length ? 1 : 0,
+			shortcuts: errors.length ? undefined : listed.shortcuts,
+			warnings,
+			errors,
+			runs: [],
+		};
+	}
+
+	const planned = createRunPlans({
+		rootArg: parsed.command.rootArg,
+		flags: parsed.command.flags,
+		cwd,
+	});
+
+	warnings.push(...planned.warnings);
+	errors.push(...planned.errors);
+
+	if (errors.length) {
+		return { ok: false, exitCode: 1, warnings, errors, runs: [] };
+	}
+
+	const runs = [];
+	for (const plan of planned.plans) {
+		runs.push(await executeRun(plan));
+	}
+
+	const ok = runs.every((run) => run.ok);
+	return {
+		ok,
+		exitCode: ok ? 0 : 1,
+		warnings,
+		errors,
+		runs,
 	};
-
-	await runCombine({ cfg: config, opts });
 }

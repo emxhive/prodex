@@ -4,6 +4,7 @@ import type { ProdexConfig } from "../../types";
 import { CACHE_KEYS } from "../../constants";
 import { globScan } from "../../core/helpers";
 import { rel } from "../../shared";
+import { normalizePath } from "../../platform/path";
 
 /**
  * 🧩 resolveAliasPath()
@@ -55,8 +56,8 @@ export async function resolveAliasPath(specifier: string, root: string, cfg: Pro
 }
 
 function resolveMatches(matches: string[], remainder: string) {
-	const foundFile = matches[0].norm();
+	const foundFile = normalizePath(matches[0]);
 	const dSplit = foundFile.split(remainder);
 	if (dSplit.length < 2) return "";
-	return dSplit[0].replace(/\\/g, "/");
+	return normalizePath(dSplit[0]);
 }

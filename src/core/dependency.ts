@@ -5,6 +5,7 @@ import { logger } from "../lib/logger";
 import { unique } from "../shared/collections";
 import type { ProdexConfig, ResolverParams, ResolverResult } from "../types";
 import fs from "fs";
+import { normalizePath } from "../platform/path";
 
 
 /**
@@ -34,6 +35,7 @@ export async function followChain(entryFiles: string[], cfg: ProdexConfig) {
 		if (!resolver) continue;
 
 		const params: ResolverParams = {
+			cfg,
 			filePath: f,
 			visited,
 			depth: 0,
@@ -85,7 +87,7 @@ export async function applyIncludes(cfg: ProdexConfig, files: string[]) {
 		const p = String(raw ?? "").trim();
 		if (!p) continue;
 
-		const norm = p.norm(); // uses your polyfill (slashes -> "/")
+		const norm = normalizePath(p);
 
 		// absolute *file* paths bypass globScan (and its ignores)
 		if (path.isAbsolute(norm)) {

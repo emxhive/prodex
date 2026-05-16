@@ -24,14 +24,16 @@
     "indexer"
   ],
   "scripts": {
-    "build": "tsc",
+    "clean": "node scripts/clean-dist.js",
+    "build": "npm run clean && tsc",
     "dev": "tsc --watch",
     "gen:schema": "node schema/generate.js",
+    "test": "npm run build && node --test test/cli-contract.test.js",
     "prepare": "npm run build && npm run gen:schema",
     "d:w": "nodemon --watch dist --delay 500ms --exec node --inspect-brk dist/debug.js"
   },
   "engines": {
-    "node": ">=16"
+    "node": ">=18"
   },
   "author": "emxhive",
   "license": "MIT",
@@ -44,9 +46,7 @@
   "dependencies": {
     "es-module-lexer": "^1.7.0",
     "fast-glob": "^3.3.3",
-    "inquirer": "^12.10.0",
     "micromatch": "^4.0.8",
-    "sade": "^1.8.1",
     "source-map-support": "^0.5.21"
   }
 }

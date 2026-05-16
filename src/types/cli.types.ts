@@ -14,7 +14,7 @@ export interface ProdexFlags {
 	/** Output as .txt instead of .md (-t / --txt) */
 	txt?: boolean;
 
-	/** Disable UI picker and run headless (-c / --ci) */
+	/** Run without any terminal-interactive behavior (-c / --ci) */
 	ci?: boolean;
 
 	/** Enable debug logs (-d / --debug) */

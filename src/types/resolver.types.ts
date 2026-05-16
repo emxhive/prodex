@@ -1,3 +1,5 @@
+import type { ProdexConfig } from "./config.types";
+
 /** Context for JS resolver (aliases precomputed). */
 export interface JsResolverCtx {
   kind: "js";
@@ -14,6 +16,9 @@ export interface PhpResolverCtx {
 
 /** Shared parameter contract for all resolvers */
 export interface ResolverParams {
+  /** Active runtime configuration for this resolver run */
+  cfg: ProdexConfig;
+
   /** Absolute path of the file being resolved */
   filePath: string;
 

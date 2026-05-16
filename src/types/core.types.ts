@@ -21,15 +21,12 @@ export interface OutputParams {
 
 	/** Active Prodex configuration (merged + flag-overridden). */
 	cfg: ProdexConfig;
-
-	/** Whether to show interactive prompts for filename override. */
-	showUi: boolean;
 }
 
 /** Options accepted by runCombine (keep lean). */
 export interface CombineOptions {
-	showUi: boolean;
-	cliName: string;
+	entries: string[];
+	outputName?: string;
 }
 
 export interface CombineParams {
@@ -37,9 +34,16 @@ export interface CombineParams {
 	opts: CombineOptions;
 }
 
+export interface CombineResult {
+	outputPath?: string;
+	entries: string[];
+	files: string[];
+	stats?: Stats;
+}
+
 /**
  * 🧠 Cache Type Definitions for Prodex
- * Central store for runtime-discovered aliases and other ephemeral data.
+ * Runtime cache registry for resolver-discovered aliases and other ephemeral data.
  */
 
 export interface AliasCache {
