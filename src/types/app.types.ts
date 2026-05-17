@@ -3,8 +3,8 @@ import type { ChainResult, ProdexConfig, ProdexFlags } from ".";
 export type CliCommand =
 	| { kind: "run"; rootArg?: string; flags: Partial<ProdexFlags> }
 	| { kind: "init"; rootArg?: string; force?: boolean }
-	| { kind: "shortcuts"; rootArg?: string }
-	| { kind: "help" }
+	| { kind: "profiles"; rootArg?: string }
+	| { kind: "help"; topic?: string }
 	| { kind: "version" };
 
 export interface CliParseResult {
@@ -18,7 +18,7 @@ export interface RunPlan {
 	config: ProdexConfig;
 	flags: Partial<ProdexFlags>;
 	outputName?: string;
-	shortcut?: string;
+	profile?: string;
 }
 
 export interface RunResult {
@@ -32,14 +32,14 @@ export interface RunResult {
 	stats?: ChainResult["stats"];
 	warnings: string[];
 	errors: string[];
-	shortcut?: string;
+	profile?: string;
 }
 
 export interface CommandResult {
 	ok: boolean;
 	exitCode: number;
 	message?: string;
-	shortcuts?: string[];
+	profiles?: string[];
 	warnings: string[];
 	errors: string[];
 	runs: RunResult[];

@@ -13,7 +13,7 @@ import { setDiff } from "../../shared";
 const { JS_STATS, JS_IMPORTS } = CACHE_KEYS;
 
 export async function resolveJsImports({ cfg, filePath, visited = new Set(), depth = 0, maxDepth }: ResolverParams): Promise<ResolverResult> {
-	const limitDepth = maxDepth;
+	const limitDepth = maxDepth ?? cfg.resolve.maxDepth;
 
 	if (depth >= limitDepth) return emptyResult(visited);
 	if (visited.has(filePath)) return emptyResult(visited);
@@ -21,7 +21,7 @@ export async function resolveJsImports({ cfg, filePath, visited = new Set(), dep
 
 	const {
 		root: ROOT,
-		resolve: { exclude: excludePatterns },
+		exclude: excludePatterns,
 	} = cfg;
 
 	const ext = path.extname(filePath).toLowerCase();

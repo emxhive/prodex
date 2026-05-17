@@ -20,10 +20,10 @@ import { normalizePath } from "../../platform/path";
 export async function resolvePhpImports({ cfg, filePath, visited = new Set<string>(), depth = 0, maxDepth, ctx }: ResolverParams): Promise<ResolverResult> {
 	const {
 		root: ROOT,
-		resolve: { exclude: excludePatterns = [], depth: defaultDepth = 10 },
+		exclude: excludePatterns = [],
 	} = cfg;
 
-	const limitDepth = maxDepth ?? defaultDepth;
+	const limitDepth = maxDepth ?? cfg.resolve.maxDepth;
 
 	if (depth >= limitDepth) return emptyResult(visited);
 	if (visited.has(filePath)) return emptyResult(visited);

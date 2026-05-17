@@ -2,13 +2,13 @@
 
 Unified project indexer and dependency extractor for JavaScript, TypeScript, React, and Laravel stacks.
 
-Prodex runs from the command line. Point it at one or more entry files, optionally add includes/excludes, and it traces dependencies into a versioned Markdown or text export.
+Prodex runs from explicit commands. Point `prodex run` at one or more entries, optionally add includes/excludes, and it traces dependencies into a versioned Markdown or text export.
 
 ## Requirements
 
 - Node.js 18+
 - A project with resolvable JS/TS/PHP entry files
-- Optional `prodex.json` for saved defaults and shortcuts
+- Optional `prodex.json` for saved defaults and profiles
 
 ## Installation
 
@@ -19,7 +19,7 @@ npm install -g prodex
 Or run ad hoc:
 
 ```bash
-npx prodex
+npx prodex run --entry src/index.ts
 ```
 
 Generate a starter config:
@@ -31,66 +31,74 @@ prodex init
 ## CLI Usage
 
 ```bash
-prodex [root] --files "src/index.ts" --include "**/*.d.ts" --exclude "node_modules/**"
-prodex run [root] --files "routes/web.php,resources/js/app.tsx"
-prodex shortcuts [root]
+prodex run [root] --entry src/index.ts
+prodex run [root] --entry routes/web.php --include "**/*.d.ts"
+prodex run [root] --profile dashboard
+prodex run [root] --all-profiles
+prodex profiles [root]
 ```
+
+`prodex run` requires the `run` verb. Positional root-only sugar is intentionally not supported.
+
+### Run Options
 
 | Flag | Short | Type | Description |
 | --- | --- | --- | --- |
-| `--files` | `-f` | list | Entry files to trace, comma-separated. |
-| `--include` | `-i` | list | Extra files/patterns appended without dependency resolution. |
-| `--exclude` | `-x` | list | Patterns or folders to skip during traversal. |
-| `--name` | `-n` | string | Custom output prefix. |
-| `--txt` | `-t` | boolean | Output plain text instead of Markdown. |
-| `--limit` | `-l` | number | Override traversal limit. |
-| `--ci` | `-c` | boolean | Avoid terminal-interactive behavior. |
+| `--entry` | `-e` | list | Entry file/glob to trace. Repeatable and comma-aware. |
+| `--include` | `-i` | list | Extra file/glob appended without dependency resolution. Repeatable and comma-aware. |
+| `--exclude` | `-x` | list | File/glob to skip during traversal. Repeatable and comma-aware. |
+| `--profile` | `-p` | list | Named profile to run. Repeatable. |
+| `--all-profiles` |  | boolean | Run every configured profile. |
+| `--name` | `-n` | string | Output basename for this run. |
+| `--format` | `-F` | `md`/`txt` | Output format. |
+| `--max-depth` |  | number | Maximum dependency traversal depth. |
+| `--max-files` |  | number | Maximum traced file count. |
 | `--debug` | `-d` | boolean | Emit debug logs during traversal. |
-| `--shortcut` | `-a` | string | Apply a named shortcut from `prodex.json`. |
-| `--shortcuts` |  | boolean | List configured shortcut keys and exit. |
-| `--help` | `-h` | boolean | Show CLI help and exit. |
-| `--version` | `-v` | boolean | Show version and exit. |
 
-## Shortcuts
-
-Define reusable sets in `prodex.json` under `shortcuts`.
+Global metadata flags:
 
 ```bash
-prodex -a dashboard
-prodex @dashboard
-prodex @dashboard @api
-prodex @
+prodex --version
+prodex run --help
+prodex profiles --help
 ```
 
-Shortcut order is preserved when multiple shortcuts are provided.
+## Profiles
 
-List available shortcut keys without running:
+Profiles are named run configurations stored in `prodex.json`.
 
 ```bash
-prodex shortcuts
-prodex --shortcuts
-prodex shortcuts ./some-project
+prodex profiles
+prodex run --profile dashboard
+prodex run --profile dashboard --profile api
+prodex run --all-profiles
 ```
+
+Profile order is preserved when multiple profiles are provided.
 
 ## Configuration
 
 ```json
 {
-  "version": 3.1,
+  "version": 4,
   "$schema": "https://raw.githubusercontent.com/emxhive/prodex/main/schema/prodex.schema.json",
-  "output": { "dir": "prodex", "versioned": true, "prefix": "combined", "format": "md" },
-  "entry": { "files": ["src/index.ts"] },
-  "resolve": {
-    "include": [],
-    "aliases": { "@": "resources/js" },
-    "exclude": ["node_modules/**", "@shadcn/**", "**/components/ui/**"],
-    "depth": 10,
-    "limit": 200
+  "output": {
+    "dir": "prodex",
+    "format": "md",
+    "versioned": true
   },
-  "shortcuts": {
+  "entry": ["src/index.ts"],
+  "include": [],
+  "exclude": ["node_modules/**", "vendor/**", "dist/**"],
+  "resolve": {
+    "aliases": { "@": "resources/js" },
+    "maxDepth": 10,
+    "maxFiles": 200
+  },
+  "profiles": {
     "dashboard": {
-      "prefix": "dashboard",
-      "files": ["resources/js/**/dashboard.tsx"],
+      "name": "dashboard",
+      "entry": ["resources/js/**/dashboard.tsx"],
       "include": ["**/*.d.ts"],
       "exclude": ["node_modules/**"]
     }
@@ -98,21 +106,21 @@ prodex shortcuts ./some-project
 }
 ```
 
-CLI flags override config values for a run.
+Naming precedence:
+
+1. `--name`
+2. `profile.name`
+3. automatic name from entries
+4. internal fallback: `combined`
+
+CLI flags override config values for a run. Profile arrays replace base arrays for that profile run.
 
 ## Output
 
 - Default output directory: `./prodex/`
-- Default prefix: `combined`
 - Markdown is the default format
-- Use `--txt` for plain text output
+- Use `--format txt` for plain text output
 - Versioned filenames prevent accidental overwrites
-
-## Roadmap
-
-- Smarter alias resolution and PSR-4 scanning for PHP projects
-- Performance optimizations for very large dependency graphs
-- Smart splitting for oversized combined outputs
 
 ## License
 

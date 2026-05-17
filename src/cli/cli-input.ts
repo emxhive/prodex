@@ -1,26 +1,31 @@
-import path from "path";
 import type { CliParseResult, ProdexFlags } from "../types";
 
 type FlagSpec = {
-	long: keyof ProdexFlags | "help" | "version" | "shortcuts";
+	long: keyof ProdexFlags | "help" | "version" | "profile";
 	short?: string;
 	type: "boolean" | "string" | "number" | "list";
 };
 
 const FLAGS: FlagSpec[] = [
-	{ long: "files", short: "f", type: "list" },
+	{ long: "entry", short: "e", type: "list" },
 	{ long: "include", short: "i", type: "list" },
 	{ long: "exclude", short: "x", type: "list" },
+	{ long: "profile", short: "p", type: "list" },
+	{ long: "allProfiles", type: "boolean" },
 	{ long: "name", short: "n", type: "string" },
-	{ long: "txt", short: "t", type: "boolean" },
-	{ long: "limit", short: "l", type: "number" },
-	{ long: "ci", short: "c", type: "boolean" },
+	{ long: "format", short: "F", type: "string" },
+	{ long: "maxDepth", type: "number" },
+	{ long: "maxFiles", type: "number" },
 	{ long: "debug", short: "d", type: "boolean" },
-	{ long: "shortcut", short: "a", type: "string" },
-	{ long: "shortcuts", type: "boolean" },
 	{ long: "help", short: "h", type: "boolean" },
 	{ long: "version", short: "v", type: "boolean" },
 ];
+
+const FLAG_ALIASES: Record<string, FlagSpec["long"]> = {
+	"all-profiles": "allProfiles",
+	"max-depth": "maxDepth",
+	"max-files": "maxFiles",
+};
 
 const BY_LONG = new Map(FLAGS.map((flag) => [flag.long, flag]));
 const BY_SHORT = new Map(FLAGS.filter((flag) => flag.short).map((flag) => [flag.short!, flag]));
@@ -30,29 +35,27 @@ export function parseCliInput(argv: string[] = process.argv): CliParseResult {
 	const warnings: string[] = [];
 	const errors: string[] = [];
 	const flags: Partial<ProdexFlags> = {};
-	const shortcuts: string[] = [];
-	let shortcutAll = false;
-	let commandName = "run";
-	let rootArg: string | undefined;
 
-	for (let i = 0; i < tokens.length; i++) {
+	if (!tokens.length) {
+		errors.push("Missing command. Use `prodex run`, `prodex init`, or `prodex profiles`.");
+		return { warnings, errors };
+	}
+
+	if (tokens.includes("--version") || tokens.includes("-v")) {
+		return { command: { kind: "version" }, warnings, errors };
+	}
+
+	const commandName = tokens[0];
+	if (!isCommand(commandName)) {
+		errors.push(`Unknown command "${commandName}". Use run, init, or profiles.`);
+		return { warnings, errors };
+	}
+
+	let rootArg: string | undefined;
+	for (let i = 1; i < tokens.length; i++) {
 		const token = tokens[i];
 
 		if (!token) continue;
-		if (i === 0 && isCommand(token)) {
-			commandName = token;
-			continue;
-		}
-		if (token === "@") {
-			shortcutAll = true;
-			continue;
-		}
-		if (token.startsWith("@")) {
-			const name = token.slice(1).trim();
-			if (name) shortcuts.push(name);
-			else shortcutAll = true;
-			continue;
-		}
 		if (token.startsWith("--")) {
 			const consumed = readLongFlag(tokens, i, flags, errors);
 			i += consumed;
@@ -70,40 +73,17 @@ export function parseCliInput(argv: string[] = process.argv): CliParseResult {
 		rootArg = token;
 	}
 
-	if ((flags as any).help) return { command: { kind: "help" }, warnings, errors };
-	if ((flags as any).version) return { command: { kind: "version" }, warnings, errors };
-	if ((flags as any).shortcuts === true) return { command: { kind: "shortcuts", rootArg }, warnings, errors };
-	if (commandName === "help") return { command: { kind: "help" }, warnings, errors };
-	if (commandName === "version") return { command: { kind: "version" }, warnings, errors };
+	if ((flags as any).help) return { command: { kind: "help", topic: commandName }, warnings, errors };
 
-	const selected = unique([
-		...shortcuts,
-		...(typeof flags.shortcut === "string" && flags.shortcut.trim() ? [flags.shortcut.trim()] : []),
-	]);
-
-	if (shortcutAll) flags.shortcutAll = true;
-	if (selected.length) flags.shortcuts = selected;
-	if (!shortcutAll && selected.length === 1) flags.shortcut = selected[0];
-	if (shortcutAll || selected.length > 1) delete flags.shortcut;
-
-	if (commandName === "init") {
-		return { command: { kind: "init", rootArg }, warnings, errors };
-	}
-	if (commandName === "shortcuts") {
-		return { command: { kind: "shortcuts", rootArg }, warnings, errors };
-	}
-	if (commandName !== "run") {
-		errors.push(`Unknown command "${commandName}".`);
-		return { warnings, errors };
-	}
-
+	if (commandName === "init") return { command: { kind: "init", rootArg }, warnings, errors };
+	if (commandName === "profiles") return { command: { kind: "profiles", rootArg }, warnings, errors };
 	return { command: { kind: "run", rootArg, flags }, warnings, errors };
 }
 
 function stripExecutable(argv: string[]): string[] {
 	const [first, second, ...rest] = argv;
-	const firstBase = first ? path.basename(first).toLowerCase() : "";
-	const secondBase = second ? path.basename(second).toLowerCase() : "";
+	const firstBase = first ? basename(first) : "";
+	const secondBase = second ? basename(second) : "";
 
 	if (/^node(\.exe)?$/.test(firstBase)) return rest;
 	if (secondBase.startsWith("prodex") && firstBase) return rest;
@@ -111,20 +91,25 @@ function stripExecutable(argv: string[]): string[] {
 	return argv;
 }
 
+function basename(value: string): string {
+	return value.split(/[\\/]/).pop()?.toLowerCase() ?? "";
+}
+
 function isCommand(token: string): boolean {
-	return ["run", "init", "shortcuts", "help", "version"].includes(token);
+	return ["run", "init", "profiles"].includes(token);
 }
 
 function readLongFlag(tokens: string[], index: number, flags: Partial<ProdexFlags>, errors: string[]): number {
 	const token = tokens[index];
 	const raw = token.slice(2);
 	const equalsAt = raw.indexOf("=");
-	const name = equalsAt === -1 ? raw : raw.slice(0, equalsAt);
+	const rawName = equalsAt === -1 ? raw : raw.slice(0, equalsAt);
+	const name = FLAG_ALIASES[rawName] ?? rawName;
 	const inlineValue = equalsAt === -1 ? undefined : raw.slice(equalsAt + 1);
 	const spec = BY_LONG.get(name as any);
 
 	if (!spec) {
-		errors.push(`Unknown flag "--${name}".`);
+		errors.push(`Unknown flag "--${rawName}".`);
 		return 0;
 	}
 
@@ -135,7 +120,7 @@ function readLongFlag(tokens: string[], index: number, flags: Partial<ProdexFlag
 
 	const value = inlineValue ?? tokens[index + 1];
 	if (value === undefined || value.startsWith("-")) {
-		errors.push(`Flag "--${name}" expects a value.`);
+		errors.push(`Flag "--${rawName}" expects a value.`);
 		return 0;
 	}
 
@@ -191,10 +176,17 @@ function assignFlag(flags: Partial<ProdexFlags>, spec: FlagSpec, value: string, 
 		return;
 	}
 	if (spec.type === "list") {
-		(flags as any)[spec.long] = value
+		const values = value
 			.split(",")
 			.map((part) => part.trim())
 			.filter(Boolean);
+		const target = spec.long === "profile" ? "profiles" : spec.long;
+		const current = ((flags as any)[target] ?? []) as string[];
+		(flags as any)[target] = [...current, ...values];
+		return;
+	}
+	if (spec.long === "format" && !["md", "txt"].includes(value)) {
+		errors.push(`Flag "--format" expected "md" or "txt" but got "${value}".`);
 		return;
 	}
 	(flags as any)[spec.long] = value;
@@ -202,8 +194,4 @@ function assignFlag(flags: Partial<ProdexFlags>, spec: FlagSpec, value: string, 
 
 function coerceBoolean(value: string): boolean {
 	return !["0", "false", "no", "off"].includes(value.toLowerCase());
-}
-
-function unique<T>(values: T[]): T[] {
-	return [...new Set(values)];
 }

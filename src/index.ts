@@ -1,7 +1,7 @@
 import path from "path";
 import { createRunPlans } from "./app/create-run-plan";
 import { executeRun } from "./app/execute-run";
-import { listShortcuts } from "./app/list-shortcuts";
+import { listProfiles } from "./app/list-profiles";
 import { parseCliInput } from "./cli/cli-input";
 import { initProdex } from "./cli/init";
 import { renderHelp, renderVersion, reportCommandResult } from "./cli/reporter";
@@ -24,7 +24,7 @@ export async function runProdexCommand(args = process.argv, cwd = process.cwd())
 	}
 
 	if (parsed.command.kind === "help") {
-		return { ok: true, exitCode: 0, message: renderHelp(), warnings, errors, runs: [] };
+		return { ok: true, exitCode: 0, message: renderHelp(parsed.command.topic), warnings, errors, runs: [] };
 	}
 
 	if (parsed.command.kind === "version") {
@@ -44,14 +44,14 @@ export async function runProdexCommand(args = process.argv, cwd = process.cwd())
 		};
 	}
 
-	if (parsed.command.kind === "shortcuts") {
-		const listed = listShortcuts(parsed.command.rootArg, cwd);
+	if (parsed.command.kind === "profiles") {
+		const listed = listProfiles(parsed.command.rootArg, cwd);
 		warnings.push(...listed.warnings);
 		errors.push(...listed.errors);
 		return {
 			ok: !errors.length,
 			exitCode: errors.length ? 1 : 0,
-			shortcuts: errors.length ? undefined : listed.shortcuts,
+			profiles: errors.length ? undefined : listed.profiles,
 			warnings,
 			errors,
 			runs: [],

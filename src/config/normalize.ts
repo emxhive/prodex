@@ -1,6 +1,6 @@
 import path from "path";
 import { DEFAULT_PRODEX_CONFIG } from "../constants";
-import type { DeepPartial, ProdexConfig, ProdexConfigFile, ProdexFlags, ProdexShortcut } from "../types";
+import type { DeepPartial, ProdexConfig, ProdexConfigFile, ProdexFlags, ProdexProfile } from "../types";
 import { normalizePath, sanitizeFileName } from "../platform/path";
 
 export interface ConfigBuildResult {
@@ -13,37 +13,33 @@ export function buildConfig(params: {
 	root: string;
 	userConfig: ProdexConfigFile;
 	flags?: Partial<ProdexFlags>;
-	shortcutName?: string;
+	profileName?: string;
 }): ConfigBuildResult {
 	const warnings: string[] = [];
 	const errors: string[] = [];
 	const base = deepMerge(DEFAULT_PRODEX_CONFIG, params.userConfig || {});
-	const shortcut = params.shortcutName ? base.shortcuts?.[params.shortcutName] : undefined;
+	const profile = params.profileName ? base.profiles?.[params.profileName] : undefined;
 
-	if (params.shortcutName && !shortcut) {
-		errors.push(`Unknown shortcut "${params.shortcutName}".`);
+	if (params.profileName && !profile) {
+		errors.push(`Unknown profile "${params.profileName}".`);
 		return { warnings, errors };
 	}
 
-	const layered = applyShortcutLayer(base, shortcut);
-	const config = toRuntimeConfig(layered, params.root, params.flags, shortcut);
+	const layered = applyProfileLayer(base, profile);
+	const config = toRuntimeConfig(layered, params.root, params.flags, profile);
 	normalizeRuntimeConfig(config, warnings);
 	validateRuntimeConfig(config, errors);
 
 	return { config, warnings, errors };
 }
 
-function applyShortcutLayer(config: ProdexConfigFile, shortcut?: ProdexShortcut): ProdexConfigFile {
-	if (!shortcut) return config;
+function applyProfileLayer(config: ProdexConfigFile, profile?: ProdexProfile): ProdexConfigFile {
+	if (!profile) return config;
 
 	const patch: DeepPartial<ProdexConfigFile> = {};
-	if (shortcut.files) patch.entry = { files: shortcut.files };
-	if (shortcut.include || shortcut.exclude) {
-		patch.resolve = {};
-		if (shortcut.include) patch.resolve.include = shortcut.include;
-		if (shortcut.exclude) patch.resolve.exclude = shortcut.exclude;
-	}
-	if (shortcut.prefix) patch.output = { prefix: shortcut.prefix };
+	if (profile.entry) patch.entry = profile.entry;
+	if (profile.include) patch.include = profile.include;
+	if (profile.exclude) patch.exclude = profile.exclude;
 
 	return deepMerge(config, patch);
 }
@@ -52,15 +48,11 @@ function toRuntimeConfig(
 	fileConfig: ProdexConfigFile,
 	root: string,
 	flags?: Partial<ProdexFlags>,
-	shortcut?: ProdexShortcut,
+	profile?: ProdexProfile,
 ): ProdexConfig {
 	const output = {
 		...DEFAULT_PRODEX_CONFIG.output,
 		...fileConfig.output,
-	};
-	const entry = {
-		...DEFAULT_PRODEX_CONFIG.entry,
-		...fileConfig.entry,
 	};
 	const resolve = {
 		...DEFAULT_PRODEX_CONFIG.resolve,
@@ -70,11 +62,13 @@ function toRuntimeConfig(
 	const cfg = {
 		...fileConfig,
 		output,
-		entry,
 		resolve,
-		shortcuts: fileConfig.shortcuts ?? {},
+		entry: fileConfig.entry ?? [],
+		include: fileConfig.include ?? [],
+		exclude: fileConfig.exclude ?? [],
+		profiles: fileConfig.profiles ?? {},
 		root,
-		name: flags?.name ?? shortcut?.prefix ?? output.prefix,
+		name: flags?.name ?? profile?.name,
 	} as ProdexConfig;
 
 	applyExplicitFlags(cfg, flags);
@@ -83,24 +77,24 @@ function toRuntimeConfig(
 
 function applyExplicitFlags(cfg: ProdexConfig, flags?: Partial<ProdexFlags>): void {
 	if (!flags) return;
-	if (flags.txt !== undefined) cfg.output.format = flags.txt ? "txt" : "md";
-	if (flags.name !== undefined && flags.name !== null) cfg.name = sanitizeFileName(flags.name, cfg.output.prefix);
-	if (flags.limit !== undefined && flags.limit !== null) cfg.resolve.limit = flags.limit;
-	if (flags.files !== undefined) cfg.entry.files = flags.files;
-	if (flags.include !== undefined) cfg.resolve.include = flags.include;
-	if (flags.exclude !== undefined) cfg.resolve.exclude = flags.exclude;
+	if (flags.format !== undefined) cfg.output.format = flags.format;
+	if (flags.name !== undefined && flags.name !== null) cfg.name = sanitizeFileName(flags.name);
+	if (flags.maxDepth !== undefined && flags.maxDepth !== null) cfg.resolve.maxDepth = flags.maxDepth;
+	if (flags.maxFiles !== undefined && flags.maxFiles !== null) cfg.resolve.maxFiles = flags.maxFiles;
+	if (flags.entry !== undefined) cfg.entry = flags.entry;
+	if (flags.include !== undefined) cfg.include = flags.include;
+	if (flags.exclude !== undefined) cfg.exclude = flags.exclude;
 }
 
 function normalizeRuntimeConfig(cfg: ProdexConfig, warnings: string[]): void {
 	cfg.root = path.resolve(cfg.root);
 	cfg.output.dir = normalizePath(String(cfg.output.dir || "prodex"));
-	cfg.output.prefix = sanitizeFileName(String(cfg.output.prefix || "combined"));
-	cfg.name = sanitizeFileName(String(cfg.name || cfg.output.prefix));
-	cfg.entry.files = normalizePatterns(cfg.entry.files, warnings, "entry.files");
-	cfg.resolve.include = normalizePatterns(cfg.resolve.include, warnings, "resolve.include");
-	cfg.resolve.exclude = normalizePatterns(cfg.resolve.exclude, warnings, "resolve.exclude");
+	cfg.name = cfg.name ? sanitizeFileName(String(cfg.name)) : undefined;
+	cfg.entry = normalizePatterns(cfg.entry, warnings, "entry");
+	cfg.include = normalizePatterns(cfg.include, warnings, "include");
+	cfg.exclude = normalizePatterns(cfg.exclude, warnings, "exclude");
 	cfg.resolve.aliases = cfg.resolve.aliases ?? {};
-	cfg.shortcuts = cfg.shortcuts ?? {};
+	cfg.profiles = cfg.profiles ?? {};
 }
 
 function normalizePatterns(value: unknown, warnings: string[], field: string): string[] {
@@ -124,11 +118,11 @@ function validateRuntimeConfig(cfg: ProdexConfig, errors: string[]): void {
 	if (!["md", "txt"].includes(cfg.output.format)) {
 		errors.push(`output.format must be "md" or "txt".`);
 	}
-	if (!Number.isFinite(cfg.resolve.depth) || cfg.resolve.depth < 0) {
-		errors.push("resolve.depth must be a non-negative number.");
+	if (!Number.isFinite(cfg.resolve.maxDepth) || cfg.resolve.maxDepth < 0) {
+		errors.push("resolve.maxDepth must be a non-negative number.");
 	}
-	if (!Number.isFinite(cfg.resolve.limit) || cfg.resolve.limit < 0) {
-		errors.push("resolve.limit must be a non-negative number.");
+	if (!Number.isFinite(cfg.resolve.maxFiles) || cfg.resolve.maxFiles < 0) {
+		errors.push("resolve.maxFiles must be a non-negative number.");
 	}
 }
 

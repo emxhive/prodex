@@ -1,70 +1,31 @@
-/**
- * CLI flag schema for Prodex.
- * Mirrors the current CLI synopsis:
- *
- *   prodex [entries...] [-tcdv]
- *          [--txt] [--ci] [--debug] [--verbose]
- *          [--name=<string>|-n=<string>]
- *          [--limit=<int>|-l=<int>]
- *          [--inc=<globs>] [--exc=<globs>]
- */
-
 export interface ProdexFlags {
-	_: string[];
-	/** Output as .txt instead of .md (-t / --txt) */
-	txt?: boolean;
+	/** Entry globs or file paths. Repeatable and comma-aware. */
+	entry?: string[];
 
-	/** Run without any terminal-interactive behavior (-c / --ci) */
-	ci?: boolean;
-
-	/** Enable debug logs (-d / --debug) */
-	debug?: boolean;
-
-	/** Enable verbose logging (-v / --verbose) */
-	verbose?: boolean;
-
-	/** Output name override (--name / -n) */
-	name?: string | null;
-
-	/** Traversal limit override (--limit / -l) */
-	limit?: number | null;
-
-	/** Comma-separated glob list overriding resolve.include (--inc) */
+	/** Extra files or globs appended without dependency resolution. */
 	include?: string[];
 
-	/** Comma-separated glob list overriding resolve.exclude (--exc) */
+	/** Files or globs to skip during traversal. */
 	exclude?: string[];
-	files?: string[];
 
-	/** Single shortcut name (legacy / --shortcut) */
-	shortcut?: string;
+	/** Output format override. */
+	format?: "md" | "txt";
 
-	/** Multiple shortcuts via @a @b @c (order irrelevant) */
-	shortcuts?: string[];
+	/** Output basename override for this run. */
+	name?: string | null;
 
-	/** Run all shortcuts via @ */
-	shortcutAll?: boolean;
+	/** Maximum dependency traversal depth. */
+	maxDepth?: number | null;
 
-	/** Optional short alias reference mapping */
-	short?: {
-		t?: boolean;
-		c?: boolean;
-		d?: boolean;
-		v?: boolean;
-		n?: string;
-		l?: number;
-	};
-}
+	/** Maximum number of files to trace. */
+	maxFiles?: number | null;
 
-/** Minimal run summary for logging and UX display. */
-export interface CliSummary {
-	outDir: string;
-	fileName: string;
-	entries: string[];
-}
+	/** Enable debug logs. */
+	debug?: boolean;
 
-export interface ParsedInput {
-	rootArg: string;
-	root?: string;
-	flags: Partial<ProdexFlags>;
+	/** Named profiles to run, in user-provided order. */
+	profiles?: string[];
+
+	/** Run all configured profiles. */
+	allProfiles?: boolean;
 }

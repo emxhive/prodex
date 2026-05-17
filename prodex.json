@@ -1,29 +1,28 @@
 {
-    "version": 3.1,
+    "version": 4,
     "$schema": "https://raw.githubusercontent.com/emxhive/prodex/main/schema/prodex.schema.json",
     "output": {
         "dir": "prodex",
         "versioned": true,
-        "prefix": "combined",
         "format": "md"
     },
-    "entry": {
-        "files": [
-            "src/index.ts"
-        ]
-    },
+    "entry": [
+        "src/index.ts"
+    ],
+    "include": [],
+    "exclude": [
+        "node_modules/**",
+        "vendor/**",
+        "dist/**",
+        "@shadcn/**",
+        "**/components/ui/**"
+    ],
     "resolve": {
-        "include": [],
         "aliases": {
             "@": "resources/js"
         },
-        "exclude": [
-            "node_modules/**",
-            "@shadcn/**",
-            "**/components/ui/**"
-        ],
-        "depth": 10,
-        "limit": 200
+        "maxDepth": 10,
+        "maxFiles": 200
     },
-    "shortcuts": {}
+    "profiles": {}
 }

@@ -14,8 +14,8 @@ import { normalizePath } from "../platform/path";
  * Uses language-specific resolvers (JS / PHP) under the hood.
  */
 export async function followChain(entryFiles: string[], cfg: ProdexConfig) {
-	const limit = cfg.resolve.limit;
-	const resolverDepth = cfg.resolve.depth;
+	const limit = cfg.resolve.maxFiles;
+	const resolverDepth = cfg.resolve.maxDepth;
 
 	logger.debug("🧩 Following dependency chain...");
 
@@ -71,19 +71,19 @@ export async function followChain(entryFiles: string[], cfg: ProdexConfig) {
 
 /**
  * 🧩 applyIncludes()
- * Scans and appends additional files defined in config.resolve.include.
+ * Scans and appends additional files defined in config.include.
  */
 // src/core/dependency.ts
 
 // (existing imports stay)
 
 export async function applyIncludes(cfg: ProdexConfig, files: string[]) {
-	const { resolve, root } = cfg;
+	const { include, root } = cfg;
 
 	const absFiles: string[] = [];
 	const patterns: string[] = [];
 
-	for (const raw of resolve.include) {
+	for (const raw of include) {
 		const p = String(raw ?? "").trim();
 		if (!p) continue;
 

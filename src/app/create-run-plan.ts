@@ -30,18 +30,18 @@ export function createRunPlans(params: {
 	errors.push(...loaded.errors);
 	if (errors.length) return { plans: [], warnings, errors };
 
-	const shortcutNames = resolveShortcutNames(flags, loaded.config.shortcuts ?? {}, errors);
+	const profileNames = resolveProfileNames(flags, loaded.config.profiles ?? {}, errors);
 	if (errors.length) return { plans: [], warnings, errors };
 
-	const names = shortcutNames.length ? shortcutNames : [undefined];
+	const names = profileNames.length ? profileNames : [undefined];
 	const plans: RunPlan[] = [];
 
-	for (const shortcutName of names) {
+	for (const profileName of names) {
 		const built = buildConfig({
 			root,
 			userConfig: loaded.config,
-			flags: flagsForShortcutRun(flags, shortcutName),
-			shortcutName,
+			flags: flagsForProfileRun(flags, profileName),
+			profileName,
 		});
 
 		warnings.push(...built.warnings);
@@ -51,37 +51,35 @@ export function createRunPlans(params: {
 		plans.push({
 			root,
 			config: built.config,
-			flags: flagsForShortcutRun(flags, shortcutName),
+			flags: flagsForProfileRun(flags, profileName),
 			outputName: built.config.name,
-			shortcut: shortcutName,
+			profile: profileName,
 		});
 	}
 
 	return { plans, warnings, errors };
 }
 
-function resolveShortcutNames(
+function resolveProfileNames(
 	flags: Partial<ProdexFlags>,
-	shortcuts: Record<string, unknown>,
+	profiles: Record<string, unknown>,
 	errors: string[],
 ): string[] {
-	if (flags.shortcutAll) {
-		const names = Object.keys(shortcuts);
-		if (!names.length) errors.push("No shortcuts are defined in prodex.json.");
+	if (flags.allProfiles) {
+		const names = Object.keys(profiles);
+		if (!names.length) errors.push("No profiles are defined in prodex.json.");
 		return names;
 	}
-	if (Array.isArray(flags.shortcuts) && flags.shortcuts.length) return unique(flags.shortcuts);
-	if (flags.shortcut) return [flags.shortcut];
+	if (Array.isArray(flags.profiles) && flags.profiles.length) return unique(flags.profiles);
 	return [];
 }
 
-function flagsForShortcutRun(flags: Partial<ProdexFlags>, shortcut?: string): Partial<ProdexFlags> {
-	if (!shortcut) return flags;
+function flagsForProfileRun(flags: Partial<ProdexFlags>, profile?: string): Partial<ProdexFlags> {
+	if (!profile) return flags;
 	return {
 		...flags,
-		shortcut,
-		shortcuts: undefined,
-		shortcutAll: false,
+		profiles: undefined,
+		allProfiles: false,
 	};
 }
 

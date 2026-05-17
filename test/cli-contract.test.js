@@ -10,11 +10,11 @@ const binPath = path.join(repoRoot, "bin", "prodex.js");
 const { runProdexCommand } = require("../dist/index.js");
 const { reportCommandResult } = require("../dist/cli/reporter.js");
 
-test("help and version are side-effect free command results", async () => {
-	const help = await runProdexCommand(["node", "prodex", "--help"], repoRoot);
+test("global help and version are side-effect free command results", async () => {
+	const help = await runProdexCommand(["node", "prodex", "run", "--help"], repoRoot);
 	assert.equal(help.ok, true);
 	assert.equal(help.exitCode, 0);
-	assert.match(help.message, /Usage:/);
+	assert.match(help.message, /prodex run/);
 	assert.equal(help.runs.length, 0);
 
 	const version = await runProdexCommand(["node", "prodex", "--version"], repoRoot);
@@ -24,101 +24,90 @@ test("help and version are side-effect free command results", async () => {
 	assert.equal(version.runs.length, 0);
 });
 
+test("commands are mandatory", async () => {
+	const result = await runProdexCommand(["node", "prodex", "--entry", "src/index.ts"], repoRoot);
+	assert.equal(result.ok, false);
+	assert.equal(result.exitCode, 1);
+	assert.match(result.errors.join("\n"), /Unknown command "--entry"/);
+	assert.equal(result.runs.length, 0);
+});
+
 test("unknown flags and invalid roots fail without producing runs", async () => {
-	const badFlag = await runProdexCommand(["node", "prodex", "--wat"], repoRoot);
+	const badFlag = await runProdexCommand(["node", "prodex", "run", "--wat"], repoRoot);
 	assert.equal(badFlag.ok, false);
 	assert.equal(badFlag.exitCode, 1);
 	assert.deepEqual(badFlag.errors, ['Unknown flag "--wat".']);
 	assert.equal(badFlag.runs.length, 0);
 
-	const badRoot = await runProdexCommand(["node", "prodex", "missing-folder"], repoRoot);
+	const badRoot = await runProdexCommand(["node", "prodex", "run", "missing-folder"], repoRoot);
 	assert.equal(badRoot.ok, false);
 	assert.equal(badRoot.exitCode, 1);
 	assert.match(badRoot.errors.join("\n"), /Invalid root path/);
 	assert.equal(badRoot.runs.length, 0);
 });
 
-test("unknown shortcuts fail loudly and do not fall back to defaults", async () => {
-	return usingTempProjectAsync(async (root) => {
-		writeJson(path.join(root, "prodex.json"), baseConfig({ entry: { files: ["src/index.ts"] } }));
+test("unknown profiles fail loudly and do not fall back to defaults", async () => {
+	await usingTempProjectAsync(async (root) => {
+		writeJson(path.join(root, "prodex.json"), baseConfig({ entry: ["src/index.ts"] }));
 		writeFile(path.join(root, "src", "index.ts"), "export const value = 1;\n");
 
-		const result = await runProdexCommand(["node", "prodex", "@missing", "--ci"], root);
+		const result = await runProdexCommand(["node", "prodex", "run", "--profile", "missing"], root);
 		assert.equal(result.ok, false);
 		assert.equal(result.exitCode, 1);
-		assert.match(result.errors.join("\n"), /Unknown shortcut "missing"/);
+		assert.match(result.errors.join("\n"), /Unknown profile "missing"/);
 		assert.equal(result.runs.length, 0);
 		assertOutputDirEmpty(root);
 	});
 });
 
-test("shortcut-all fails when no shortcuts are configured", async () => {
+test("all-profiles fails when no profiles are configured", async () => {
 	await usingTempProjectAsync(async (root) => {
 		writeJson(path.join(root, "prodex.json"), baseConfig());
 
-		const result = await runProdexCommand(["node", "prodex", "@", "--ci"], root);
+		const result = await runProdexCommand(["node", "prodex", "run", "--all-profiles"], root);
 		assert.equal(result.ok, false);
 		assert.equal(result.exitCode, 1);
-		assert.match(result.errors.join("\n"), /No shortcuts are defined/);
+		assert.match(result.errors.join("\n"), /No profiles are defined/);
 		assert.equal(result.runs.length, 0);
 	});
 });
 
-test("shortcuts command lists configured shortcut keys without running", async () => {
+test("profiles command lists configured profile keys without running", async () => {
 	await usingTempProjectAsync(async (root) => {
 		writeJson(
 			path.join(root, "prodex.json"),
 			baseConfig({
-				shortcuts: {
-					dashboard: { files: ["src/dashboard.ts"] },
-					api: { files: ["src/api.ts"] },
+				profiles: {
+					dashboard: { entry: ["src/dashboard.ts"] },
+					api: { entry: ["src/api.ts"] },
 				},
 			}),
 		);
 
-		const result = await runProdexCommand(["node", "prodex", "shortcuts"], root);
+		const result = await runProdexCommand(["node", "prodex", "profiles"], root);
 		assert.equal(result.ok, true);
 		assert.equal(result.exitCode, 0);
-		assert.deepEqual(result.shortcuts, ["api", "dashboard"]);
+		assert.deepEqual(result.profiles, ["api", "dashboard"]);
 		assert.equal(result.runs.length, 0);
 		assertOutputDirEmpty(root);
 	});
 });
 
-test("--shortcuts lists configured shortcut keys for an explicit root", async () => {
-	await usingTempProjectAsync(async (root) => {
-		writeJson(
-			path.join(root, "prodex.json"),
-			baseConfig({
-				shortcuts: {
-					web: { files: ["routes/web.php"] },
-				},
-			}),
-		);
-
-		const result = await runProdexCommand(["node", "prodex", root, "--shortcuts"], repoRoot);
-		assert.equal(result.ok, true);
-		assert.deepEqual(result.shortcuts, ["web"]);
-		assert.equal(result.runs.length, 0);
-		assertOutputDirEmpty(root);
-	});
-});
-
-test("shortcuts command reports empty configs cleanly", async () => {
+test("profiles command reports empty configs cleanly", async () => {
 	await usingTempProjectAsync(async (root) => {
 		writeJson(path.join(root, "prodex.json"), baseConfig());
 
-		const result = await runProdexCommand(["node", "prodex", "shortcuts"], root);
+		const result = await runProdexCommand(["node", "prodex", "profiles"], root);
 		assert.equal(result.ok, true);
-		assert.deepEqual(result.shortcuts, []);
+		assert.deepEqual(result.profiles, []);
 
 		const output = captureStdout(() => reportCommandResult(result));
-		assert.match(output, /No shortcuts configured\./);
+		assert.match(output, /No profiles configured\./);
 	});
 });
 
-test("shortcuts command validates root paths", async () => {
-	const result = await runProdexCommand(["node", "prodex", "shortcuts", "missing-folder"], repoRoot);
+test("profiles command validates root paths", async () => {
+	const result = await runProdexCommand(["node", "prodex", "profiles", "missing-folder"], repoRoot);
 	assert.equal(result.ok, false);
 	assert.equal(result.exitCode, 1);
 	assert.match(result.errors.join("\n"), /Invalid root path/);
@@ -129,7 +118,7 @@ test("runs with no entries and no includes fail plainly", async () => {
 	await usingTempProjectAsync(async (root) => {
 		writeJson(path.join(root, "prodex.json"), baseConfig());
 
-		const result = await runProdexCommand(["node", "prodex", "--ci"], root);
+		const result = await runProdexCommand(["node", "prodex", "run"], root);
 		assert.equal(result.ok, false);
 		assert.equal(result.exitCode, 1);
 		assert.match(result.runs[0].errors.join("\n"), /No entry files found/);
@@ -139,23 +128,23 @@ test("runs with no entries and no includes fail plainly", async () => {
 	});
 });
 
-test("multiple shortcuts run in the order the user provided", async () => {
+test("multiple profiles run in the order the user provided", async () => {
 	await usingTempProjectAsync(async (root) => {
 		writeJson(
 			path.join(root, "prodex.json"),
 			baseConfig({
-				shortcuts: {
-					first: { prefix: "first", files: ["src/first.ts"] },
-					second: { prefix: "second", files: ["src/second.ts"] },
+				profiles: {
+					first: { name: "first", entry: ["src/first.ts"] },
+					second: { name: "second", entry: ["src/second.ts"] },
 				},
 			}),
 		);
 		writeFile(path.join(root, "src", "first.ts"), "export const first = true;\n");
 		writeFile(path.join(root, "src", "second.ts"), "export const second = true;\n");
 
-		const result = await runProdexCommand(["node", "prodex", "@second", "@first", "--ci", "--txt"], root);
+		const result = await runProdexCommand(["node", "prodex", "run", "--profile", "second", "--profile", "first", "--format", "txt"], root);
 		assert.equal(result.ok, true);
-		assert.deepEqual(result.runs.map((run) => run.shortcut), ["second", "first"]);
+		assert.deepEqual(result.runs.map((run) => run.profile), ["second", "first"]);
 		assert.match(path.basename(result.runs[0].outputPath), /^second-trace_/);
 		assert.match(path.basename(result.runs[1].outputPath), /^first-trace_/);
 	});
@@ -168,7 +157,7 @@ test("trace mode resolves entry dependencies and reports trace mode", async () =
 		writeFile(path.join(root, "src", "dep.ts"), "export const dep = true;\n");
 
 		const result = await runProdexCommand(
-			["node", "prodex", "--files", "src/index.ts", "--ci", "--name", "trace", "--txt"],
+			["node", "prodex", "run", "--entry", "src/index.ts", "--name", "trace", "--format", "txt"],
 			root,
 		);
 
@@ -189,7 +178,7 @@ test("include-only mode does not pretend entries were missing", async () => {
 		writeFile(path.join(root, "notes", "context.md"), "# Context\n");
 
 		const result = await runProdexCommand(
-			["node", "prodex", "--include", "notes/context.md", "--ci", "--name", "includes", "--txt"],
+			["node", "prodex", "run", "--include", "notes/context.md", "--name", "includes", "--format", "txt"],
 			root,
 		);
 
@@ -210,7 +199,7 @@ test("mixed mode reports entries and include patterns separately", async () => {
 		writeFile(path.join(root, "notes", "context.md"), "# Context\n");
 
 		const result = await runProdexCommand(
-			["node", "prodex", "--files", "src/index.ts", "--include", "notes/context.md", "--ci", "--name", "mixed", "--txt"],
+			["node", "prodex", "run", "--entry", "src/index.ts", "--include", "notes/context.md", "--name", "mixed", "--format", "txt"],
 			root,
 		);
 
@@ -228,7 +217,7 @@ test("reporter prints relative output paths and mode-specific counts", async () 
 		writeFile(path.join(root, "notes", "context.md"), "# Context\n");
 
 		const result = await runProdexCommand(
-			["node", "prodex", "--include", "notes/context.md", "--ci", "--name", "includes", "--txt"],
+			["node", "prodex", "run", "--include", "notes/context.md", "--name", "includes", "--format", "txt"],
 			root,
 		);
 
@@ -245,7 +234,7 @@ test("bin output uses the same concise reporting contract", () => {
 		writeJson(path.join(root, "prodex.json"), baseConfig());
 		writeFile(path.join(root, "notes", "context.md"), "# Context\n");
 
-		const child = spawnSync(process.execPath, [binPath, "--include", "notes/context.md", "--ci", "--name", "bin-includes", "--txt"], {
+		const child = spawnSync(process.execPath, [binPath, "run", "--include", "notes/context.md", "--name", "bin-includes", "--format", "txt"], {
 			cwd: root,
 			encoding: "utf8",
 		});
@@ -259,25 +248,25 @@ test("bin output uses the same concise reporting contract", () => {
 	});
 });
 
-test("bin prints available shortcuts", () => {
+test("bin prints available profiles", () => {
 	usingTempProject((root) => {
 		writeJson(
 			path.join(root, "prodex.json"),
 			baseConfig({
-				shortcuts: {
-					api: { files: ["routes/api.php"] },
-					dashboard: { files: ["src/dashboard.ts"] },
+				profiles: {
+					api: { entry: ["routes/api.php"] },
+					dashboard: { entry: ["src/dashboard.ts"] },
 				},
 			}),
 		);
 
-		const child = spawnSync(process.execPath, [binPath, "shortcuts"], {
+		const child = spawnSync(process.execPath, [binPath, "profiles"], {
 			cwd: root,
 			encoding: "utf8",
 		});
 
 		assert.equal(child.status, 0, child.stderr);
-		assert.match(child.stdout, /Available shortcuts:/);
+		assert.match(child.stdout, /Available profiles:/);
 		assert.match(child.stdout, /  api/);
 		assert.match(child.stdout, /  dashboard/);
 		assert.equal(child.stderr, "");
@@ -300,14 +289,15 @@ test("init creates a config and refuses accidental overwrite", async () => {
 
 function baseConfig(overrides = {}) {
 	return {
-		version: 3.1,
+		version: 4,
 		$schema: "https://raw.githubusercontent.com/emxhive/prodex/main/schema/prodex.schema.json",
-		output: { dir: "prodex", versioned: true, prefix: "combined", format: "md" },
-		entry: { files: [] },
-		resolve: { include: [], aliases: {}, exclude: ["node_modules/**"], depth: 10, limit: 200 },
-		shortcuts: {},
+		output: { dir: "prodex", versioned: true, format: "md" },
+		entry: [],
+		include: [],
+		exclude: ["node_modules/**"],
+		resolve: { aliases: {}, maxDepth: 10, maxFiles: 200 },
+		profiles: {},
 		...overrides,
-		entry: { files: [], ...(overrides.entry || {}) },
 	};
 }
 

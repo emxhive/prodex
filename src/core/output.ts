@@ -12,7 +12,7 @@ export async function produceOutput({ name, files, cfg }: OutputParams): Promise
 		output: { format, versioned, dir },
 	} = cfg;
 
-	let outputBase = sanitizeFileName(name || cfg.output.prefix);
+	let outputBase = sanitizeFileName(name || "combined");
 	outputBase = `${outputBase}-${SUFFIX}`;
 	if (versioned) outputBase = `${outputBase}_${shortTimestamp()}`;
 

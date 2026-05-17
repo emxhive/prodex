@@ -3,31 +3,60 @@ import pkg from "../../package.json";
 import type { CommandResult, RunResult } from "../types";
 import { normalizePath } from "../platform/path";
 
-export function renderHelp(): string {
+export function renderHelp(topic?: string): string {
+	if (topic === "run") return renderRunHelp();
+	if (topic === "init") return renderInitHelp();
+	if (topic === "profiles") return renderProfilesHelp();
+
 	return [
 		"Usage:",
-		"  prodex [root] [options]",
 		"  prodex run [root] [options]",
 		"  prodex init [root]",
-		"  prodex shortcuts [root]",
+		"  prodex profiles [root]",
 		"",
-		"Options:",
-		"  -f, --files <globs>       Entry files to trace, comma-separated.",
-		"  -i, --include <globs>     Extra files to append, comma-separated.",
-		"  -x, --exclude <globs>     Files or folders to skip, comma-separated.",
-		"  -n, --name <name>         Output name prefix.",
-		"  -t, --txt                 Write text output instead of Markdown.",
-		"  -l, --limit <number>      Traversal file limit.",
-		"  -c, --ci                  Headless mode.",
-		"  -d, --debug               Enable debug logs.",
-		"  -a, --shortcut <name>     Run a named shortcut.",
-		"  --shortcuts               List configured shortcut keys.",
+		"Global options:",
 		"  -h, --help                Show help.",
 		"  -v, --version             Show version.",
 		"",
-		"Shortcuts:",
-		"  prodex @api @dashboard    Run shortcuts in the order provided.",
-		"  prodex @                  Run all configured shortcuts.",
+		"Run `prodex <command> --help` for command-specific help.",
+	].join("\n");
+}
+
+function renderRunHelp(): string {
+	return [
+		"Usage:",
+		"  prodex run [root] [options]",
+		"",
+		"Options:",
+		"  -e, --entry <glob>        Entry file/glob. Repeatable and comma-aware.",
+		"  -i, --include <glob>      Extra file/glob to append. Repeatable and comma-aware.",
+		"  -x, --exclude <glob>      File/glob to skip. Repeatable and comma-aware.",
+		"  -p, --profile <name>      Run a named profile. Repeatable.",
+		"  --all-profiles            Run every configured profile.",
+		"  -n, --name <name>         Output basename for this run.",
+		"  -F, --format <md|txt>     Output format.",
+		"  --max-depth <number>      Maximum dependency traversal depth.",
+		"  --max-files <number>      Maximum traced file count.",
+		"  -d, --debug               Enable debug logs.",
+		"  -h, --help                Show run help.",
+	].join("\n");
+}
+
+function renderInitHelp(): string {
+	return [
+		"Usage:",
+		"  prodex init [root]",
+		"",
+		"Create a prodex.json file in the target root.",
+	].join("\n");
+}
+
+function renderProfilesHelp(): string {
+	return [
+		"Usage:",
+		"  prodex profiles [root]",
+		"",
+		"List configured profile keys without running Prodex.",
 	].join("\n");
 }
 
@@ -40,10 +69,10 @@ export function reportCommandResult(result: CommandResult): void {
 	for (const error of result.errors) console.error(`Error: ${error}`);
 
 	if (result.message) console.log(result.message);
-	if (result.shortcuts) reportShortcuts(result.shortcuts);
+	if (result.profiles) reportProfiles(result.profiles);
 
 	for (const run of result.runs) {
-		const label = run.shortcut ? ` [${run.shortcut}]` : "";
+		const label = run.profile ? ` [${run.profile}]` : "";
 		for (const warning of run.warnings) console.warn(`Warning${label}: ${warning}`);
 		for (const error of run.errors) console.error(`Error${label}: ${error}`);
 		if (run.outputPath) {
@@ -54,14 +83,14 @@ export function reportCommandResult(result: CommandResult): void {
 	}
 }
 
-function reportShortcuts(shortcuts: string[]): void {
-	if (!shortcuts.length) {
-		console.log("No shortcuts configured.");
+function reportProfiles(profiles: string[]): void {
+	if (!profiles.length) {
+		console.log("No profiles configured.");
 		return;
 	}
 
-	console.log("Available shortcuts:");
-	for (const shortcut of shortcuts) console.log(`  ${shortcut}`);
+	console.log("Available profiles:");
+	for (const profile of profiles) console.log(`  ${profile}`);
 }
 
 function formatPath(filePath: string, root: string): string {
