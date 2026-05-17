@@ -1,7 +1,7 @@
 import type { CliParseResult, ProdexFlags } from "../types";
 
 type FlagSpec = {
-	long: keyof ProdexFlags | "help" | "version" | "profile";
+	long: keyof ProdexFlags | "help" | "version" | "profile" | "write" | "check";
 	short?: string;
 	type: "boolean" | "string" | "number" | "list";
 };
@@ -17,6 +17,8 @@ const FLAGS: FlagSpec[] = [
 	{ long: "maxDepth", type: "number" },
 	{ long: "maxFiles", type: "number" },
 	{ long: "debug", short: "d", type: "boolean" },
+	{ long: "write", type: "boolean" },
+	{ long: "check", type: "boolean" },
 	{ long: "help", short: "h", type: "boolean" },
 	{ long: "version", short: "v", type: "boolean" },
 ];
@@ -37,7 +39,7 @@ export function parseCliInput(argv: string[] = process.argv): CliParseResult {
 	const flags: Partial<ProdexFlags> = {};
 
 	if (!tokens.length) {
-		errors.push("Missing command. Use `prodex run`, `prodex init`, or `prodex profiles`.");
+		errors.push("Missing command. Use `prodex run`, `prodex init`, `prodex profiles`, or `prodex migrate`.");
 		return { warnings, errors };
 	}
 
@@ -47,7 +49,7 @@ export function parseCliInput(argv: string[] = process.argv): CliParseResult {
 
 	const commandName = tokens[0];
 	if (!isCommand(commandName)) {
-		errors.push(`Unknown command "${commandName}". Use run, init, or profiles.`);
+		errors.push(`Unknown command "${commandName}". Use run, init, profiles, or migrate.`);
 		return { warnings, errors };
 	}
 
@@ -77,6 +79,9 @@ export function parseCliInput(argv: string[] = process.argv): CliParseResult {
 
 	if (commandName === "init") return { command: { kind: "init", rootArg }, warnings, errors };
 	if (commandName === "profiles") return { command: { kind: "profiles", rootArg }, warnings, errors };
+	if (commandName === "migrate") {
+		return { command: { kind: "migrate", rootArg, write: !!(flags as any).write, check: !!(flags as any).check }, warnings, errors };
+	}
 	return { command: { kind: "run", rootArg, flags }, warnings, errors };
 }
 
@@ -96,7 +101,7 @@ function basename(value: string): string {
 }
 
 function isCommand(token: string): boolean {
-	return ["run", "init", "profiles"].includes(token);
+	return ["run", "init", "profiles", "migrate"].includes(token);
 }
 
 function readLongFlag(tokens: string[], index: number, flags: Partial<ProdexFlags>, errors: string[]): number {

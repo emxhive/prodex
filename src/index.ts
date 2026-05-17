@@ -5,6 +5,7 @@ import { listProfiles } from "./app/list-profiles";
 import { parseCliInput } from "./cli/cli-input";
 import { initProdex } from "./cli/init";
 import { renderHelp, renderVersion, reportCommandResult } from "./cli/reporter";
+import { runMigrationCommand } from "./config/migrate";
 import type { CommandResult } from "./types";
 
 export default async function startProdex(args = process.argv): Promise<CommandResult> {
@@ -54,6 +55,23 @@ export async function runProdexCommand(args = process.argv, cwd = process.cwd())
 			profiles: errors.length ? undefined : listed.profiles,
 			warnings,
 			errors,
+			runs: [],
+		};
+	}
+
+	if (parsed.command.kind === "migrate") {
+		const migration = runMigrationCommand({
+			rootArg: parsed.command.rootArg,
+			cwd,
+			write: parsed.command.write,
+			check: parsed.command.check,
+		});
+		return {
+			ok: migration.ok,
+			exitCode: migration.ok ? 0 : 1,
+			migration,
+			warnings: [...warnings, ...migration.warnings],
+			errors: [...errors, ...migration.errors],
 			runs: [],
 		};
 	}

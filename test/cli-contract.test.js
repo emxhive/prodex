@@ -114,6 +114,110 @@ test("profiles command validates root paths", async () => {
 	assert.equal(result.runs.length, 0);
 });
 
+test("old configs fail run with migration instructions", async () => {
+	await usingTempProjectAsync(async (root) => {
+		writeJson(path.join(root, "prodex.json"), legacyConfig());
+		writeFile(path.join(root, "src", "index.ts"), "export const value = 1;\n");
+
+		const result = await runProdexCommand(["node", "prodex", "run"], root);
+		assert.equal(result.ok, false);
+		assert.equal(result.exitCode, 1);
+		assert.match(result.errors.join("\n"), /requires config version 4/);
+		assert.match(result.errors.join("\n"), /prodex migrate --write/);
+		assert.equal(result.runs.length, 0);
+		assertOutputDirEmpty(root);
+	});
+});
+
+test("v4 configs with legacy fields fail with legacy-shape migration instructions", async () => {
+	await usingTempProjectAsync(async (root) => {
+		const legacyShape = legacyConfig();
+		legacyShape.version = 4;
+		writeJson(path.join(root, "prodex.json"), legacyShape);
+
+		const result = await runProdexCommand(["node", "prodex", "profiles"], root);
+		assert.equal(result.ok, false);
+		assert.match(result.errors.join("\n"), /contains legacy config fields/);
+		assert.match(result.errors.join("\n"), /prodex migrate --write/);
+	});
+});
+
+test("configs with a UTF-8 BOM can still be migrated", async () => {
+	await usingTempProjectAsync(async (root) => {
+		const configPath = path.join(root, "prodex.json");
+		writeFile(configPath, `\ufeff${JSON.stringify(legacyConfig(), null, 2)}`);
+
+		const result = await runProdexCommand(["node", "prodex", "migrate"], root);
+		assert.equal(result.ok, true);
+		assert.equal(result.migration.needed, true);
+		assert.match(result.migration.changes.join("\n"), /entry.files -> entry/);
+	});
+});
+
+test("migrate previews v3 to v4 changes without writing", async () => {
+	await usingTempProjectAsync(async (root) => {
+		const configPath = path.join(root, "prodex.json");
+		writeJson(configPath, legacyConfig());
+		const before = fs.readFileSync(configPath, "utf8");
+
+		const result = await runProdexCommand(["node", "prodex", "migrate"], root);
+		assert.equal(result.ok, true);
+		assert.equal(result.exitCode, 0);
+		assert.equal(result.migration.needed, true);
+		assert.equal(result.migration.written, false);
+		assert.match(result.migration.changes.join("\n"), /shortcuts -> profiles/);
+		assert.equal(fs.readFileSync(configPath, "utf8"), before);
+
+		const output = captureStdout(() => reportCommandResult(result));
+		assert.match(output, /can be migrated from version 3\.1 to version 4/);
+		assert.match(output, /Run `prodex migrate --write`/);
+	});
+});
+
+test("migrate --check fails for old config and passes for v4", async () => {
+	await usingTempProjectAsync(async (root) => {
+		writeJson(path.join(root, "prodex.json"), legacyConfig());
+
+		const oldResult = await runProdexCommand(["node", "prodex", "migrate", "--check"], root);
+		assert.equal(oldResult.ok, false);
+		assert.equal(oldResult.exitCode, 1);
+		assert.match(oldResult.errors.join("\n"), /requires migration/);
+
+		writeJson(path.join(root, "prodex.json"), baseConfig());
+		const newResult = await runProdexCommand(["node", "prodex", "migrate", "--check"], root);
+		assert.equal(newResult.ok, true);
+		assert.equal(newResult.exitCode, 0);
+		assert.equal(newResult.migration.needed, false);
+	});
+});
+
+test("migrate --write backs up and writes v4 config", async () => {
+	await usingTempProjectAsync(async (root) => {
+		const configPath = path.join(root, "prodex.json");
+		writeJson(configPath, legacyConfig());
+
+		const result = await runProdexCommand(["node", "prodex", "migrate", "--write"], root);
+		assert.equal(result.ok, true);
+		assert.equal(result.migration.written, true);
+		assertFileExists(result.migration.backupPath);
+
+		const migrated = JSON.parse(fs.readFileSync(configPath, "utf8"));
+		assert.equal(migrated.version, 4);
+		assert.deepEqual(migrated.entry, ["src/index.ts"]);
+		assert.deepEqual(migrated.include, ["**/*.d.ts"]);
+		assert.deepEqual(migrated.exclude, ["node_modules/**"]);
+		assert.equal(migrated.resolve.maxDepth, 7);
+		assert.equal(migrated.resolve.maxFiles, 42);
+		assert.deepEqual(migrated.profiles.dashboard, {
+			name: "dashboard",
+			entry: ["src/dashboard.ts"],
+			include: ["types/**/*.d.ts"],
+			exclude: ["dist/**"],
+		});
+		assert.equal(migrated.output.prefix, undefined);
+	});
+});
+
 test("runs with no entries and no includes fail plainly", async () => {
 	await usingTempProjectAsync(async (root) => {
 		writeJson(path.join(root, "prodex.json"), baseConfig());
@@ -298,6 +402,30 @@ function baseConfig(overrides = {}) {
 		resolve: { aliases: {}, maxDepth: 10, maxFiles: 200 },
 		profiles: {},
 		...overrides,
+	};
+}
+
+function legacyConfig() {
+	return {
+		version: 3.1,
+		$schema: "https://raw.githubusercontent.com/emxhive/prodex/main/schema/prodex.schema.json",
+		output: { dir: "prodex", versioned: true, prefix: "combined", format: "md" },
+		entry: { files: ["src/index.ts"] },
+		resolve: {
+			include: ["**/*.d.ts"],
+			aliases: { "@": "resources/js" },
+			exclude: ["node_modules/**"],
+			depth: 7,
+			limit: 42,
+		},
+		shortcuts: {
+			dashboard: {
+				prefix: "dashboard",
+				files: ["src/dashboard.ts"],
+				include: ["types/**/*.d.ts"],
+				exclude: ["dist/**"],
+			},
+		},
 	};
 }
 

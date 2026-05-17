@@ -2,6 +2,8 @@ import fs from "fs";
 import path from "path";
 import { DEFAULT_PRODEX_CONFIG } from "../constants";
 import type { ProdexConfigFile } from "../types";
+import { configVersionError, isOutdatedConfig, legacyConfigShapeError, requiresConfigMigration } from "./migrate";
+import { parseJsonFile } from "./json";
 
 export interface LoadConfigResult {
 	config: ProdexConfigFile;
@@ -27,7 +29,10 @@ export function loadConfig(root: string): LoadConfigResult {
 	}
 
 	try {
-		const parsed = JSON.parse(fs.readFileSync(configPath, "utf8")) as ProdexConfigFile;
+		const parsed = parseJsonFile(fs.readFileSync(configPath, "utf8")) as ProdexConfigFile;
+		if (requiresConfigMigration(parsed)) {
+			errors.push(isOutdatedConfig(parsed) ? configVersionError((parsed as any).version) : legacyConfigShapeError());
+		}
 		return {
 			config: parsed,
 			path: configPath,

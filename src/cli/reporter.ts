@@ -7,12 +7,14 @@ export function renderHelp(topic?: string): string {
 	if (topic === "run") return renderRunHelp();
 	if (topic === "init") return renderInitHelp();
 	if (topic === "profiles") return renderProfilesHelp();
+	if (topic === "migrate") return renderMigrateHelp();
 
 	return [
 		"Usage:",
 		"  prodex run [root] [options]",
 		"  prodex init [root]",
 		"  prodex profiles [root]",
+		"  prodex migrate [root] [--write|--check]",
 		"",
 		"Global options:",
 		"  -h, --help                Show help.",
@@ -60,6 +62,21 @@ function renderProfilesHelp(): string {
 	].join("\n");
 }
 
+function renderMigrateHelp(): string {
+	return [
+		"Usage:",
+		"  prodex migrate [root]",
+		"  prodex migrate [root] --write",
+		"  prodex migrate [root] --check",
+		"",
+		"Preview, check, or write a prodex.json migration to config version 4.",
+		"",
+		"Options:",
+		"  --write                  Back up and update prodex.json.",
+		"  --check                  Exit nonzero if migration is required.",
+	].join("\n");
+}
+
 export function renderVersion(): string {
 	return `prodex v${pkg.version}`;
 }
@@ -70,6 +87,7 @@ export function reportCommandResult(result: CommandResult): void {
 
 	if (result.message) console.log(result.message);
 	if (result.profiles) reportProfiles(result.profiles);
+	if (result.migration) reportMigration(result.migration);
 
 	for (const run of result.runs) {
 		const label = run.profile ? ` [${run.profile}]` : "";
@@ -81,6 +99,31 @@ export function reportCommandResult(result: CommandResult): void {
 			console.log(`Files${label}: ${run.files.length} total`);
 		}
 	}
+}
+
+function reportMigration(migration: NonNullable<CommandResult["migration"]>): void {
+	if (migration.errors.length) return;
+
+	if (!migration.needed) {
+		console.log("prodex.json is already using config version 4.");
+		return;
+	}
+
+	if (migration.written) {
+		console.log(`Backed up prodex.json to ${formatPath(migration.backupPath!, path.dirname(migration.path))}`);
+		console.log("Migrated prodex.json to version 4.");
+		return;
+	}
+
+	const from = migration.fromVersion ?? "legacy";
+	console.log(`prodex.json can be migrated from version ${from} to version 4.`);
+	if (migration.changes.length) {
+		console.log("");
+		console.log("Changes:");
+		for (const change of migration.changes) console.log(`  ${change}`);
+	}
+	console.log("");
+	console.log("Run `prodex migrate --write` to update prodex.json.");
 }
 
 function reportProfiles(profiles: string[]): void {

@@ -4,6 +4,7 @@ export type CliCommand =
 	| { kind: "run"; rootArg?: string; flags: Partial<ProdexFlags> }
 	| { kind: "init"; rootArg?: string; force?: boolean }
 	| { kind: "profiles"; rootArg?: string }
+	| { kind: "migrate"; rootArg?: string; write?: boolean; check?: boolean }
 	| { kind: "help"; topic?: string }
 	| { kind: "version" };
 
@@ -40,6 +41,7 @@ export interface CommandResult {
 	exitCode: number;
 	message?: string;
 	profiles?: string[];
+	migration?: import("../config/migrate").MigrationCommandResult;
 	warnings: string[];
 	errors: string[];
 	runs: RunResult[];

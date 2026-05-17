@@ -36,6 +36,7 @@ prodex run [root] --entry routes/web.php --include "**/*.d.ts"
 prodex run [root] --profile dashboard
 prodex run [root] --all-profiles
 prodex profiles [root]
+prodex migrate [root]
 ```
 
 `prodex run` requires the `run` verb. Positional root-only sugar is intentionally not supported.
@@ -61,6 +62,7 @@ Global metadata flags:
 prodex --version
 prodex run --help
 prodex profiles --help
+prodex migrate --help
 ```
 
 ## Profiles
@@ -114,6 +116,30 @@ Naming precedence:
 4. internal fallback: `combined`
 
 CLI flags override config values for a run. Profile arrays replace base arrays for that profile run.
+
+## Migrating To Config v4
+
+Prodex requires config version 4. If a project has an older `prodex.json`, `prodex run` and `prodex profiles` fail with migration instructions instead of guessing.
+
+Preview a migration:
+
+```bash
+prodex migrate
+```
+
+Check whether migration is needed:
+
+```bash
+prodex migrate --check
+```
+
+Write the migration:
+
+```bash
+prodex migrate --write
+```
+
+`--write` creates a backup before replacing `prodex.json`.
 
 ## Output
 
