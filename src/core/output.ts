@@ -4,7 +4,7 @@ import { logger } from "../lib/logger";
 import type { OutputParams } from "../types";
 import { shortTimestamp } from "../lib/utils";
 import { SUFFIX } from "../constants";
-import { renderTraceMd, renderTxt, tocTxt } from "./renderers";
+import { renderTraceMd, renderTxt, tocTxt } from "../render";
 import { sanitizeFileName } from "../platform/path";
 
 export async function produceOutput({ name, files, cfg }: OutputParams): Promise<string> {
@@ -28,8 +28,8 @@ export async function produceOutput({ name, files, cfg }: OutputParams): Promise
 	const sorted = [...files].sort((a, b) => a.localeCompare(b));
 	const content =
 		format === "txt"
-			? [tocTxt(sorted), ...sorted.map(renderTxt)].join("")
-			: renderTraceMd(sorted).content;
+			? [tocTxt(sorted, cfg.root), ...sorted.map((file) => renderTxt(file, cfg.root))].join("")
+			: renderTraceMd(sorted, cfg.root).content;
 
 	fs.writeFileSync(outputPath, content, "utf8");
 	return outputPath;

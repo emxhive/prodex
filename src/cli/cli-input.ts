@@ -1,36 +1,6 @@
 import type { CliParseResult, ProdexFlags } from "../types";
-
-type FlagSpec = {
-	long: keyof ProdexFlags | "help" | "version" | "profile" | "write" | "check";
-	short?: string;
-	type: "boolean" | "string" | "number" | "list";
-};
-
-const FLAGS: FlagSpec[] = [
-	{ long: "entry", short: "e", type: "list" },
-	{ long: "include", short: "i", type: "list" },
-	{ long: "exclude", short: "x", type: "list" },
-	{ long: "profile", short: "p", type: "list" },
-	{ long: "allProfiles", type: "boolean" },
-	{ long: "name", short: "n", type: "string" },
-	{ long: "format", short: "F", type: "string" },
-	{ long: "maxDepth", type: "number" },
-	{ long: "maxFiles", type: "number" },
-	{ long: "debug", short: "d", type: "boolean" },
-	{ long: "write", type: "boolean" },
-	{ long: "check", type: "boolean" },
-	{ long: "help", short: "h", type: "boolean" },
-	{ long: "version", short: "v", type: "boolean" },
-];
-
-const FLAG_ALIASES: Record<string, FlagSpec["long"]> = {
-	"all-profiles": "allProfiles",
-	"max-depth": "maxDepth",
-	"max-files": "maxFiles",
-};
-
-const BY_LONG = new Map(FLAGS.map((flag) => [flag.long, flag]));
-const BY_SHORT = new Map(FLAGS.filter((flag) => flag.short).map((flag) => [flag.short!, flag]));
+import { splitStringList } from "../config/string-list";
+import { COMMANDS, FLAG_ALIASES, FLAGS_BY_LONG, FLAGS_BY_SHORT, type FlagSpec } from "./flag-specs";
 
 export function parseCliInput(argv: string[] = process.argv): CliParseResult {
 	const tokens = stripExecutable(argv);
@@ -101,7 +71,7 @@ function basename(value: string): string {
 }
 
 function isCommand(token: string): boolean {
-	return ["run", "init", "profiles", "migrate"].includes(token);
+	return COMMANDS.includes(token as any);
 }
 
 function readLongFlag(tokens: string[], index: number, flags: Partial<ProdexFlags>, errors: string[]): number {
@@ -111,7 +81,7 @@ function readLongFlag(tokens: string[], index: number, flags: Partial<ProdexFlag
 	const rawName = equalsAt === -1 ? raw : raw.slice(0, equalsAt);
 	const name = FLAG_ALIASES[rawName] ?? rawName;
 	const inlineValue = equalsAt === -1 ? undefined : raw.slice(equalsAt + 1);
-	const spec = BY_LONG.get(name as any);
+	const spec = FLAGS_BY_LONG.get(name as any);
 
 	if (!spec) {
 		errors.push(`Unknown flag "--${rawName}".`);
@@ -139,7 +109,7 @@ function readShortFlag(tokens: string[], index: number, flags: Partial<ProdexFla
 
 	if (cluster.length > 1) {
 		for (const ch of cluster) {
-			const spec = BY_SHORT.get(ch);
+			const spec = FLAGS_BY_SHORT.get(ch);
 			if (!spec) {
 				errors.push(`Unknown flag "-${ch}".`);
 				continue;
@@ -153,7 +123,7 @@ function readShortFlag(tokens: string[], index: number, flags: Partial<ProdexFla
 		return 0;
 	}
 
-	const spec = BY_SHORT.get(cluster);
+	const spec = FLAGS_BY_SHORT.get(cluster);
 	if (!spec) {
 		errors.push(`Unknown flag "-${cluster}".`);
 		return 0;
@@ -181,10 +151,7 @@ function assignFlag(flags: Partial<ProdexFlags>, spec: FlagSpec, value: string, 
 		return;
 	}
 	if (spec.type === "list") {
-		const values = value
-			.split(",")
-			.map((part) => part.trim())
-			.filter(Boolean);
+		const values = splitStringList(value);
 		const target = spec.long === "profile" ? "profiles" : spec.long;
 		const current = ((flags as any)[target] ?? []) as string[];
 		(flags as any)[target] = [...current, ...values];

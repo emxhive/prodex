@@ -1,4 +1,7 @@
-import type { ChainResult, ProdexConfig, ProdexFlags } from ".";
+import type { MigrationCommandResult } from "../config/migration";
+import type { ProdexFlags } from "./cli.types";
+import type { ProdexConfig } from "./config.types";
+import type { ChainResult } from "./core.types";
 
 export type CliCommand =
 	| { kind: "run"; rootArg?: string; flags: Partial<ProdexFlags> }
@@ -41,7 +44,7 @@ export interface CommandResult {
 	exitCode: number;
 	message?: string;
 	profiles?: string[];
-	migration?: import("../config/migrate").MigrationCommandResult;
+	migration?: MigrationCommandResult;
 	warnings: string[];
 	errors: string[];
 	runs: RunResult[];

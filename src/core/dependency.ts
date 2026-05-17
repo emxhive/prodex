@@ -1,42 +1,36 @@
+import fs from "fs";
 import path from "path";
-import { CODE_EXTS, RESOLVERS } from "../constants/config";
-import { globScan } from "./helpers";
 import { logger } from "../lib/logger";
+import { normalizePath } from "../platform/path";
 import { unique } from "../shared/collections";
 import type { ProdexConfig, ResolverParams, ResolverResult } from "../types";
-import fs from "fs";
-import { normalizePath } from "../platform/path";
+import { globScan } from "./helpers";
+import { getResolver, hasResolver } from "./resolver-registry";
 
-
-/**
- * 🧩 followChain()
- * Traverses all dependencies starting from the given entry files.
- * Uses language-specific resolvers (JS / PHP) under the hood.
- */
 export async function followChain(entryFiles: string[], cfg: ProdexConfig) {
 	const limit = cfg.resolve.maxFiles;
 	const resolverDepth = cfg.resolve.maxDepth;
 
-	logger.debug("🧩 Following dependency chain...");
+	logger.debug("Following dependency chain...");
 
 	const visited = new Set<string>();
 	const all: string[] = [];
 	const expected = new Set<string>();
 	const resolved = new Set<string>();
 
-	for (const f of entryFiles) {
-		if (visited.has(f)) continue;
-		all.push(f);
+	for (const file of entryFiles) {
+		if (visited.has(file)) continue;
+		all.push(file);
 
-		const ext = path.extname(f);
-		if (!CODE_EXTS.includes(ext)) continue;
+		const ext = path.extname(file);
+		if (!hasResolver(ext)) continue;
 
-		const resolver = RESOLVERS[ext];
+		const resolver = getResolver(ext);
 		if (!resolver) continue;
 
 		const params: ResolverParams = {
 			cfg,
-			filePath: f,
+			filePath: file,
 			visited,
 			depth: 0,
 			maxDepth: resolverDepth,
@@ -46,7 +40,7 @@ export async function followChain(entryFiles: string[], cfg: ProdexConfig) {
 		try {
 			result = await resolver(params);
 		} catch (err: any) {
-			logger.warn(`⚠️ Resolver failed for ${f}:`, err.message || err);
+			logger.warn(`Resolver failed for ${file}:`, err.message || err);
 			continue;
 		}
 
@@ -54,11 +48,11 @@ export async function followChain(entryFiles: string[], cfg: ProdexConfig) {
 
 		const { files, stats } = result;
 		all.push(...files);
-		stats.expected.forEach((x) => expected.add(x));
-		stats.resolved.forEach((x) => resolved.add(x));
+		stats.expected.forEach((item) => expected.add(item));
+		stats.resolved.forEach((item) => resolved.add(item));
 
 		if (limit && all.length >= limit) {
-			logger.warn("⚠️  Limit reached:", limit);
+			logger.warn("File limit reached:", limit);
 			break;
 		}
 	}
@@ -69,41 +63,30 @@ export async function followChain(entryFiles: string[], cfg: ProdexConfig) {
 	};
 }
 
-/**
- * 🧩 applyIncludes()
- * Scans and appends additional files defined in config.include.
- */
-// src/core/dependency.ts
-
-// (existing imports stay)
-
 export async function applyIncludes(cfg: ProdexConfig, files: string[]) {
 	const { include, root } = cfg;
-
-	const absFiles: string[] = [];
+	const absoluteFiles: string[] = [];
 	const patterns: string[] = [];
 
 	for (const raw of include) {
-		const p = String(raw ?? "").trim();
-		if (!p) continue;
+		const candidate = String(raw ?? "").trim();
+		if (!candidate) continue;
 
-		const norm = normalizePath(p);
-
-		// absolute *file* paths bypass globScan (and its ignores)
-		if (path.isAbsolute(norm)) {
+		const normalized = normalizePath(candidate);
+		if (path.isAbsolute(normalized)) {
 			try {
-				if (fs.statSync(norm).isFile()) {
-					absFiles.push(path.resolve(norm));
+				if (fs.statSync(normalized).isFile()) {
+					absoluteFiles.push(path.resolve(normalized));
 					continue;
 				}
 			} catch {
-				// doesn't exist / can't stat → treat as pattern
+				// Treat unreadable absolute paths as glob patterns so include handling stays consistent.
 			}
 		}
 
-		patterns.push(norm);
+		patterns.push(normalized);
 	}
 
 	const scan = await globScan(patterns, { cwd: root });
-	return unique([...files, ...absFiles, ...scan.files]);
+	return unique([...files, ...absoluteFiles, ...scan.files]);
 }

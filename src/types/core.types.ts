@@ -1,4 +1,4 @@
-import { ProdexConfig } from ".";
+import type { ProdexConfig } from "./config.types";
 
 /** Shared stats type across resolvers and chain results. */
 export interface Stats {

@@ -1,11 +1,9 @@
-import path from "path";
-import { createRunPlans } from "./app/create-run-plan";
-import { executeRun } from "./app/execute-run";
-import { listProfiles } from "./app/list-profiles";
+import { initCommand } from "./app/commands/init-command";
+import { migrateCommand } from "./app/commands/migrate-command";
+import { profilesCommand } from "./app/commands/profiles-command";
+import { runCommand } from "./app/commands/run-command";
 import { parseCliInput } from "./cli/cli-input";
-import { initProdex } from "./cli/init";
 import { renderHelp, renderVersion, reportCommandResult } from "./cli/reporter";
-import { runMigrationCommand } from "./config/migrate";
 import type { CommandResult } from "./types";
 
 export default async function startProdex(args = process.argv): Promise<CommandResult> {
@@ -33,8 +31,7 @@ export async function runProdexCommand(args = process.argv, cwd = process.cwd())
 	}
 
 	if (parsed.command.kind === "init") {
-		const root = parsed.command.rootArg ? path.resolve(cwd, parsed.command.rootArg) : cwd;
-		const init = initProdex(root, { force: parsed.command.force });
+		const init = initCommand(parsed.command.rootArg, cwd, parsed.command.force);
 		return {
 			ok: init.ok,
 			exitCode: init.ok ? 0 : 1,
@@ -46,7 +43,7 @@ export async function runProdexCommand(args = process.argv, cwd = process.cwd())
 	}
 
 	if (parsed.command.kind === "profiles") {
-		const listed = listProfiles(parsed.command.rootArg, cwd);
+		const listed = profilesCommand(parsed.command.rootArg, cwd);
 		warnings.push(...listed.warnings);
 		errors.push(...listed.errors);
 		return {
@@ -60,7 +57,7 @@ export async function runProdexCommand(args = process.argv, cwd = process.cwd())
 	}
 
 	if (parsed.command.kind === "migrate") {
-		const migration = runMigrationCommand({
+		const migration = migrateCommand({
 			rootArg: parsed.command.rootArg,
 			cwd,
 			write: parsed.command.write,
@@ -76,30 +73,22 @@ export async function runProdexCommand(args = process.argv, cwd = process.cwd())
 		};
 	}
 
-	const planned = createRunPlans({
+	const run = await runCommand({
 		rootArg: parsed.command.rootArg,
 		flags: parsed.command.flags,
 		cwd,
 	});
 
-	warnings.push(...planned.warnings);
-	errors.push(...planned.errors);
+	warnings.push(...run.warnings);
+	errors.push(...run.errors);
+	if (errors.length) return { ok: false, exitCode: 1, warnings, errors, runs: [] };
 
-	if (errors.length) {
-		return { ok: false, exitCode: 1, warnings, errors, runs: [] };
-	}
-
-	const runs = [];
-	for (const plan of planned.plans) {
-		runs.push(await executeRun(plan));
-	}
-
-	const ok = runs.every((run) => run.ok);
+	const ok = run.runs.every((item) => item.ok);
 	return {
 		ok,
 		exitCode: ok ? 0 : 1,
 		warnings,
 		errors,
-		runs,
+		runs: run.runs,
 	};
 }

@@ -333,6 +333,23 @@ test("reporter prints relative output paths and mode-specific counts", async () 
 	});
 });
 
+test("output file labels are relative to the selected root", async () => {
+	await usingTempProjectAsync(async (root) => {
+		writeJson(path.join(root, "prodex.json"), baseConfig());
+		writeFile(path.join(root, "notes", "context.md"), "# Context\n");
+
+		const result = await runProdexCommand(
+			["node", "prodex", "run", root, "--include", "notes/context.md", "--name", "root-labels", "--format", "txt"],
+			repoRoot,
+		);
+
+		assert.equal(result.ok, true);
+		const content = fs.readFileSync(result.runs[0].outputPath, "utf8");
+		assert.match(content, /## - notes\/context\.md/);
+		assert.doesNotMatch(content, escapedForRegExp(root));
+	});
+});
+
 test("bin output uses the same concise reporting contract", () => {
 	usingTempProject((root) => {
 		writeJson(path.join(root, "prodex.json"), baseConfig());

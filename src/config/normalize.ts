@@ -2,6 +2,7 @@ import path from "path";
 import { DEFAULT_PRODEX_CONFIG } from "../constants";
 import type { DeepPartial, ProdexConfig, ProdexConfigFile, ProdexFlags, ProdexProfile } from "../types";
 import { normalizePath, sanitizeFileName } from "../platform/path";
+import { toStringList } from "./string-list";
 
 export interface ConfigBuildResult {
 	config?: ProdexConfig;
@@ -98,14 +99,9 @@ function normalizeRuntimeConfig(cfg: ProdexConfig, warnings: string[]): void {
 }
 
 function normalizePatterns(value: unknown, warnings: string[], field: string): string[] {
-	const raw = Array.isArray(value) ? value : typeof value === "string" ? value.split(",") : [];
 	const normalized: string[] = [];
 
-	for (const item of raw) {
-		const text = typeof item === "string" ? normalizePath(item.trim()) : "";
-		if (!text) continue;
-		normalized.push(text);
-	}
+	for (const item of toStringList(value)) normalized.push(normalizePath(item));
 
 	if (!Array.isArray(value) && value !== undefined && typeof value !== "string") {
 		warnings.push(`${field} should be a string array; ignoring invalid value.`);

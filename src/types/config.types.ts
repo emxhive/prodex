@@ -9,7 +9,11 @@ export type ProdexConfigFile = DeepPartial<ProdexBase> & {
 };
 
 export type DeepPartial<T> = {
-	[K in keyof T]?: T[K] extends object ? DeepPartial<T[K]> : T[K];
+	[K in keyof T]?: T[K] extends Array<infer Item>
+		? Item[]
+		: T[K] extends object
+			? DeepPartial<T[K]>
+			: T[K];
 };
 
 export type ProdexProfile = {

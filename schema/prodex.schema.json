@@ -13,22 +13,31 @@
                     "type": "number"
                 },
                 "output": {
-                    "$ref": "#/definitions/DeepPartial%3Cstructure-184175265-427-493-184175265-418-494-184175265-394-690-184175265-0-691%3E"
+                    "$ref": "#/definitions/DeepPartial%3Cstructure-184175265-479-545-184175265-470-546-184175265-446-742-184175265-0-743%3E"
                 },
                 "entry": {
-                    "$ref": "#/definitions/DeepPartial%3Cstring%5B%5D%3E"
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
                 },
                 "include": {
-                    "$ref": "#/definitions/DeepPartial%3Cstring%5B%5D%3E"
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
                 },
                 "exclude": {
-                    "$ref": "#/definitions/DeepPartial%3Cstring%5B%5D%3E"
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
                 },
                 "resolve": {
-                    "$ref": "#/definitions/DeepPartial%3Cstructure-184175265-564-644-184175265-553-645-184175265-394-690-184175265-0-691%3E"
+                    "$ref": "#/definitions/DeepPartial%3Cstructure-184175265-616-696-184175265-605-697-184175265-446-742-184175265-0-743%3E"
                 },
                 "profiles": {
-                    "$ref": "#/definitions/DeepPartial%3Cindexed-type-731470504-74242-74263-731470504-74138-74264-731470504-0-218439%3Cstring%2Cdef-alias-184175265-283-394-184175265-0-691%3E%3E"
+                    "$ref": "#/definitions/DeepPartial%3Cindexed-type-731470504-74242-74263-731470504-74138-74264-731470504-0-218439%3Cstring%2Cdef-alias-184175265-335-446-184175265-0-743%3E%3E"
                 }
             },
             "required": [
@@ -36,7 +45,7 @@
                 "version"
             ]
         },
-        "DeepPartial<structure-184175265-427-493-184175265-418-494-184175265-394-690-184175265-0-691>": {
+        "DeepPartial<structure-184175265-479-545-184175265-470-546-184175265-446-742-184175265-0-743>": {
             "type": "object",
             "properties": {
                 "dir": {
@@ -55,13 +64,7 @@
             },
             "additionalProperties": false
         },
-        "DeepPartial<string[]>": {
-            "type": "object",
-            "additionalProperties": {
-                "type": "string"
-            }
-        },
-        "DeepPartial<structure-184175265-564-644-184175265-553-645-184175265-394-690-184175265-0-691>": {
+        "DeepPartial<structure-184175265-616-696-184175265-605-697-184175265-446-742-184175265-0-743>": {
             "type": "object",
             "properties": {
                 "aliases": {
@@ -82,7 +85,7 @@
                 "type": "string"
             }
         },
-        "DeepPartial<indexed-type-731470504-74242-74263-731470504-74138-74264-731470504-0-218439<string,def-alias-184175265-283-394-184175265-0-691>>": {
+        "DeepPartial<indexed-type-731470504-74242-74263-731470504-74138-74264-731470504-0-218439<string,def-alias-184175265-335-446-184175265-0-743>>": {
             "type": "object",
             "additionalProperties": {
                 "$ref": "#/definitions/DeepPartial%3CProdexProfile%3E"
