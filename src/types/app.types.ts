@@ -1,7 +1,7 @@
 import type { MigrationCommandResult } from "../config/migration";
 import type { ProdexFlags } from "./cli.types";
 import type { ProdexConfig } from "./config.types";
-import type { ChainResult } from "./core.types";
+import type { ChainResult } from "./tracing.types";
 
 export type CliCommand =
 	| { kind: "run"; rootArg?: string; flags: Partial<ProdexFlags> }

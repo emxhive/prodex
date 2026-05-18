@@ -1,10 +1,10 @@
 import fs from "fs";
 import path from "path";
-import { parseJsonFile } from "../../config/json";
-import { migrateConfig } from "../../config/migration/transform";
-import { REQUIRED_CONFIG_VERSION } from "../../config/migration/detect";
-import type { MigrationCommandResult } from "../../config/migration/types";
-import { resolveRoot, validateRoot } from "../project-context";
+import { parseJsonFile } from "../config/json";
+import { migrateConfig } from "../config/migration/transform";
+import { REQUIRED_CONFIG_VERSION } from "../config/migration/detect";
+import type { MigrationCommandResult } from "../config/migration/types";
+import { resolveRoot, validateRoot } from "../app/project-context";
 
 export function migrateCommand(params: {
 	rootArg?: string;

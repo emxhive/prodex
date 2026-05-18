@@ -1,4 +1,4 @@
-import { DEFAULT_PRODEX_CONFIG } from "../../constants";
+import { DEFAULT_PRODEX_CONFIG } from "../default-config";
 import type { ProdexConfigFile } from "../../types";
 import { REQUIRED_CONFIG_VERSION, requiresConfigMigration } from "./detect";
 import type { MigrationPreview } from "./types";

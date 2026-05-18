@@ -1,6 +1,6 @@
 import fs from "fs";
 import path from "path";
-import { DEFAULT_PRODEX_CONFIG } from "../constants";
+import { DEFAULT_PRODEX_CONFIG } from "./default-config";
 import type { ProdexConfigFile } from "../types";
 import { configVersionError, isOutdatedConfig, legacyConfigShapeError, requiresConfigMigration } from "./migration";
 import { parseJsonFile } from "./json";

@@ -1,5 +1,5 @@
 import path from "path";
-import { normalizePath } from "../platform/path";
+import { normalizePath } from "../filesystem/path";
 import type { CommandResult, RunResult } from "../types";
 
 export function reportCommandResult(result: CommandResult): void {

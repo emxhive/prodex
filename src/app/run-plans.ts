@@ -1,32 +1,6 @@
-import { buildConfig } from "../../config/normalize";
-import { executeRun } from "../execute-run";
-import { loadProjectContext } from "../project-context";
-import type { ProdexFlags, RunPlan, RunResult } from "../../types";
-
-export interface RunCommandResult {
-	runs: RunResult[];
-	warnings: string[];
-	errors: string[];
-}
-
-export async function runCommand(params: {
-	rootArg?: string;
-	flags?: Partial<ProdexFlags>;
-	cwd?: string;
-}): Promise<RunCommandResult> {
-	const planned = createRunPlans(params);
-	const warnings = [...planned.warnings];
-	const errors = [...planned.errors];
-
-	if (errors.length) return { runs: [], warnings, errors };
-
-	const runs: RunResult[] = [];
-	for (const plan of planned.plans) {
-		runs.push(await executeRun(plan));
-	}
-
-	return { runs, warnings, errors };
-}
+import { buildConfig } from "../config/build-config";
+import { loadProjectContext } from "./project-context";
+import type { ProdexFlags, RunPlan } from "../types";
 
 export interface CreateRunPlansResult {
 	plans: RunPlan[];

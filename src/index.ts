@@ -1,7 +1,7 @@
-import { initCommand } from "./app/commands/init-command";
-import { migrateCommand } from "./app/commands/migrate-command";
-import { profilesCommand } from "./app/commands/profiles-command";
-import { runCommand } from "./app/commands/run-command";
+import { initCommand } from "./commands/init-command";
+import { migrateCommand } from "./commands/migrate-command";
+import { profilesCommand } from "./commands/profiles-command";
+import { runCommand } from "./commands/run-command";
 import { parseCliInput } from "./cli/cli-input";
 import { renderHelp, renderVersion, reportCommandResult } from "./cli/reporter";
 import type { CommandResult } from "./types";

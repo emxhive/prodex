@@ -1,4 +1,4 @@
-import { readFileSafe, rel } from "../shared";
+import { readFileSafe, rel } from "../filesystem/read-file";
 
 export function tocTxt(files: string[], root = process.cwd()): string {
 	const sorted = [...files].sort((a, b) => a.localeCompare(b));

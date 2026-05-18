@@ -1,7 +1,7 @@
 import path from "path";
-import { DEFAULT_PRODEX_CONFIG } from "../constants";
+import { DEFAULT_PRODEX_CONFIG } from "./default-config";
 import type { DeepPartial, ProdexConfig, ProdexConfigFile, ProdexFlags, ProdexProfile } from "../types";
-import { normalizePath, sanitizeFileName } from "../platform/path";
+import { normalizePath, sanitizeFileName } from "../filesystem/path";
 import { toStringList } from "./string-list";
 
 export interface ConfigBuildResult {

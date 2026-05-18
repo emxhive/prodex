@@ -1,11 +1,12 @@
 import fs from "fs";
 import path from "path";
-import { logger } from "../lib/logger";
+import { logger } from "../diagnostics/logger";
 import type { OutputParams } from "../types";
-import { shortTimestamp } from "../lib/utils";
-import { SUFFIX } from "../constants";
-import { renderTraceMd, renderTxt, tocTxt } from "../render";
-import { sanitizeFileName } from "../platform/path";
+import { shortTimestamp } from "./naming";
+import { SUFFIX } from "./render-constants";
+import { renderTraceMd } from "./markdown";
+import { renderTxt, tocTxt } from "./text";
+import { sanitizeFileName } from "../filesystem/path";
 
 export async function produceOutput({ name, files, cfg }: OutputParams): Promise<string> {
 	const {

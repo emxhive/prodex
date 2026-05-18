@@ -43,7 +43,7 @@ export function extractPhpImports(code: string): Set<string> {
 /**
  * Expands grouped `use` imports into individual fully qualified names.
  * Example:
- *   "App\\Models\\{User, Team}" → ["App\\Models\\User", "App\\Models\\Team"]
+ *   "App\\Models\\{User, Team}" to ["App\\Models\\User", "App\\Models\\Team"]
  */
 export function expandGroupedUses(raw: Set<string>): Set<string> {
 	const out = new Set<string>();

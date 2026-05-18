@@ -28,7 +28,8 @@
     "build": "npm run clean && tsc",
     "dev": "tsc --watch",
     "gen:schema": "node schema/generate.js",
-    "test": "npm run build && node --test test/cli-contract.test.js",
+    "check:architecture": "node scripts/check-architecture.js",
+    "test": "npm run check:architecture && npm run build && node --test test/cli-contract.test.js",
     "prepare": "npm run build && npm run gen:schema",
     "d:w": "nodemon --watch dist --delay 500ms --exec node --inspect-brk dist/debug.js"
   },

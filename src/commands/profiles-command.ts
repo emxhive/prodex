@@ -1,4 +1,4 @@
-import { loadProjectContext } from "../project-context";
+import { loadProjectContext } from "../app/project-context";
 
 export interface ProfilesCommandResult {
 	profiles: string[];

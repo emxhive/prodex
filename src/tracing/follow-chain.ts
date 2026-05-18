@@ -1,10 +1,7 @@
-import fs from "fs";
 import path from "path";
-import { logger } from "../lib/logger";
-import { normalizePath } from "../platform/path";
-import { unique } from "../shared/collections";
+import { logger } from "../diagnostics/logger";
+import { unique } from "./trace-stats";
 import type { ProdexConfig, ResolverParams, ResolverResult } from "../types";
-import { globScan } from "./helpers";
 import { getResolver, hasResolver } from "./resolver-registry";
 
 export async function followChain(entryFiles: string[], cfg: ProdexConfig) {
@@ -61,32 +58,4 @@ export async function followChain(entryFiles: string[], cfg: ProdexConfig) {
 		files: unique(all),
 		stats: { expected, resolved },
 	};
-}
-
-export async function applyIncludes(cfg: ProdexConfig, files: string[]) {
-	const { include, root } = cfg;
-	const absoluteFiles: string[] = [];
-	const patterns: string[] = [];
-
-	for (const raw of include) {
-		const candidate = String(raw ?? "").trim();
-		if (!candidate) continue;
-
-		const normalized = normalizePath(candidate);
-		if (path.isAbsolute(normalized)) {
-			try {
-				if (fs.statSync(normalized).isFile()) {
-					absoluteFiles.push(path.resolve(normalized));
-					continue;
-				}
-			} catch {
-				// Treat unreadable absolute paths as glob patterns so include handling stays consistent.
-			}
-		}
-
-		patterns.push(normalized);
-	}
-
-	const scan = await globScan(patterns, { cwd: root });
-	return unique([...files, ...absoluteFiles, ...scan.files]);
 }

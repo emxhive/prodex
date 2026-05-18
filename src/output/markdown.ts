@@ -1,6 +1,6 @@
 import path from "path";
-import { INDEX_RANGE_PLACEHOLDER, LANG_MAP, LLM_NOTE, MD_FOOTER, MD_HEADER } from "../constants";
-import { readFileSafe, rel } from "../shared";
+import { INDEX_RANGE_PLACEHOLDER, LANG_MAP, LLM_NOTE, MD_FOOTER, MD_HEADER } from "./render-constants";
+import { readFileSafe, rel } from "../filesystem/read-file";
 
 export interface MdTraceEntry {
 	file: string;

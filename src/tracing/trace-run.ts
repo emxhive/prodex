@@ -1,9 +1,10 @@
-import { applyIncludes, followChain } from "./dependency";
-import { smartNaming } from "./helpers";
-import { produceOutput } from "./output";
-import type { CombineParams, CombineResult } from "../types";
+import { followChain } from "./follow-chain";
+import { applyIncludes } from "./include-files";
+import { smartNaming } from "../output/naming";
+import { produceOutput } from "../output/produce-output";
+import type { TraceParams, TraceResult } from "../types";
 
-export async function runCombine({ cfg, opts }: CombineParams): Promise<CombineResult> {
+export async function runTrace({ cfg, opts }: TraceParams): Promise<TraceResult> {
 	const entries = opts.entries ?? [];
 	const result = entries.length ? await followChain(entries, cfg) : undefined;
 	const files = await applyIncludes(cfg, result?.files ?? []);

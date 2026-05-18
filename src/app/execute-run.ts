@@ -1,7 +1,7 @@
-import { CacheManager } from "../core/managers/cache";
-import { globScan } from "../core/helpers";
-import { runCombine } from "../core/combine";
-import { setLoggerOptions } from "../lib/logger";
+import { CacheManager } from "../cache/cache-manager";
+import { globScan } from "../filesystem/glob-scan";
+import { runTrace } from "../tracing/trace-run";
+import { setLoggerOptions } from "../diagnostics/logger";
 import type { RunPlan, RunResult } from "../types";
 
 export async function executeRun(plan: RunPlan): Promise<RunResult> {
@@ -28,7 +28,7 @@ export async function executeRun(plan: RunPlan): Promise<RunResult> {
 		};
 	}
 
-	const result = await runCombine({
+	const result = await runTrace({
 		cfg: plan.config,
 		opts: {
 			entries,

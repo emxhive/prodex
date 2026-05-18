@@ -1,13 +1,13 @@
 import fs from "fs";
 import path from "path";
-import { CacheManager } from "../../core/managers/cache";
-import { CACHE_KEYS } from "../../constants/cache-keys";
+import { CacheManager } from "../../cache/cache-manager";
+import { CACHE_KEYS } from "../../cache/cache-keys";
 import { extractPhpImports, expandGroupedUses } from "./extract-imports";
-import { logger } from "../../lib/logger";
+import { logger } from "../../diagnostics/logger";
 
 /**
  * Scans app/Providers/*.php for $this->app->bind() / singleton() calls
- * and returns a map of InterfaceFQCN → ImplementationFQCN.
+ * and returns a map of InterfaceFQCN to ImplementationFQCN.
  *
  * Uses existing extractPhpImports + expandGroupedUses to correctly
  * resolve namespaces and short class names.
@@ -36,7 +36,6 @@ export function loadLaravelBindings(root: string): Record<string, string> {
 		const rawImports = extractPhpImports(code);
 		const expanded = expandGroupedUses(rawImports);
 
-		// Build ShortName → FQCN map
 		const importMap: Record<string, string> = {};
 		for (const fqcn of expanded) {
 			const short = fqcn.split("\\").pop()!;
@@ -54,7 +53,7 @@ export function loadLaravelBindings(root: string): Record<string, string> {
 			const ifaceFull = importMap[ifaceShort] || ifaceShort;
 			const implFull = importMap[implShort] || implShort;
 
-			logger.debug(`[laravel-bindings] ${file} => ${ifaceFull} → ${implFull}`);
+			logger.debug(`[laravel-bindings] ${file} => ${ifaceFull} => ${implFull}`);
 			bindings[ifaceFull] = implFull;
 		}
 	}

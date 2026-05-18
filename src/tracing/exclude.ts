@@ -1,8 +1,7 @@
-// File: src/shared/patterns.ts
 import micromatch from "micromatch";
 import path from "path";
-import { rel } from ".";
-import { normalizePath } from "../platform/path";
+import { rel } from "../filesystem/read-file";
+import { normalizePath } from "../filesystem/path";
 
 
 /**

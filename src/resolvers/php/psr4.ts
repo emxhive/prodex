@@ -1,10 +1,10 @@
 import fs from "fs";
 import path from "path";
-import { CacheManager } from "../../core/managers/cache";
-import { CACHE_KEYS } from "../../constants/cache-keys";
+import { CacheManager } from "../../cache/cache-manager";
+import { CACHE_KEYS } from "../../cache/cache-keys";
 
 /**
- * Builds a PSR-4 namespace → directory map from composer.json.
+ * Builds a PSR-4 namespace to directory map from composer.json.
  * Returns absolute paths in the map values.
  */
 export function resolvePsr4(root: string): Record<string, string> {

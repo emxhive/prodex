@@ -1,4 +1,4 @@
-import { CODE_EXTS } from "../constants/config";
+import { CODE_EXTS } from "../resolvers/resolver-constants";
 import { resolveJsImports } from "../resolvers/js/js-resolver";
 import { resolvePhpImports } from "../resolvers/php/php-resolver";
 import type { ResolverParams, ResolverResult } from "../types";
