@@ -36,6 +36,14 @@ for (const file of tsFiles(srcRoot)) {
 			}
 		}
 	}
+
+	if (relPath.startsWith("src/resolvers/") && importsFrom(source, "../../tracing", "../tracing")) {
+		errors.push(`${relPath} imports tracing internals from the resolver layer.`);
+	}
+
+	if (relPath.startsWith("src/output/") && importsFrom(source, "../tracing")) {
+		errors.push(`${relPath} imports tracing internals from the output layer.`);
+	}
 }
 
 if (errors.length) {
@@ -56,4 +64,10 @@ function tsFiles(dir) {
 
 function normalize(value) {
 	return value.replace(/\\/g, "/");
+}
+
+function importsFrom(source, ...importPaths) {
+	return importPaths.some((importPath) => {
+		return source.includes(`from "${importPath}`) || source.includes(`from '${importPath}`);
+	});
 }

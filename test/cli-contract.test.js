@@ -276,6 +276,36 @@ test("trace mode resolves entry dependencies and reports trace mode", async () =
 	});
 });
 
+test("trace traversal honors max depth", async () => {
+	await usingTempProjectAsync(async (root) => {
+		writeJson(path.join(root, "prodex.json"), baseConfig());
+		writeFile(path.join(root, "src", "index.ts"), 'import "./dep";\n');
+		writeFile(path.join(root, "src", "dep.ts"), 'import "./deep";\n');
+		writeFile(path.join(root, "src", "deep.ts"), "export const deep = true;\n");
+
+		const shallow = await runProdexCommand(
+			["node", "prodex", "run", "--entry", "src/index.ts", "--max-depth", "1", "--name", "shallow", "--format", "txt"],
+			root,
+		);
+		assert.equal(shallow.ok, true);
+		assert.deepEqual(shallow.runs[0].files.map((file) => path.relative(root, file).replaceAll("\\", "/")).sort(), [
+			"src/dep.ts",
+			"src/index.ts",
+		]);
+
+		const deep = await runProdexCommand(
+			["node", "prodex", "run", "--entry", "src/index.ts", "--max-depth", "2", "--name", "deep", "--format", "txt"],
+			root,
+		);
+		assert.equal(deep.ok, true);
+		assert.deepEqual(deep.runs[0].files.map((file) => path.relative(root, file).replaceAll("\\", "/")).sort(), [
+			"src/deep.ts",
+			"src/dep.ts",
+			"src/index.ts",
+		]);
+	});
+});
+
 test("include-only mode does not pretend entries were missing", async () => {
 	await usingTempProjectAsync(async (root) => {
 		writeJson(path.join(root, "prodex.json"), baseConfig());

@@ -5,76 +5,48 @@ import { safeStatCached } from "../../filesystem/stat-cache";
 import { logger } from "../../diagnostics/logger";
 import { CacheManager } from "../../cache/cache-manager";
 import { readFileSafe } from "../../filesystem/read-file";
-import { isExcluded } from "../../tracing/exclude";
-import { emptyResult, mergeStats, newStats, setDiff, unique } from "../../tracing/trace-stats";
+import { emptyResolverResult, newResolverStats, resolverSetDiff, uniqueResolvedFiles } from "../resolver-result";
 import type { ResolverParams, ResolverResult } from "../../types";
 import { extractImports } from "./extract-imports";
 import { resolveAliasPath } from "./resolve-alias";
 
 const { JS_STATS, JS_IMPORTS } = CACHE_KEYS;
 
-export async function resolveJsImports({
-	cfg,
-	filePath,
-	visited = new Set(),
-	depth = 0,
-	maxDepth,
-}: ResolverParams): Promise<ResolverResult> {
-	const limitDepth = maxDepth ?? cfg.resolve.maxDepth;
-
-	if (depth >= limitDepth) return emptyResult(visited);
-	if (visited.has(filePath)) return emptyResult(visited);
-	visited.add(filePath);
-
+export async function resolveJsImports({ cfg, filePath }: ResolverParams): Promise<ResolverResult> {
 	const ext = path.extname(filePath).toLowerCase();
 	const isDts = ext === DTS_EXT;
-	if (!BASE_EXTS.includes(ext) && !isDts) return emptyResult(visited);
+	if (!BASE_EXTS.includes(ext) && !isDts) return emptyResolverResult();
 
 	const code = readFileSafe(filePath);
-	if (!code) return emptyResult(visited);
+	if (!code) return emptyResolverResult();
 
 	const imports = await getImportsCached(filePath, code);
-	if (!imports.size) return emptyResult(visited);
+	if (!imports.size) return emptyResolverResult();
 
-	const stats = newStats();
+	const stats = newResolverStats();
 	const files: string[] = [];
 
 	for (const imp of imports) {
 		if (!imp.startsWith(".") && !imp.startsWith("/") && !imp.startsWith("@")) continue;
-		if (isExcluded(imp, cfg.exclude, cfg.root)) continue;
 
 		const base = await resolveImportBase(imp, filePath, cfg.root, cfg);
 		if (!base) continue;
 
 		const absBase = path.resolve(base);
-		if (isExcluded(absBase, cfg.exclude, cfg.root)) continue;
-
 		const resolvedPath = await tryResolveImport(absBase);
-		if (isExcluded(resolvedPath, cfg.exclude, cfg.root)) continue;
 
 		stats.expected.add(absBase);
 		if (!resolvedPath) continue;
 
 		stats.resolved.add(absBase);
 		files.push(resolvedPath);
-
-		const nested = await resolveJsImports({
-			cfg,
-			filePath: resolvedPath,
-			visited,
-			depth: depth + 1,
-			maxDepth: limitDepth,
-		});
-
-		files.push(...nested.files);
-		mergeStats(stats, nested.stats);
 	}
 
-	const unresolved = setDiff(stats.expected, stats.resolved);
+	const unresolved = resolverSetDiff(stats.expected, stats.resolved);
 	logger.debug(`[js-resolver] ${filePath} -> expected: ${stats.expected.size}, resolved: ${stats.resolved.size}`);
 	if (unresolved.size) logger.debug("[js-resolver] unresolved:", [...unresolved]);
 
-	return { files: unique(files), visited, stats };
+	return { files: uniqueResolvedFiles(files), stats };
 }
 
 async function resolveImportBase(

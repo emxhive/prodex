@@ -6,35 +6,21 @@ import { CacheManager } from "../../cache/cache-manager";
 import { logger } from "../../diagnostics/logger";
 import { normalizePath } from "../../filesystem/path";
 import { readFileSafe } from "../../filesystem/read-file";
-import { isExcluded } from "../../tracing/exclude";
-import { emptyResult, mergeStats, newStats, setDiff, unique } from "../../tracing/trace-stats";
+import { emptyResolverResult, newResolverStats, resolverSetDiff, uniqueResolvedFiles } from "../resolver-result";
 import type { PhpResolverCtx, ResolverParams, ResolverResult } from "../../types";
 import { loadLaravelBindings } from "./bindings";
 import { extractPhpImports, expandGroupedUses } from "./extract-imports";
 import { resolvePsr4 } from "./psr4";
 
-export async function resolvePhpImports({
-	cfg,
-	filePath,
-	visited = new Set<string>(),
-	depth = 0,
-	maxDepth,
-	ctx,
-}: ResolverParams): Promise<ResolverResult> {
-	const limitDepth = maxDepth ?? cfg.resolve.maxDepth;
-
-	if (depth >= limitDepth) return emptyResult(visited);
-	if (visited.has(filePath)) return emptyResult(visited);
-	visited.add(filePath);
-
-	if (!fs.existsSync(filePath)) return emptyResult(visited);
+export async function resolvePhpImports({ cfg, filePath, ctx }: ResolverParams): Promise<ResolverResult> {
+	if (!fs.existsSync(filePath)) return emptyResolverResult();
 	const code = readFileSafe(filePath);
-	if (!code) return emptyResult(visited);
+	if (!code) return emptyResolverResult();
 
 	const currentNamespace = getCurrentNamespace(code);
 	const phpCtx = buildPhpCtx(cfg.root, ctx as PhpResolverCtx | undefined);
 	const imports = expandGroupedUses(extractPhpImports(code));
-	const stats = newStats();
+	const stats = newResolverStats();
 	const files: string[] = [];
 
 	for (const importName of imports) {
@@ -42,32 +28,18 @@ export async function resolvePhpImports({
 		if (!resolvedImport) continue;
 
 		const resolvedPath = await tryResolvePhpFile(resolvedImport, filePath, phpCtx.psr4);
-		if (isExcluded(resolvedPath, cfg.exclude, cfg.root)) continue;
-
 		stats.expected.add(resolvedImport);
 		if (!resolvedPath) continue;
 
 		stats.resolved.add(resolvedImport);
 		files.push(resolvedPath);
-
-		const nested = await resolvePhpImports({
-			cfg,
-			filePath: resolvedPath,
-			visited,
-			depth: depth + 1,
-			maxDepth: limitDepth,
-			ctx: phpCtx,
-		});
-
-		files.push(...nested.files);
-		mergeStats(stats, nested.stats);
 	}
 
-	const unresolved = setDiff(stats.expected, stats.resolved);
+	const unresolved = resolverSetDiff(stats.expected, stats.resolved);
 	logger.debug(`[php-resolver] ${path.basename(filePath)} -> expected: ${stats.expected.size}, resolved: ${stats.resolved.size}`);
 	if (unresolved.size) logger.debug("[php-resolver] unresolved:", [...unresolved]);
 
-	return { files: unique(files), visited, stats };
+	return { files: uniqueResolvedFiles(files), stats };
 }
 
 function getCurrentNamespace(code: string): string | null {

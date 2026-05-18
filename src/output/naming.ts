@@ -1,5 +1,4 @@
 import path from "path";
-import { unique } from "../tracing/trace-stats";
 
 export function smartNaming(entries: string[]): string {
 	const names = unique(entries.map((file) => path.basename(file, path.extname(file))));
@@ -17,4 +16,8 @@ export function shortTimestamp(): string {
 	const hh = String(d.getHours()).padStart(2, "0");
 	const mm = String(d.getMinutes()).padStart(2, "0");
 	return `${yy}${MM}${dd}-${hh}${mm}`;
+}
+
+function unique<T>(items: T[]): T[] {
+	return [...new Set(items)];
 }
