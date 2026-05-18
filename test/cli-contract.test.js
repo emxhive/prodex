@@ -11,6 +11,19 @@ const { runProdexCommand } = require("../dist/index.js");
 const { reportCommandResult } = require("../dist/cli/reporter.js");
 
 test("global help and version are side-effect free command results", async () => {
+	const globalHelp = await runProdexCommand(["node", "prodex", "--help"], repoRoot);
+	assert.equal(globalHelp.ok, true);
+	assert.equal(globalHelp.exitCode, 0);
+	assert.match(globalHelp.message, /Usage:/);
+	assert.match(globalHelp.message, /prodex run \[root\] \[options\]/);
+	assert.equal(globalHelp.runs.length, 0);
+
+	const shortHelp = await runProdexCommand(["node", "prodex", "-h"], repoRoot);
+	assert.equal(shortHelp.ok, true);
+	assert.equal(shortHelp.exitCode, 0);
+	assert.match(shortHelp.message, /Global options:/);
+	assert.equal(shortHelp.runs.length, 0);
+
 	const help = await runProdexCommand(["node", "prodex", "run", "--help"], repoRoot);
 	assert.equal(help.ok, true);
 	assert.equal(help.exitCode, 0);

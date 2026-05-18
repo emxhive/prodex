@@ -17,6 +17,10 @@ export function parseCliInput(argv: string[] = process.argv): CliParseResult {
 		return { command: { kind: "version" }, warnings, errors };
 	}
 
+	if (tokens[0] === "--help" || tokens[0] === "-h") {
+		return { command: { kind: "help" }, warnings, errors };
+	}
+
 	const commandName = tokens[0];
 	if (!isCommand(commandName)) {
 		errors.push(`Unknown command "${commandName}". Use run, init, profiles, or migrate.`);
