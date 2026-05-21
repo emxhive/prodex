@@ -21,7 +21,6 @@
             ]
         },
         "project": {
-            "prefix": "project",
             "include": [
                 ".github/**",
                 "package.json",
