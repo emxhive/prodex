@@ -1,6 +1,6 @@
 {
   "name": "prodex",
-  "version": "2.0.0",
+  "version": "3.0.0",
   "description": "Focused code-context extractor for large projects.",
   "type": "commonjs",
   "packageManager": "npm@11.12.1",
