@@ -27,7 +27,7 @@ export function buildConfig(params: {
 	}
 
 	const layered = applyProfileLayer(base, profile);
-	const config = toRuntimeConfig(layered, params.root, params.flags, profile);
+	const config = toRuntimeConfig(layered, params.root, params.flags, profile, params.profileName);
 	normalizeRuntimeConfig(config, warnings);
 	validateRuntimeConfig(config, errors);
 
@@ -50,6 +50,7 @@ function toRuntimeConfig(
 	root: string,
 	flags?: Partial<ProdexFlags>,
 	profile?: ProdexProfile,
+	profileName?: string,
 ): ProdexConfig {
 	const output = {
 		...DEFAULT_PRODEX_CONFIG.output,
@@ -69,7 +70,7 @@ function toRuntimeConfig(
 		exclude: fileConfig.exclude ?? [],
 		profiles: fileConfig.profiles ?? {},
 		root,
-		name: flags?.name ?? profile?.name,
+		name: flags?.name ?? profile?.name ?? profileName,
 	} as ProdexConfig;
 
 	applyExplicitFlags(cfg, flags);

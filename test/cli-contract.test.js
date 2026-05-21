@@ -251,8 +251,8 @@ test("multiple profiles run in the order the user provided", async () => {
 			path.join(root, "prodex.json"),
 			baseConfig({
 				profiles: {
-					first: { name: "first", entry: ["src/first.ts"] },
-					second: { name: "second", entry: ["src/second.ts"] },
+					first: { entry: ["src/first.ts"] },
+					second: { entry: ["src/second.ts"] },
 				},
 			}),
 		);
@@ -264,6 +264,42 @@ test("multiple profiles run in the order the user provided", async () => {
 		assert.deepEqual(result.runs.map((run) => run.profile), ["second", "first"]);
 		assert.match(path.basename(result.runs[0].outputPath), /^second-trace_/);
 		assert.match(path.basename(result.runs[1].outputPath), /^first-trace_/);
+	});
+});
+
+test("profile key is used as the output name when no explicit name is provided", async () => {
+	await usingTempProjectAsync(async (root) => {
+		writeJson(
+			path.join(root, "prodex.json"),
+			baseConfig({
+				profiles: {
+					dashboard: { entry: ["src/home.ts"] },
+				},
+			}),
+		);
+		writeFile(path.join(root, "src", "home.ts"), "export const home = true;\n");
+
+		const result = await runProdexCommand(["node", "prodex", "run", "--profile", "dashboard", "--format", "txt"], root);
+		assert.equal(result.ok, true);
+		assert.match(path.basename(result.runs[0].outputPath), /^dashboard-trace_/);
+	});
+});
+
+test("explicit profile names still override profile-key output names", async () => {
+	await usingTempProjectAsync(async (root) => {
+		writeJson(
+			path.join(root, "prodex.json"),
+			baseConfig({
+				profiles: {
+					dashboard: { name: "frontend-dashboard", entry: ["src/home.ts"] },
+				},
+			}),
+		);
+		writeFile(path.join(root, "src", "home.ts"), "export const home = true;\n");
+
+		const result = await runProdexCommand(["node", "prodex", "run", "--profile", "dashboard", "--format", "txt"], root);
+		assert.equal(result.ok, true);
+		assert.match(path.basename(result.runs[0].outputPath), /^frontend-dashboard-trace_/);
 	});
 });
 

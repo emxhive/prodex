@@ -21,7 +21,9 @@ export function migrateConfig(input: any): MigrationPreview {
 		...(input.output ?? {}),
 	};
 	delete (output as any).prefix;
-	if (input.output?.prefix !== undefined) changes.push("output.prefix removed; use --name or profile.name for output naming.");
+	if (input.output?.prefix !== undefined) {
+		changes.push("output.prefix removed; use --name or profile.name when you need to override the profile key.");
+	}
 
 	const resolve = {
 		aliases: input.resolve?.aliases ?? DEFAULT_PRODEX_CONFIG.resolve.aliases,
