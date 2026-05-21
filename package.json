@@ -1,17 +1,29 @@
 {
   "name": "prodex",
   "version": "1.4.11",
-  "description": "Unified Project Indexer & Dependency Extractor for Laravel + React + Node stacks.",
+  "description": "Focused code-context extractor for large projects.",
   "type": "commonjs",
+  "packageManager": "npm@11.12.1",
   "bin": {
     "prodex": "./bin/prodex.js"
   },
   "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "require": "./dist/index.js",
+      "default": "./dist/index.js"
+    },
+    "./schema": "./schema/prodex.schema.json",
+    "./package.json": "./package.json"
+  },
   "files": [
     "dist/",
     "bin/",
     "README.md",
-    "LICENSE"
+    "LICENSE",
+    "schema/prodex.schema.json"
   ],
   "keywords": [
     "laravel",
@@ -25,29 +37,39 @@
   ],
   "scripts": {
     "clean": "node scripts/clean-dist.js",
-    "build": "npm run clean && tsc",
+    "build": "npm run clean && tsc && npm run gen:schema",
     "dev": "tsc --watch",
     "gen:schema": "node schema/generate.js",
     "check:architecture": "node scripts/check-architecture.js",
     "test": "npm run check:architecture && npm run build && node --test test/cli-contract.test.js",
-    "prepare": "npm run build && npm run gen:schema",
-    "d:w": "nodemon --watch dist --delay 500ms --exec node --inspect-brk dist/debug.js"
+    "prepack": "npm run build",
+    "pack:check": "npm pack --dry-run"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/emxhive/prodex.git"
+  },
+  "homepage": "https://github.com/emxhive/prodex#readme",
+  "bugs": {
+    "url": "https://github.com/emxhive/prodex/issues"
   },
   "engines": {
-    "node": ">=18"
+    "node": ">=22"
   },
   "author": "emxhive",
   "license": "MIT",
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
+  },
   "devDependencies": {
     "@types/node": "^24.9.2",
-    "nodemon": "^3.1.10",
     "ts-json-schema-generator": "^2.4.0",
     "typescript": "^5.9.3"
   },
   "dependencies": {
     "es-module-lexer": "^1.7.0",
     "fast-glob": "^3.3.3",
-    "micromatch": "^4.0.8",
-    "source-map-support": "^0.5.21"
+    "micromatch": "^4.0.8"
   }
 }

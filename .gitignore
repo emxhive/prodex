@@ -138,11 +138,13 @@ dist
 
 # Prodex
 prodex
+prodex@prodex/
 .setup.sh
 s.sh
 src/test.js
 prodex.json
 **/.obsidian
-.vscode/settings.json
+.idea/
+.vscode/
 
 src/debug.ts

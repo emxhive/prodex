@@ -10,9 +10,6 @@ const config = {
 
 const schema = createGenerator(config).createSchema(config.type);
 
-fs.writeFileSync(
-  path.join(__dirname, "prodex.schema.json"),
-  JSON.stringify(schema, null, 4)
-);
+fs.writeFileSync(path.join(__dirname, "prodex.schema.json"), JSON.stringify(schema, null, 4));
 
-console.log("Schema generated.");
+if (process.env.PRODEX_SCHEMA_VERBOSE === "1") console.log("Schema generated.");

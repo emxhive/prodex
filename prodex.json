@@ -9,7 +9,7 @@
     "entry": [
         "src/index.ts"
     ],
-    "include": [],
+    "include": ["prodex.json", "package.json"],
     "exclude": [
         "node_modules/**",
         "vendor/**",
