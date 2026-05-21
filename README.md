@@ -49,7 +49,7 @@ prodex run --all-profiles
 prodex profiles
 ```
 
-Use profiles when a project has recurring review surfaces or ownership areas. A profile can define its own entries, includes, excludes, and output name, which makes context extraction repeatable across debugging, reviews, documentation, handoffs, and release work. Run one profile, a comma-separated set of profiles, or all profiles when you need a broader pass.
+Use profiles when a project has recurring review surfaces or ownership areas. A profile can define its own entries, includes, excludes, and optional output name; when no output name is set, the profile key becomes the trace basename. This makes context extraction repeatable across debugging, reviews, documentation, handoffs, and release work. Run one profile, a comma-separated set of profiles, or all profiles when you need a broader pass.
 
 Example:
 
@@ -74,13 +74,11 @@ Example:
     },
     "profiles": {
         "dashboard": {
-            "name": "dashboard",
             "entry": ["resources/js/pages/Dashboard.tsx"],
             "include": ["routes/**/*.php", "resources/js/types/**/*.d.ts"],
             "exclude": ["resources/js/components/ui/**"]
         },
         "api": {
-            "name": "api",
             "entry": ["routes/api.php"],
             "include": ["app/Http/Requests/**/*.php"],
             "exclude": ["vendor/**"]
@@ -199,8 +197,9 @@ Naming precedence:
 
 1. `--name`
 2. `profile.name`
-3. Automatic name from entries
-4. Internal fallback: `combined`
+3. Profile key, when running a named profile
+4. Automatic name from entries
+5. Internal fallback: `combined`
 
 CLI flags override config values for a run. Profile arrays replace base arrays for that profile run.
 

@@ -6,17 +6,7 @@
         "versioned": true,
         "format": "md"
     },
-    "entry": [
-        "src/index.ts"
-    ],
-    "include": ["prodex.json", "package.json"],
-    "exclude": [
-        "node_modules/**",
-        "vendor/**",
-        "dist/**",
-        "@shadcn/**",
-        "**/components/ui/**"
-    ],
+
     "resolve": {
         "aliases": {
             "@": "resources/js"
@@ -24,5 +14,21 @@
         "maxDepth": 10,
         "maxFiles": 200
     },
-    "profiles": {}
+    "profiles": {
+        "app": {
+            "entry": [
+                "src/index.ts"
+            ]
+        },
+        "project": {
+            "include": [
+                ".github/**",
+                "package.json",
+                "prodex.json",
+                "release-please-config.json",
+                ".release-please-manifest.json",
+                "CHANGELOG.md"
+            ]
+        }
+    }
 }
