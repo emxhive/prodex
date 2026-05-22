@@ -77,7 +77,7 @@ test("all-profiles fails when no profiles are configured", async () => {
 	await usingTempProjectAsync(async (root) => {
 		writeJson(path.join(root, "prodex.json"), baseConfig());
 
-		const result = await runProdexCommand(["node", "prodex", "run", "--all-profiles"], root);
+		const result = await runProdexCommand(["node", "prodex", "run", "--all"], root);
 		assert.equal(result.ok, false);
 		assert.equal(result.exitCode, 1);
 		assert.match(result.errors.join("\n"), /No profiles are defined/);
@@ -264,6 +264,34 @@ test("multiple profiles run in the order the user provided", async () => {
 		assert.deepEqual(result.runs.map((run) => run.profile), ["second", "first"]);
 		assert.match(path.basename(result.runs[0].outputPath), /^second-trace_/);
 		assert.match(path.basename(result.runs[1].outputPath), /^first-trace_/);
+
+		const output = captureStdout(() => reportCommandResult(result));
+		assert.match(output, /✓ second\s+trace\s+1\s+prodex\/second-trace_/);
+		assert.match(output, /✓ first\s+trace\s+1\s+prodex\/first-trace_/);
+	});
+});
+
+test("all profile aliases run every configured profile", async () => {
+	await usingTempProjectAsync(async (root) => {
+		writeJson(
+			path.join(root, "prodex.json"),
+			baseConfig({
+				profiles: {
+					one: { entry: ["src/one.ts"] },
+					two: { entry: ["src/two.ts"] },
+				},
+			}),
+		);
+		writeFile(path.join(root, "src", "one.ts"), "export const one = true;\n");
+		writeFile(path.join(root, "src", "two.ts"), "export const two = true;\n");
+
+		const longAlias = await runProdexCommand(["node", "prodex", "run", "--all-profiles", "--format", "txt"], root);
+		assert.equal(longAlias.ok, true);
+		assert.deepEqual(longAlias.runs.map((run) => run.profile), ["one", "two"]);
+
+		const shortAlias = await runProdexCommand(["node", "prodex", "run", "-a", "--format", "txt"], root);
+		assert.equal(shortAlias.ok, true);
+		assert.deepEqual(shortAlias.runs.map((run) => run.profile), ["one", "two"]);
 	});
 });
 
@@ -394,7 +422,7 @@ test("mixed mode reports entries and include patterns separately", async () => {
 	});
 });
 
-test("reporter prints relative output paths and mode-specific counts", async () => {
+test("reporter prints standardized success rows with relative output paths", async () => {
 	await usingTempProjectAsync(async (root) => {
 		writeJson(path.join(root, "prodex.json"), baseConfig());
 		writeFile(path.join(root, "notes", "context.md"), "# Context\n");
@@ -405,9 +433,7 @@ test("reporter prints relative output paths and mode-specific counts", async () 
 		);
 
 		const output = captureStdout(() => reportCommandResult(result));
-		assert.match(output, /Created: prodex\/includes-trace_/);
-		assert.match(output, /Mode: include-only \(1 include patterns\)/);
-		assert.match(output, /Files: 1 total/);
+		assert.match(output, /✓ includes\s+include-only\s+1\s+prodex\/includes-trace_/);
 		assert.doesNotMatch(output, escapedForRegExp(root));
 	});
 });
@@ -440,9 +466,7 @@ test("bin output uses the same concise reporting contract", () => {
 		});
 
 		assert.equal(child.status, 0, child.stderr);
-		assert.match(child.stdout, /Created: prodex\/bin-includes-trace_/);
-		assert.match(child.stdout, /Mode: include-only \(1 include patterns\)/);
-		assert.match(child.stdout, /Files: 1 total/);
+		assert.match(child.stdout, /✓ bin-includes\s+include-only\s+1\s+prodex\/bin-includes-trace_/);
 		assert.doesNotMatch(child.stdout, escapedForRegExp(root));
 		assert.equal(child.stderr, "");
 	});

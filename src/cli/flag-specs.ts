@@ -15,7 +15,7 @@ export const FLAGS: FlagSpec[] = [
 	{ long: "include", short: "i", type: "list" },
 	{ long: "exclude", short: "x", type: "list" },
 	{ long: "profile", short: "p", type: "list" },
-	{ long: "allProfiles", type: "boolean" },
+	{ long: "allProfiles", short: "a", type: "boolean" },
 	{ long: "name", short: "n", type: "string" },
 	{ long: "format", short: "F", type: "string" },
 	{ long: "maxDepth", type: "number" },
@@ -28,6 +28,7 @@ export const FLAGS: FlagSpec[] = [
 ];
 
 export const FLAG_ALIASES: Record<string, FlagName> = {
+	all: "allProfiles",
 	"all-profiles": "allProfiles",
 	"max-depth": "maxDepth",
 	"max-files": "maxFiles",

@@ -56,6 +56,7 @@ export async function executeRun(plan: RunPlan): Promise<RunResult> {
 		root: plan.root,
 		mode,
 		outputPath: result.outputPath,
+		outputName: plan.outputName,
 		entries,
 		includes,
 		files: result.files,
