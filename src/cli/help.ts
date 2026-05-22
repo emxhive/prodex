@@ -35,12 +35,12 @@ function renderRunHelp(): string {
 		"  -i, --include <glob>      Extra file/glob to append. Repeatable and comma-aware.",
 		"  -x, --exclude <glob>      File/glob to skip. Repeatable and comma-aware.",
 		"  -p, --profile <name>      Run a named profile. Repeatable.",
-		"  --all-profiles            Run every configured profile.",
+		"  -a, --all                 Run every configured profile.",
+		"  --all-profiles            Alias for --all.",
 		"  -n, --name <name>         Output basename for this run.",
 		"  -F, --format <md|txt>     Output format.",
 		"  --max-depth <number>      Maximum dependency traversal depth.",
 		"  --max-files <number>      Maximum traced file count.",
-		"  -d, --debug               Enable debug logs.",
 		"  -h, --help                Show run help.",
 	].join("\n");
 }

@@ -10,18 +10,36 @@ export function reportCommandResult(result: CommandResult): void {
 	if (result.profiles) reportProfiles(result.profiles);
 	if (result.migration) reportMigration(result.migration);
 
-	for (const run of result.runs) reportRun(run);
+	reportRuns(result.runs);
 }
 
-function reportRun(run: RunResult): void {
+function reportRuns(runs: RunResult[]): void {
+	for (const run of runs) {
+		reportRunWarningsAndErrors(run);
+	}
+
+	const successfulRuns = runs.filter((run) => run.outputPath);
+	if (!successfulRuns.length) return;
+
+	const rows = successfulRuns.map((run) => ({
+		label: formatRunLabel(run),
+		mode: run.mode,
+		files: String(run.files.length),
+		output: formatPath(run.outputPath!, run.root),
+	}));
+	const labelWidth = maxWidth(rows.map((row) => row.label));
+	const modeWidth = maxWidth(rows.map((row) => row.mode));
+	const filesWidth = maxWidth(rows.map((row) => row.files));
+
+	for (const row of rows) {
+		console.log(`✓ ${row.label.padEnd(labelWidth)}  ${row.mode.padEnd(modeWidth)}  ${row.files.padStart(filesWidth)}  ${row.output}`);
+	}
+}
+
+function reportRunWarningsAndErrors(run: RunResult): void {
 	const label = run.profile ? ` [${run.profile}]` : "";
 	for (const warning of run.warnings) console.warn(`Warning${label}: ${warning}`);
 	for (const error of run.errors) console.error(`Error${label}: ${error}`);
-	if (!run.outputPath) return;
-
-	console.log(`Created${label}: ${formatPath(run.outputPath, run.root)}`);
-	console.log(`Mode${label}: ${formatMode(run)}`);
-	console.log(`Files${label}: ${run.files.length} total`);
 }
 
 function reportMigration(migration: NonNullable<CommandResult["migration"]>): void {
@@ -59,6 +77,16 @@ function reportProfiles(profiles: string[]): void {
 	for (const profile of profiles) console.log(`  ${profile}`);
 }
 
+function formatRunLabel(run: RunResult): string {
+	if (run.profile) return run.profile;
+	if (run.outputName) return run.outputName;
+	if (!run.outputPath) return "run";
+
+	const ext = path.extname(run.outputPath);
+	const base = path.basename(run.outputPath, ext);
+	return base.replace(/-trace(?:_\d{6}-\d{4})?$/, "") || "run";
+}
+
 function formatPath(filePath: string, root: string): string {
 	const absolute = path.resolve(filePath);
 	const relative = path.relative(root, absolute);
@@ -66,8 +94,6 @@ function formatPath(filePath: string, root: string): string {
 	return normalizePath(absolute);
 }
 
-function formatMode(run: RunResult): string {
-	if (run.mode === "include-only") return `include-only (${run.includes.length} include patterns)`;
-	if (run.mode === "mixed") return `trace + includes (${run.entries.length} entries, ${run.includes.length} include patterns)`;
-	return `trace (${run.entries.length} entries)`;
+function maxWidth(values: string[]): number {
+	return values.reduce((max, value) => Math.max(max, value.length), 0);
 }

@@ -30,6 +30,7 @@ export interface RunResult {
 	root: string;
 	mode: "trace" | "include-only" | "mixed";
 	outputPath?: string;
+	outputName?: string;
 	entries: string[];
 	includes: string[];
 	files: string[];

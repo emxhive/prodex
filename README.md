@@ -45,11 +45,11 @@ They are one of Prodex's most useful workflow features: instead of rebuilding th
 ```bash
 prodex run --profile dashboard
 prodex run --profile auth,billing
-prodex run --all-profiles
+prodex run --all
 prodex profiles
 ```
 
-Use profiles when a project has recurring review surfaces or ownership areas. A profile can define its own entries, includes, excludes, and optional output name; when no output name is set, the profile key becomes the trace basename. This makes context extraction repeatable across debugging, reviews, documentation, handoffs, and release work. Run one profile, a comma-separated set of profiles, or all profiles when you need a broader pass.
+Use profiles when a project has recurring review surfaces or ownership areas. A profile can define its own entries, includes, excludes, and optional output name; when no output name is set, the profile key becomes the trace basename. This makes context extraction repeatable across debugging, reviews, documentation, handoffs, and release work. Run one profile, a comma-separated set of profiles, or all profiles with `--all` when you need a broader pass.
 
 Example:
 
@@ -106,7 +106,9 @@ Versioned filenames are enabled by default so repeated runs do not overwrite ear
 
 Prodex's broader identity is controlled context extraction, not a single-framework tool.
 
-Today it works best with projects that use JavaScript, TypeScript, PHP, React, and Laravel-aware structures. Current tracing support includes JS/TS imports, dynamic imports, CommonJS `require`, re-exports, static PHP include/require statements, PHP namespace imports, PSR-4 resolution, and some Laravel binding awareness.
+Include-only extraction is language-agnostic: any source or text file matched by `--include` or a profile `include` rule can be added to a trace.
+
+Dependency tracing is resolver-based. Today Prodex traces JavaScript, TypeScript, TSX, declaration files, and PHP entrypoints. Current tracing support includes JS/TS imports, dynamic imports, CommonJS `require`, re-exports, static PHP include/require statements, PHP namespace imports, PSR-4 resolution, and some Laravel binding awareness.
 
 Unsupported or dynamic relationships may need to be added with `--include` or profile `include` rules. That is expected: Prodex favors a focused, readable trace over pretending to understand every runtime edge in a project.
 
@@ -135,7 +137,7 @@ prodex run [root] --entry src/index.ts
 prodex run [root] --entry routes/web.php --include "**/*.d.ts"
 prodex run [root] --profile dashboard
 prodex run [root] --profile dashboard,api
-prodex run [root] --all-profiles
+prodex run [root] --all
 prodex profiles [root]
 prodex migrate [root]
 ```
@@ -150,12 +152,11 @@ prodex migrate [root]
 | `--include` | `-i` | list | Extra file or glob to add without dependency tracing. Repeatable and comma-aware. |
 | `--exclude` | `-x` | list | File or glob to skip during traversal. Repeatable and comma-aware. |
 | `--profile` | `-p` | list | Named profile to run. Comma-aware and repeatable. |
-| `--all-profiles` |  | boolean | Run every configured profile. |
+| `--all` | `-a` | boolean | Run every configured profile. `--all-profiles` remains available as an explicit alias. |
 | `--name` | `-n` | string | Output basename for this run. |
 | `--format` | `-F` | `md`/`txt` | Output format. Markdown is the default. |
 | `--max-depth` |  | number | Maximum dependency traversal depth. |
 | `--max-files` |  | number | Maximum traced file count. |
-| `--debug` | `-d` | boolean | Emit debug logs during traversal. |
 
 Global metadata flags:
 
@@ -229,8 +230,9 @@ prodex migrate --write
 
 ## Requirements
 
-- Node.js 18+
-- A project with resolvable JS, TS, or PHP entry files
+- Node.js 22+
+- A project with JS, TS, TSX, declaration-file, or PHP entrypoints for dependency tracing
+- Any file type can be added through include-only extraction
 - Optional `prodex.json` for saved defaults and profiles
 
 ## License
