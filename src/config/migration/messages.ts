@@ -1,13 +1,14 @@
 import { REQUIRED_CONFIG_VERSION } from "./detect";
 
-const V4_CHANGES = [
-	"Prodex v4 changed the config shape:",
-	"  entry.files -> entry",
-	"  resolve.include -> include",
-	"  resolve.exclude -> exclude",
-	"  resolve.depth -> resolve.maxDepth",
-	"  resolve.limit -> resolve.maxFiles",
-	"  shortcuts -> profiles",
+const V5_CHANGES = [
+	"Prodex v5 changed the config shape:",
+	"  entry -> scopes.default.entry",
+	"  include -> scopes.default.include",
+	"  profiles -> scopes",
+	"  profiles.*.name -> scopes.*.name",
+	"  resolve.aliases -> aliases",
+	"  resolve.maxDepth -> depth",
+	"  resolve.maxFiles -> maxFiles",
 	"",
 	"Preview migration:",
 	"  prodex migrate",
@@ -21,14 +22,14 @@ export function configVersionError(version: unknown): string {
 	return [
 		`prodex.json uses config version ${label}, but this Prodex version requires config version ${REQUIRED_CONFIG_VERSION}.`,
 		"",
-		...V4_CHANGES,
+		...V5_CHANGES,
 	].join("\n");
 }
 
 export function legacyConfigShapeError(): string {
 	return [
-		"prodex.json contains legacy config fields that must be migrated to config version 4.",
+		"prodex.json contains legacy config fields that must be migrated to config version 5.",
 		"",
-		...V4_CHANGES,
+		...V5_CHANGES,
 	].join("\n");
 }

@@ -9,7 +9,7 @@ export function parseCliInput(argv: string[] = process.argv): CliParseResult {
 	const flags: Partial<ProdexFlags> = {};
 
 	if (!tokens.length) {
-		errors.push("Missing command. Use `prodex run`, `prodex init`, `prodex profiles`, or `prodex migrate`.");
+		errors.push("Missing command. Use `prodex pack`, `prodex trace`, `prodex scope`, or `prodex migrate`.");
 		return { warnings, errors };
 	}
 
@@ -23,7 +23,7 @@ export function parseCliInput(argv: string[] = process.argv): CliParseResult {
 
 	const commandName = tokens[0];
 	if (!isCommand(commandName)) {
-		errors.push(`Unknown command "${commandName}". Use run, init, profiles, or migrate.`);
+		errors.push(`Unknown command "${commandName}". Use pack, trace, scope, or migrate.`);
 		return { warnings, errors };
 	}
 
@@ -51,12 +51,42 @@ export function parseCliInput(argv: string[] = process.argv): CliParseResult {
 
 	if ((flags as any).help) return { command: { kind: "help", topic: commandName }, warnings, errors };
 
+	// Enforce deprecation checks for old syntax
+	if (commandName === "run") {
+		errors.push("`prodex run` has been replaced.\nUse `prodex pack`, `prodex trace`, or `prodex scope`.");
+	}
+	if (commandName === "profiles") {
+		errors.push("`prodex profiles` has been replaced.\nUse `prodex scope --list`.");
+	}
+	if (flags.profile !== undefined) {
+		errors.push("`--profile` has been replaced.\nUse `prodex pack --scope <key>` to merge scopes into one pack, or `prodex scope -k <key>` to run configured scopes separately.");
+	}
+	if ((flags as any).allProfiles !== undefined) {
+		errors.push("`--all-profiles` has been replaced.\nUse `--all` with `prodex scope`.");
+	}
+	if ((flags as any).maxDepth !== undefined) {
+		errors.push("`--max-depth` has been replaced.\nUse `--depth`.");
+	}
+
+	if (errors.length) {
+		return { warnings, errors };
+	}
+
 	if (commandName === "init") return { command: { kind: "init", rootArg }, warnings, errors };
-	if (commandName === "profiles") return { command: { kind: "profiles", rootArg }, warnings, errors };
 	if (commandName === "migrate") {
 		return { command: { kind: "migrate", rootArg, write: !!(flags as any).write, check: !!(flags as any).check }, warnings, errors };
 	}
-	return { command: { kind: "run", rootArg, flags }, warnings, errors };
+	if (commandName === "pack") {
+		return { command: { kind: "pack", rootArg, flags }, warnings, errors };
+	}
+	if (commandName === "trace") {
+		return { command: { kind: "trace", rootArg, flags }, warnings, errors };
+	}
+	if (commandName === "scope") {
+		return { command: { kind: "scope", rootArg, flags }, warnings, errors };
+	}
+
+	return { warnings, errors };
 }
 
 function stripExecutable(argv: string[]): string[] {
@@ -156,9 +186,8 @@ function assignFlag(flags: Partial<ProdexFlags>, spec: FlagSpec, value: string, 
 	}
 	if (spec.type === "list") {
 		const values = splitStringList(value);
-		const target = spec.long === "profile" ? "profiles" : spec.long;
-		const current = ((flags as any)[target] ?? []) as string[];
-		(flags as any)[target] = [...current, ...values];
+		const current = ((flags as any)[spec.long] ?? []) as string[];
+		(flags as any)[spec.long] = [...current, ...values];
 		return;
 	}
 	if (spec.long === "format" && !["md", "txt"].includes(value)) {

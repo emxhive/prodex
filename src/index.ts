@@ -1,7 +1,8 @@
 import { initCommand } from "./commands/init-command";
 import { migrateCommand } from "./commands/migrate-command";
-import { profilesCommand } from "./commands/profiles-command";
-import { runCommand } from "./commands/run-command";
+import { packCommand } from "./commands/pack-command";
+import { traceCommand } from "./commands/trace-command";
+import { scopeCommand } from "./commands/scope-command";
 import { parseCliInput } from "./cli/cli-input";
 import { renderHelp, renderVersion, reportCommandResult } from "./cli/reporter";
 import type { CommandResult } from "./types";
@@ -42,20 +43,6 @@ export async function runProdexCommand(args = process.argv, cwd = process.cwd())
 		};
 	}
 
-	if (parsed.command.kind === "profiles") {
-		const listed = profilesCommand(parsed.command.rootArg, cwd);
-		warnings.push(...listed.warnings);
-		errors.push(...listed.errors);
-		return {
-			ok: !errors.length,
-			exitCode: errors.length ? 1 : 0,
-			profiles: errors.length ? undefined : listed.profiles,
-			warnings,
-			errors,
-			runs: [],
-		};
-	}
-
 	if (parsed.command.kind === "migrate") {
 		const migration = migrateCommand({
 			rootArg: parsed.command.rootArg,
@@ -73,22 +60,78 @@ export async function runProdexCommand(args = process.argv, cwd = process.cwd())
 		};
 	}
 
-	const run = await runCommand({
-		rootArg: parsed.command.rootArg,
-		flags: parsed.command.flags,
-		cwd,
-	});
+	if (parsed.command.kind === "pack") {
+		const pack = await packCommand({
+			rootArg: parsed.command.rootArg,
+			flags: parsed.command.flags,
+			cwd,
+		});
+		warnings.push(...pack.warnings);
+		errors.push(...pack.errors);
+		if (errors.length) return { ok: false, exitCode: 1, warnings, errors, runs: [] };
+		const ok = pack.runs.every((item) => item.ok);
+		return {
+			ok,
+			exitCode: ok ? 0 : 1,
+			warnings,
+			errors,
+			runs: pack.runs,
+		};
+	}
 
-	warnings.push(...run.warnings);
-	errors.push(...run.errors);
-	if (errors.length) return { ok: false, exitCode: 1, warnings, errors, runs: [] };
+	if (parsed.command.kind === "trace") {
+		const trace = await traceCommand({
+			rootArg: parsed.command.rootArg,
+			flags: parsed.command.flags,
+			cwd,
+		});
+		warnings.push(...trace.warnings);
+		errors.push(...trace.errors);
+		if (errors.length) return { ok: false, exitCode: 1, warnings, errors, runs: [] };
+		const ok = trace.runs.every((item) => item.ok);
+		return {
+			ok,
+			exitCode: ok ? 0 : 1,
+			warnings,
+			errors,
+			runs: trace.runs,
+		};
+	}
 
-	const ok = run.runs.every((item) => item.ok);
+	if (parsed.command.kind === "scope") {
+		const scope = await scopeCommand({
+			rootArg: parsed.command.rootArg,
+			flags: parsed.command.flags,
+			cwd,
+		});
+		warnings.push(...scope.warnings);
+		errors.push(...scope.errors);
+		if (errors.length) return { ok: false, exitCode: 1, warnings, errors, runs: [] };
+		if (scope.scopes) {
+			return {
+				ok: true,
+				exitCode: 0,
+				scopes: scope.scopes,
+				warnings,
+				errors,
+				runs: [],
+			};
+		}
+		const ok = scope.runs.every((item) => item.ok);
+		return {
+			ok,
+			exitCode: ok ? 0 : 1,
+			warnings,
+			errors,
+			runs: scope.runs,
+		};
+	}
+
 	return {
-		ok,
-		exitCode: ok ? 0 : 1,
+		ok: false,
+		exitCode: 1,
 		warnings,
-		errors,
-		runs: run.runs,
+		errors: [...errors, "Unknown command kind"],
+		runs: [],
 	};
 }

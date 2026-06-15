@@ -6,8 +6,8 @@ import type { ProdexConfig, ResolverParams, ResolverResult } from "../types";
 import { getResolver, hasResolver } from "./resolver-registry";
 
 export async function followChain(entryFiles: string[], cfg: ProdexConfig) {
-	const limit = cfg.resolve.maxFiles;
-	const resolverDepth = cfg.resolve.maxDepth;
+	const limit = cfg.maxFiles;
+	const resolverDepth = cfg.depth;
 
 	logger.debug("Following dependency chain...");
 

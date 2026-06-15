@@ -22,6 +22,7 @@ export interface TraceParams {
 
 export interface TraceResult {
 	outputPath?: string;
+	outputSizeBytes?: number;
 	entries: string[];
 	files: string[];
 	stats?: TraceStats;

@@ -13,11 +13,15 @@ export async function runTrace({ cfg, opts }: TraceParams): Promise<TraceResult>
 		return { entries, files: [], stats: result?.stats };
 	}
 
-	const outputPath = await produceOutput({
-		name: opts.outputName ?? smartNaming(entries),
+	if (cfg.dryRun) {
+		return { entries, files, stats: result?.stats };
+	}
+
+	const { outputPath, outputSizeBytes } = await produceOutput({
+		name: opts.outputName?.trim() || smartNaming(entries),
 		files,
 		cfg,
 	});
 
-	return { outputPath, entries, files, stats: result?.stats };
+	return { outputPath, outputSizeBytes, entries, files, stats: result?.stats };
 }

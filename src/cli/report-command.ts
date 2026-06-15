@@ -7,7 +7,7 @@ export function reportCommandResult(result: CommandResult): void {
 	for (const error of result.errors) console.error(`Error: ${error}`);
 
 	if (result.message) console.log(result.message);
-	if (result.profiles) reportProfiles(result.profiles);
+	if (result.scopes) reportScopes(result.scopes);
 	if (result.migration) reportMigration(result.migration);
 
 	reportRuns(result.runs);
@@ -18,21 +18,26 @@ function reportRuns(runs: RunResult[]): void {
 		reportRunWarningsAndErrors(run);
 	}
 
-	const successfulRuns = runs.filter((run) => run.outputPath);
+	const successfulRuns = runs.filter((run) => run.ok);
 	if (!successfulRuns.length) return;
 
-	const rows = successfulRuns.map((run) => ({
-		label: formatRunLabel(run),
-		mode: run.mode,
-		files: String(run.files.length),
-		output: formatPath(run.outputPath!, run.root),
-	}));
+	const rows = successfulRuns.map((run) => {
+		const sizeMb = run.outputSizeBytes !== undefined ? (run.outputSizeBytes / (1024 * 1024)).toFixed(2) : "0.00";
+		return {
+			label: formatRunLabel(run),
+			mode: run.mode,
+			files: `${run.files.length} files`,
+			size: `${sizeMb} MB`,
+			output: run.outputPath ? formatPath(run.outputPath, run.root) : "dry-run",
+		};
+	});
 	const labelWidth = maxWidth(rows.map((row) => row.label));
 	const modeWidth = maxWidth(rows.map((row) => row.mode));
 	const filesWidth = maxWidth(rows.map((row) => row.files));
+	const sizeWidth = maxWidth(rows.map((row) => row.size));
 
 	for (const row of rows) {
-		console.log(`✓ ${row.label.padEnd(labelWidth)}  ${row.mode.padEnd(modeWidth)}  ${row.files.padStart(filesWidth)}  ${row.output}`);
+		console.log(`✓ ${row.label.padEnd(labelWidth)}  ${row.mode.padEnd(modeWidth)}  ${row.files.padStart(filesWidth)}  ${row.size.padStart(sizeWidth)}  ${row.output}`);
 	}
 }
 
@@ -46,18 +51,18 @@ function reportMigration(migration: NonNullable<CommandResult["migration"]>): vo
 	if (migration.errors.length) return;
 
 	if (!migration.needed) {
-		console.log("prodex.json is already using config version 4.");
+		console.log("prodex.json is already using config version 5.");
 		return;
 	}
 
 	if (migration.written) {
 		console.log(`Backed up prodex.json to ${formatPath(migration.backupPath!, path.dirname(migration.path))}`);
-		console.log("Migrated prodex.json to version 4.");
+		console.log("Migrated prodex.json to version 5.");
 		return;
 	}
 
 	const from = migration.fromVersion ?? "legacy";
-	console.log(`prodex.json can be migrated from version ${from} to version 4.`);
+	console.log(`prodex.json can be migrated from version ${from} to version 5.`);
 	if (migration.changes.length) {
 		console.log("");
 		console.log("Changes:");
@@ -67,19 +72,19 @@ function reportMigration(migration: NonNullable<CommandResult["migration"]>): vo
 	console.log("Run `prodex migrate --write` to update prodex.json.");
 }
 
-function reportProfiles(profiles: string[]): void {
-	if (!profiles.length) {
-		console.log("No profiles configured.");
+function reportScopes(scopes: string[]): void {
+	if (!scopes.length) {
+		console.log("No scopes configured.");
 		return;
 	}
 
-	console.log("Available profiles:");
-	for (const profile of profiles) console.log(`  ${profile}`);
+	console.log("Available scopes:");
+	for (const scope of scopes) console.log(`  ${scope}`);
 }
 
 function formatRunLabel(run: RunResult): string {
-	if (run.profile) return run.profile;
 	if (run.outputName) return run.outputName;
+	if (run.profile) return run.profile;
 	if (!run.outputPath) return "run";
 
 	const ext = path.extname(run.outputPath);
