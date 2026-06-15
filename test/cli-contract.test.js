@@ -495,6 +495,100 @@ test("init creates a config version 5 and refuses accidental overwrite", async (
 	});
 });
 
+test("entry resolve fallback and discovery feature", async () => {
+	await usingTempProjectAsync(async (root) => {
+		writeJson(path.join(root, "prodex.json"), baseConfig({
+			scopes: {
+				dashboard: {
+					entry: ["dashboard"]
+				}
+			}
+		}));
+		writeFile(path.join(root, "src/index.ts"), "export const index = true;\n");
+		writeFile(path.join(root, "src/helper.ts"), "export const helper = true;\n");
+		writeFile(path.join(root, "resources/js/pages/Dashboard.tsx"), "export const dash = 1;\n");
+		writeFile(path.join(root, "README.md"), "# README\n");
+
+		// 1. Exact match
+		const exactRes = await runProdexCommand(["node", "prodex", "trace", "-e", "src/index.ts", "--dry-run"], root);
+		assert.equal(exactRes.ok, true);
+		assert.deepEqual(exactRes.runs[0].entries.map(f => path.basename(f)).sort(), ["index.ts"]);
+
+		// 2. Glob match with multiple files
+		const globRes = await runProdexCommand(["node", "prodex", "trace", "-e", "src/*.ts", "--dry-run"], root);
+		assert.equal(globRes.ok, true);
+		assert.deepEqual(globRes.runs[0].entries.map(f => path.basename(f)).sort(), ["helper.ts", "index.ts"]);
+
+		// 3. Extensionless path expansion
+		const extRes = await runProdexCommand(["node", "prodex", "trace", "-e", "src/index", "--dry-run"], root);
+		assert.equal(extRes.ok, true);
+		assert.deepEqual(extRes.runs[0].entries.map(f => path.basename(f)).sort(), ["index.ts"]);
+
+		// 4. Bare-name discovery
+		const bareRes = await runProdexCommand(["node", "prodex", "trace", "-e", "index", "--dry-run"], root);
+		assert.equal(bareRes.ok, true);
+		assert.deepEqual(bareRes.runs[0].entries.map(f => path.basename(f)).sort(), ["index.ts"]);
+
+		// 5. Bare-name discovery for dashboard
+		const dashRes = await runProdexCommand(["node", "prodex", "trace", "-e", "dashboard", "--dry-run"], root);
+		assert.equal(dashRes.ok, true);
+		assert.deepEqual(dashRes.runs[0].entries.map(f => path.basename(f)).sort(), ["Dashboard.tsx"]);
+
+		// 6. Case-insensitive bare-name matching
+		const caseRes = await runProdexCommand(["node", "prodex", "trace", "-e", "DASHboard", "--dry-run"], root);
+		assert.equal(caseRes.ok, true);
+		assert.deepEqual(caseRes.runs[0].entries.map(f => path.basename(f)).sort(), ["Dashboard.tsx"]);
+
+		// 7. Ambiguity failure: multiple matching files for bare-name
+		writeFile(path.join(root, "resources/js/components/Dashboard.tsx"), "export const another = 2;\n");
+		const ambigRes = await runProdexCommand(["node", "prodex", "trace", "-e", "dashboard", "--dry-run"], root);
+		assert.equal(ambigRes.ok, false);
+		assert.equal(ambigRes.exitCode, 1);
+		assert.match(ambigRes.runs[0].errors.join("\n"), /Entry "dashboard" matched multiple files/);
+		assert.match(ambigRes.runs[0].errors.join("\n"), /resources\/js\/pages\/Dashboard\.tsx/);
+		assert.match(ambigRes.runs[0].errors.join("\n"), /resources\/js\/components\/Dashboard\.tsx/);
+
+		// 8. Exclude resolves ambiguity
+		const exRes = await runProdexCommand(["node", "prodex", "trace", "-e", "dashboard", "-x", "**/components/**", "--dry-run"], root);
+		assert.equal(exRes.ok, true);
+		assert.deepEqual(exRes.runs[0].entries.map(f => path.basename(f)).sort(), ["Dashboard.tsx"]);
+
+		// 9. Zero matches error
+		const zeroRes = await runProdexCommand(["node", "prodex", "trace", "-e", "missing", "--dry-run"], root);
+		assert.equal(zeroRes.ok, false);
+		assert.equal(zeroRes.exitCode, 1);
+		assert.match(zeroRes.runs[0].errors.join("\n"), /Entry "missing" did not match any files/);
+
+		// 10. Ambiguity failure: extensionless path expansion matches multiple files (e.g. index.ts and index.tsx)
+		writeFile(path.join(root, "src/index.tsx"), "export const reactIndex = true;\n");
+		const pathAmbigRes = await runProdexCommand(["node", "prodex", "trace", "-e", "src/index", "--dry-run"], root);
+		assert.equal(pathAmbigRes.ok, false);
+		assert.equal(pathAmbigRes.exitCode, 1);
+		assert.match(pathAmbigRes.runs[0].errors.join("\n"), /Entry "src\/index" matched multiple files/);
+		assert.match(pathAmbigRes.runs[0].errors.join("\n"), /src\/index\.ts/);
+		assert.match(pathAmbigRes.runs[0].errors.join("\n"), /src\/index\.tsx/);
+
+		// Clean up the index.tsx and duplicate Dashboard.tsx to avoid affecting other scope/pack tests
+		fs.rmSync(path.join(root, "src/index.tsx"), { force: true });
+		fs.rmSync(path.join(root, "resources/js/components/Dashboard.tsx"), { force: true });
+
+		// 11. Pack CLI integration
+		const packRes = await runProdexCommand(["node", "prodex", "pack", "-e", "dashboard", "-i", "README.md", "-n", "review", "--dry-run"], root);
+		assert.equal(packRes.ok, true);
+		assert.deepEqual(packRes.runs[0].entries.map(f => path.basename(f)).sort(), ["Dashboard.tsx"]);
+
+		// 12. Scope integration
+		const scopeRes = await runProdexCommand(["node", "prodex", "scope", "-k", "dashboard", "--dry-run"], root);
+		assert.equal(scopeRes.ok, true);
+		assert.deepEqual(scopeRes.runs[0].entries.map(f => path.basename(f)).sort(), ["Dashboard.tsx"]);
+
+		// 13. Includes remaining literal/glob-based (no discovery)
+		const includeRes = await runProdexCommand(["node", "prodex", "pack", "-i", "README.md", "-n", "incl", "--dry-run"], root);
+		assert.equal(includeRes.ok, true);
+		assert.deepEqual(includeRes.runs[0].files.map(f => path.basename(f)), ["README.md"]);
+	});
+});
+
 function baseConfig(overrides = {}) {
 	return {
 		version: 5,
