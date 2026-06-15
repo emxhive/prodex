@@ -11,7 +11,7 @@ export async function resolveAliasPath(specifier: string, root: string, cfg: Pro
 
 	const [aliasName, ...rest] = specifier.split("/");
 	const remainder = rest.join("/");
-	const knownAliases = cfg.resolve.aliases || {};
+	const knownAliases = cfg.aliases || {};
 	const aliasKey = aliasName.startsWith("@") ? aliasName : `@${aliasName}`;
 
 	// 1️⃣ Check config-defined aliases

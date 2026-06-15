@@ -4,7 +4,6 @@
     "definitions": {
         "ProdexConfigFile": {
             "type": "object",
-            "additionalProperties": false,
             "properties": {
                 "$schema": {
                     "type": "string"
@@ -13,19 +12,7 @@
                     "type": "number"
                 },
                 "output": {
-                    "$ref": "#/definitions/DeepPartial%3Cstructure-184175265-479-545-184175265-470-546-184175265-446-742-184175265-0-743%3E"
-                },
-                "entry": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    }
-                },
-                "include": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    }
+                    "$ref": "#/definitions/DeepPartial%3Cstructure-184175265-90-156-184175265-81-157-184175265-0-324-184175265-0-840%3E"
                 },
                 "exclude": {
                     "type": "array",
@@ -33,19 +20,32 @@
                         "type": "string"
                     }
                 },
-                "resolve": {
-                    "$ref": "#/definitions/DeepPartial%3Cstructure-184175265-616-696-184175265-605-697-184175265-446-742-184175265-0-743%3E"
+                "aliases": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
                 },
-                "profiles": {
-                    "$ref": "#/definitions/DeepPartial%3Cindexed-type-731470504-74242-74263-731470504-74138-74264-731470504-0-218439%3Cstring%2Cdef-alias-184175265-335-446-184175265-0-743%3E%3E"
+                "depth": {
+                    "type": "number"
+                },
+                "maxFiles": {
+                    "type": "number"
+                },
+                "scopes": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "$ref": "#/definitions/ProdexScope"
+                    }
                 }
             },
             "required": [
                 "$schema",
                 "version"
-            ]
+            ],
+            "additionalProperties": false
         },
-        "DeepPartial<structure-184175265-479-545-184175265-470-546-184175265-446-742-184175265-0-743>": {
+        "DeepPartial<structure-184175265-90-156-184175265-81-157-184175265-0-324-184175265-0-840>": {
             "type": "object",
             "properties": {
                 "dir": {
@@ -64,34 +64,7 @@
             },
             "additionalProperties": false
         },
-        "DeepPartial<structure-184175265-616-696-184175265-605-697-184175265-446-742-184175265-0-743>": {
-            "type": "object",
-            "properties": {
-                "aliases": {
-                    "$ref": "#/definitions/DeepPartial%3Cindexed-type-731470504-74242-74263-731470504-74138-74264-731470504-0-218439%3Cstring%2Cstring%3E%3E"
-                },
-                "maxDepth": {
-                    "type": "number"
-                },
-                "maxFiles": {
-                    "type": "number"
-                }
-            },
-            "additionalProperties": false
-        },
-        "DeepPartial<indexed-type-731470504-74242-74263-731470504-74138-74264-731470504-0-218439<string,string>>": {
-            "type": "object",
-            "additionalProperties": {
-                "type": "string"
-            }
-        },
-        "DeepPartial<indexed-type-731470504-74242-74263-731470504-74138-74264-731470504-0-218439<string,def-alias-184175265-335-446-184175265-0-743>>": {
-            "type": "object",
-            "additionalProperties": {
-                "$ref": "#/definitions/DeepPartial%3CProdexProfile%3E"
-            }
-        },
-        "DeepPartial<ProdexProfile>": {
+        "ProdexScope": {
             "type": "object",
             "properties": {
                 "name": {

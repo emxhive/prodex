@@ -8,7 +8,7 @@ import { renderTraceMd } from "./markdown";
 import { renderTxt, tocTxt } from "./text";
 import { sanitizeFileName } from "../filesystem/path";
 
-export async function produceOutput({ name, files, cfg }: OutputParams): Promise<string> {
+export async function produceOutput({ name, files, cfg }: OutputParams): Promise<{ outputPath: string; outputSizeBytes: number }> {
 	const {
 		output: { format, versioned, dir },
 	} = cfg;
@@ -33,5 +33,7 @@ export async function produceOutput({ name, files, cfg }: OutputParams): Promise
 			: renderTraceMd(sorted, cfg.root).content;
 
 	fs.writeFileSync(outputPath, content, "utf8");
-	return outputPath;
+	const outputSizeBytes = Buffer.byteLength(content, "utf8");
+
+	return { outputPath, outputSizeBytes };
 }

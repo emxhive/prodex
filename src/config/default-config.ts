@@ -1,22 +1,18 @@
 import type { ProdexConfigFile } from "../types/config.types";
 
 export const DEFAULT_PRODEX_CONFIG: ProdexConfigFile = {
-	version: 4,
+	version: 5,
 	$schema: "https://raw.githubusercontent.com/emxhive/prodex/main/schema/prodex.schema.json",
 	output: {
 		dir: "prodex",
 		versioned: true,
 		format: "md",
 	},
-	entry: [],
-	include: [],
 	exclude: ["node_modules/**", "vendor/**", "dist/**", "@shadcn/**", "**/components/ui/**"],
-	resolve: {
-		aliases: {
-			"@": "resources/js",
-		},
-		maxDepth: 10,
-		maxFiles: 200,
+	aliases: {
+		"@": "resources/js",
 	},
-	profiles: {},
+	depth: 10,
+	maxFiles: 200,
+	scopes: {},
 };

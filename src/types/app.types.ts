@@ -4,9 +4,10 @@ import type { ProdexConfig } from "./config.types";
 import type { ChainResult } from "./tracing.types";
 
 export type CliCommand =
-	| { kind: "run"; rootArg?: string; flags: Partial<ProdexFlags> }
+	| { kind: "pack"; rootArg?: string; flags: Partial<ProdexFlags> }
+	| { kind: "trace"; rootArg?: string; flags: Partial<ProdexFlags> }
+	| { kind: "scope"; rootArg?: string; flags: Partial<ProdexFlags> }
 	| { kind: "init"; rootArg?: string; force?: boolean }
-	| { kind: "profiles"; rootArg?: string }
 	| { kind: "migrate"; rootArg?: string; write?: boolean; check?: boolean }
 	| { kind: "help"; topic?: string }
 	| { kind: "version" };
@@ -30,6 +31,7 @@ export interface RunResult {
 	root: string;
 	mode: "trace" | "include-only" | "mixed";
 	outputPath?: string;
+	outputSizeBytes?: number;
 	outputName?: string;
 	entries: string[];
 	includes: string[];
@@ -44,7 +46,7 @@ export interface CommandResult {
 	ok: boolean;
 	exitCode: number;
 	message?: string;
-	profiles?: string[];
+	scopes?: string[];
 	migration?: MigrationCommandResult;
 	warnings: string[];
 	errors: string[];

@@ -1,11 +1,30 @@
-export interface ProdexConfig extends ProdexBase {
+export interface ProdexConfig {
 	root: string;
 	name?: string;
+	dryRun?: boolean;
+	output: {
+		dir: string;
+		versioned: boolean;
+		format: "md" | "txt";
+	};
+	entry: string[];
+	include: string[];
+	exclude: string[];
+	aliases: Record<string, string>;
+	depth: number;
+	maxFiles: number;
+	scopes: Record<string, ProdexScope>;
 }
 
-export type ProdexConfigFile = DeepPartial<ProdexBase> & {
+export type ProdexConfigFile = {
 	$schema: string;
 	version: number;
+	output?: DeepPartial<ProdexConfig["output"]>;
+	exclude?: string[];
+	aliases?: Record<string, string>;
+	depth?: number;
+	maxFiles?: number;
+	scopes?: Record<string, ProdexScope>;
 };
 
 export type DeepPartial<T> = {
@@ -16,29 +35,10 @@ export type DeepPartial<T> = {
 			: T[K];
 };
 
-export type ProdexProfile = {
+export type ProdexScope = {
 	name?: string;
 	entry?: string[];
 	include?: string[];
 	exclude?: string[];
 };
 
-interface ProdexBase {
-	output: {
-		dir: string;
-		versioned: boolean;
-		format: "md" | "txt";
-	};
-
-	entry: string[];
-	include: string[];
-	exclude: string[];
-
-	resolve: {
-		aliases: Record<string, string>;
-		maxDepth: number;
-		maxFiles: number;
-	};
-
-	profiles: Record<string, ProdexProfile>;
-}

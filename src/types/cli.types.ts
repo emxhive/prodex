@@ -15,7 +15,7 @@ export interface ProdexFlags {
 	name?: string | null;
 
 	/** Maximum dependency traversal depth. */
-	maxDepth?: number | null;
+	depth?: number | null;
 
 	/** Maximum number of files to trace. */
 	maxFiles?: number | null;
@@ -23,9 +23,23 @@ export interface ProdexFlags {
 	/** Enable debug logs. */
 	debug?: boolean;
 
-	/** Named profiles to run, in user-provided order. */
-	profiles?: string[];
+	/** Scopes to merge for pack command. */
+	scope?: string[];
 
-	/** Run all configured profiles. */
+	/** Keys of scopes to run for scope command. */
+	key?: string[];
+
+	/** Run all scopes for scope command. */
+	all?: boolean;
+
+	/** List available scopes. */
+	list?: boolean;
+
+	/** Perform a dry-run execution. */
+	dryRun?: boolean;
+
+	/** Deprecated legacy flags */
+	profile?: string[];
 	allProfiles?: boolean;
+	maxDepth?: number | null;
 }

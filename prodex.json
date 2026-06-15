@@ -1,20 +1,17 @@
 {
-    "version": 4,
+    "version": 5,
     "$schema": "https://raw.githubusercontent.com/emxhive/prodex/main/schema/prodex.schema.json",
     "output": {
         "dir": "prodex@prodex",
         "versioned": true,
         "format": "md"
     },
-
-    "resolve": {
-        "aliases": {
-            "@": "resources/js"
-        },
-        "maxDepth": 10,
-        "maxFiles": 200
+    "aliases": {
+        "@": "resources/js"
     },
-    "profiles": {
+    "depth": 10,
+    "maxFiles": 200,
+    "scopes": {
         "app": {
             "entry": [
                 "src/index.ts"
