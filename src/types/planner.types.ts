@@ -17,7 +17,20 @@ export type CommandIntent =
 			kind: "scope";
 			rootArg?: string;
 			flags: Partial<ProdexFlags>;
+	  }
+	| {
+			kind: "git";
+			rootArg?: string;
+			flags: Partial<ProdexFlags>;
 	  };
+
+export interface GitPlanOptions {
+	changed?: boolean;
+	staged?: boolean;
+	unstaged?: boolean;
+	untracked?: boolean;
+	includeDiff?: boolean;
+}
 
 export interface ExecutionPlan {
 	root: string;
@@ -37,4 +50,5 @@ export interface ExecutionPlan {
 	dryRun: boolean;
 	scopeKey?: string;
 	attachmentOptions?: CommandAttachmentOptions;
+	gitOptions?: GitPlanOptions;
 }

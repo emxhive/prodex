@@ -47,6 +47,21 @@ export interface ProdexFlags {
 	/** Enforce strict mode, exiting nonzero if any command fails. */
 	failOnCmdError?: boolean;
 
+	/** Git-specific: Include staged, unstaged, and untracked changes. */
+	changed?: boolean;
+
+	/** Git-specific: Include staged changes only. */
+	staged?: boolean;
+
+	/** Git-specific: Include unstaged changes only. */
+	unstaged?: boolean;
+
+	/** Git-specific: Include untracked files only. */
+	untracked?: boolean;
+
+	/** Git-specific: Include full git diff output in generic sections. */
+	includeDiff?: boolean;
+
 	/** Deprecated legacy flags */
 	profile?: string[];
 	allProfiles?: boolean;
