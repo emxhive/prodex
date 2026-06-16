@@ -5,19 +5,21 @@ import type { OutputParams } from "../types";
 import { shortTimestamp } from "./naming";
 import { SUFFIX } from "./render-constants";
 import { renderTraceMd } from "./markdown";
-import { renderTxt, tocTxt } from "./text";
+import { renderTxt } from "./text";
 import { sanitizeFileName } from "../filesystem/path";
 
-export async function produceOutput({ name, files, cfg }: OutputParams): Promise<{ outputPath: string; outputSizeBytes: number }> {
-	const {
-		output: { format, versioned, dir },
-	} = cfg;
-
+export async function produceOutput({
+	name,
+	payload,
+	format,
+	dir,
+	versioned,
+}: OutputParams): Promise<{ outputPath: string; outputSizeBytes: number }> {
 	let outputBase = sanitizeFileName(name || "combined");
 	outputBase = `${outputBase}-${SUFFIX}`;
 	if (versioned) outputBase = `${outputBase}_${shortTimestamp()}`;
 
-	const outputDir = path.isAbsolute(dir) ? dir : path.join(cfg.root, dir);
+	const outputDir = path.isAbsolute(dir) ? dir : path.join(payload.root, dir);
 
 	try {
 		fs.mkdirSync(outputDir, { recursive: true });
@@ -26,11 +28,10 @@ export async function produceOutput({ name, files, cfg }: OutputParams): Promise
 	}
 
 	const outputPath = path.join(outputDir, `${outputBase}.${format}`);
-	const sorted = [...files].sort((a, b) => a.localeCompare(b));
 	const content =
 		format === "txt"
-			? [tocTxt(sorted, cfg.root), ...sorted.map((file) => renderTxt(file, cfg.root))].join("")
-			: renderTraceMd(sorted, cfg.root).content;
+			? renderTxt(payload)
+			: renderTraceMd(payload).content;
 
 	fs.writeFileSync(outputPath, content, "utf8");
 	const outputSizeBytes = Buffer.byteLength(content, "utf8");

@@ -13,7 +13,7 @@ export type FlagName =
 export type FlagSpec = {
 	long: FlagName;
 	short?: string;
-	type: "boolean" | "string" | "number" | "list";
+	type: "boolean" | "string" | "number" | "list" | "raw-list";
 };
 
 export const COMMANDS = ["pack", "trace", "scope", "init", "migrate", "run", "profiles"] as const;
@@ -32,6 +32,9 @@ export const FLAGS: FlagSpec[] = [
 	{ long: "all", short: "a", type: "boolean" },
 	{ long: "list", type: "boolean" },
 	{ long: "dryRun", type: "boolean" },
+	{ long: "cmd", type: "raw-list" },
+	{ long: "cmdTimeout", type: "number" },
+	{ long: "failOnCmdError", type: "boolean" },
 	{ long: "write", type: "boolean" },
 	{ long: "check", type: "boolean" },
 	{ long: "help", short: "h", type: "boolean" },
@@ -48,6 +51,8 @@ export const FLAG_ALIASES: Record<string, FlagName> = {
 	"dry-run": "dryRun",
 	"all-profiles": "allProfiles",
 	"max-depth": "maxDepth",
+	"cmd-timeout": "cmdTimeout",
+	"fail-on-cmd-error": "failOnCmdError",
 };
 
 export const FLAGS_BY_LONG = new Map(FLAGS.map((flag) => [flag.long, flag]));

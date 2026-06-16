@@ -1,7 +1,9 @@
-import type { ProdexConfig } from "./config.types";
+import type { ArtifactPayload } from "./artifact.types";
 
 export interface OutputParams {
-	files: string[];
 	name: string;
-	cfg: ProdexConfig;
+	payload: ArtifactPayload;
+	format: "md" | "txt";
+	dir: string;
+	versioned: boolean;
 }

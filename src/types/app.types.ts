@@ -40,6 +40,7 @@ export interface RunResult {
 	warnings: string[];
 	errors: string[];
 	profile?: string;
+	plannedCommands?: string[];
 }
 
 export interface CommandResult {

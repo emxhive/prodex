@@ -647,6 +647,393 @@ function legacyConfig() {
 	};
 }
 
+test("scope -k and scope --all with --cmd", async () => {
+	await usingTempProjectAsync(async (root) => {
+		writeJson(path.join(root, "prodex.json"), baseConfig({
+			scopes: {
+				dashboard: { entry: ["src/dashboard.ts"] }
+			}
+		}));
+		writeFile(path.join(root, "src/dashboard.ts"), "export const a = 1;");
+
+		const result1 = await runProdexCommand(
+			["node", "prodex", "scope", "-k", "dashboard", "--cmd", "node -e \"console.log('first command')\"", "--format", "txt"],
+			root
+		);
+		assert.equal(result1.ok, true);
+		assert.equal(result1.runs.length, 1);
+		const content1 = fs.readFileSync(result1.runs[0].outputPath, "utf8");
+		assert.match(content1, /##==== Command Attachments ====/);
+		assert.match(content1, /first command/);
+
+		const result2 = await runProdexCommand(
+			["node", "prodex", "scope", "--all", "--cmd", "node -e \"console.log('second command')\"", "--format", "md"],
+			root
+		);
+		assert.equal(result2.ok, true);
+		assert.equal(result2.runs.length, 1);
+		const content2 = fs.readFileSync(result2.runs[0].outputPath, "utf8");
+		assert.match(content2, /# Command Outputs/);
+		assert.match(content2, /second command/);
+	});
+});
+
+test("scope --list --cmd is rejected", async () => {
+	await usingTempProjectAsync(async (root) => {
+		writeJson(path.join(root, "prodex.json"), baseConfig({
+			scopes: {
+				dashboard: { entry: ["src/dashboard.ts"] }
+			}
+		}));
+
+		const result = await runProdexCommand(
+			["node", "prodex", "scope", "--list", "--cmd", "node -e \"console.log('list')\""],
+			root
+		);
+		assert.equal(result.ok, false);
+		assert.equal(result.exitCode, 1);
+		assert.match(result.errors.join("\n"), /Option "--list" cannot be used with command/);
+	});
+});
+
+test("raw command value with commas is not split", async () => {
+	await usingTempProjectAsync(async (root) => {
+		writeJson(path.join(root, "prodex.json"), baseConfig());
+		writeFile(path.join(root, "src/index.ts"), "export const a = 1;");
+
+		const result = await runProdexCommand(
+			["node", "prodex", "pack", "-e", "src/index.ts", "--cmd", "node -e \"console.log('arg1, arg2')\"", "--format", "txt"],
+			root
+		);
+		assert.equal(result.ok, true);
+		const content = fs.readFileSync(result.runs[0].outputPath, "utf8");
+		assert.match(content, /arg1, arg2/);
+	});
+});
+
+test("stable snapshot matches original content even if a command mutates it", async () => {
+	await usingTempProjectAsync(async (root) => {
+		writeJson(path.join(root, "prodex.json"), baseConfig());
+		const fileA = path.join(root, "src/a.ts");
+		writeFile(fileA, "export const original = 'yes';");
+
+		// Execute pack with a command that overwrites src/a.ts to 'mutated'
+		const result = await runProdexCommand(
+			[
+				"node",
+				"prodex",
+				"pack",
+				"-e",
+				"src/a.ts",
+				"--cmd",
+				`node -e "require('fs').writeFileSync('${fileA.replace(/\\/g, "/")}', 'export const original = \\'mutated\\';')\"`,
+				"--format",
+				"txt"
+			],
+			root
+		);
+		assert.equal(result.ok, true);
+		const content = fs.readFileSync(result.runs[0].outputPath, "utf8");
+		// The generated artifact must contain the original content, not the mutated content
+		assert.match(content, /original = 'yes'/);
+		assert.doesNotMatch(content, /original = 'mutated'/);
+
+		// But the file on disk should indeed be mutated
+		const diskContent = fs.readFileSync(fileA, "utf8");
+		assert.match(diskContent, /original = 'mutated'/);
+	});
+});
+
+test("default failed command writes artifact and exits success", async () => {
+	await usingTempProjectAsync(async (root) => {
+		writeJson(path.join(root, "prodex.json"), baseConfig());
+		writeFile(path.join(root, "src/index.ts"), "export const a = 1;");
+
+		const result = await runProdexCommand(
+			["node", "prodex", "pack", "-e", "src/index.ts", "--cmd", "node -e \"process.exit(1)\"", "--format", "txt"],
+			root
+		);
+		assert.equal(result.ok, true);
+		assert.equal(result.exitCode, 0);
+		const content = fs.readFileSync(result.runs[0].outputPath, "utf8");
+		assert.match(content, /status: failed/i);
+		assert.match(content, /Exit Code: 1/);
+	});
+});
+
+test("strict failed command writes artifact and exits failure", async () => {
+	await usingTempProjectAsync(async (root) => {
+		writeJson(path.join(root, "prodex.json"), baseConfig());
+		writeFile(path.join(root, "src/index.ts"), "export const a = 1;");
+
+		const result = await runProdexCommand(
+			["node", "prodex", "pack", "-e", "src/index.ts", "--cmd", "node -e \"process.exit(5)\"", "--fail-on-cmd-error", "--format", "txt"],
+			root
+		);
+		assert.equal(result.ok, false);
+		assert.equal(result.exitCode, 1);
+		const content = fs.readFileSync(result.runs[0].outputPath, "utf8");
+		assert.match(content, /status: failed/i);
+		assert.match(content, /Exit Code: 5/);
+	});
+});
+
+test("command timeout writes artifact and sets timed-out status", async () => {
+	await usingTempProjectAsync(async (root) => {
+		writeJson(path.join(root, "prodex.json"), baseConfig());
+		writeFile(path.join(root, "src/index.ts"), "export const a = 1;");
+
+		const startTime = Date.now();
+		const result = await runProdexCommand(
+			["node", "prodex", "pack", "-e", "src/index.ts", "--cmd", "node -e \"setTimeout(() => {}, 10000)\"", "--cmd-timeout", "1", "--format", "txt"],
+			root
+		);
+		const elapsed = Date.now() - startTime;
+		assert.ok(elapsed < 4000, `Expected elapsed time to be less than 4s, but got ${elapsed}ms`);
+		assert.equal(result.ok, true);
+		assert.equal(result.exitCode, 0);
+		const content = fs.readFileSync(result.runs[0].outputPath, "utf8");
+		assert.match(content, /status: timed-out/i);
+		assert.match(content, /Timeout State: Yes/);
+	});
+});
+
+test("dry-run does not execute commands and reports planned commands", async () => {
+	await usingTempProjectAsync(async (root) => {
+		writeJson(path.join(root, "prodex.json"), baseConfig());
+		writeFile(path.join(root, "src/index.ts"), "export const a = 1;");
+
+		const result = await runProdexCommand(
+			["node", "prodex", "pack", "-e", "src/index.ts", "--cmd", "node -e \"console.log('should-not-run')\"", "--dry-run"],
+			root
+		);
+		assert.equal(result.ok, true);
+		assert.deepEqual(result.runs[0].plannedCommands, ["node -e \"console.log('should-not-run')\""]);
+
+		const stdout = captureStdout(() => reportCommandResult(result));
+		assert.match(stdout, /Planned command attachments to run in sequence/);
+		assert.match(stdout, /node -e "console\.log\('should-not-run'\)"/);
+	});
+});
+
+test("command attachment flags are rejected for non-artifact commands", async () => {
+	await usingTempProjectAsync(async (root) => {
+		const resultInit = await runProdexCommand(
+			["node", "prodex", "init", "--cmd", "echo 1"],
+			root
+		);
+		assert.equal(resultInit.ok, false);
+		assert.match(resultInit.errors.join("\n"), /does not accept command attachment options/i);
+
+		const resultMigrate = await runProdexCommand(
+			["node", "prodex", "migrate", "--fail-on-cmd-error"],
+			root
+		);
+		assert.equal(resultMigrate.ok, false);
+		assert.match(resultMigrate.errors.join("\n"), /does not accept command attachment options/i);
+	});
+});
+
+test("blank cmd or command options without cmd are rejected", async () => {
+	await usingTempProjectAsync(async (root) => {
+		const resultBlank = await runProdexCommand(
+			["node", "prodex", "pack", "-e", "src/index.ts", "--cmd", "   "],
+			root
+		);
+		assert.equal(resultBlank.ok, false);
+		assert.match(resultBlank.errors.join("\n"), /cannot be blank/i);
+
+		const resultNoCmd = await runProdexCommand(
+			["node", "prodex", "pack", "-e", "src/index.ts", "--cmd-timeout", "10"],
+			root
+		);
+		assert.equal(resultNoCmd.ok, false);
+		assert.match(resultNoCmd.errors.join("\n"), /require providing at least one command/i);
+	});
+});
+
+test("md index range analysis bounds files correctly and excludes command outputs", async () => {
+	await usingTempProjectAsync(async (root) => {
+		writeJson(path.join(root, "prodex.json"), baseConfig());
+		writeFile(path.join(root, "src/index.ts"), "export const a = 1;");
+
+		const result = await runProdexCommand(
+			["node", "prodex", "pack", "-e", "src/index.ts", "--cmd", "node -e \"console.log('command output content')\"", "--format", "md"],
+			root
+		);
+		assert.equal(result.ok, true);
+		const content = fs.readFileSync(result.runs[0].outputPath, "utf8");
+
+		const match = content.match(/<!-- PRODEX_INDEX_RANGE: L(\d+)-L(\d+) -->/);
+		assert.ok(match, "Expected index range comment in output markdown");
+		const endLine = parseInt(match[2], 10);
+
+		const lines = content.split("\n");
+		const cmdOutputsLineIndex = lines.findIndex(l => l.trim() === "# Command Outputs");
+		assert.ok(cmdOutputsLineIndex > 0, "Expected command outputs header in markdown");
+
+		assert.ok(endLine < cmdOutputsLineIndex + 1, `Expected index range end ${endLine} to be before Command Outputs section at line ${cmdOutputsLineIndex + 1}`);
+	});
+});
+
+test("failed-but-written runs are reported with a cross icon and correct artifact path", async () => {
+	await usingTempProjectAsync(async (root) => {
+		writeJson(path.join(root, "prodex.json"), baseConfig());
+		writeFile(path.join(root, "src/index.ts"), "export const a = 1;");
+
+		const result = await runProdexCommand(
+			["node", "prodex", "pack", "-e", "src/index.ts", "--cmd", "node -e \"process.exit(1)\"", "--fail-on-cmd-error", "--format", "txt"],
+			root
+		);
+		assert.equal(result.ok, false);
+		const stdout = captureStdout(() => reportCommandResult(result));
+		assert.match(stdout, /✗/);
+		assert.match(stdout, /pack-combined/);
+		assert.match(stdout, /prodex\/pack-combined-trace_/);
+	});
+});
+
+test("Markdown output indexing and navigation details are correct", async () => {
+	await usingTempProjectAsync(async (root) => {
+		writeJson(path.join(root, "prodex.json"), baseConfig());
+		writeFile(path.join(root, "src/index.ts"), "export const a = 1;");
+		writeFile(path.join(root, "src/helper.ts"), "export const b = 2;");
+
+		// 1. Markdown with command outputs
+		const result = await runProdexCommand(
+			[
+				"node",
+				"prodex",
+				"pack",
+				"-e",
+				"src/index.ts,src/helper.ts",
+				"--cmd",
+				"node -e \"console.log('cmd1')\"",
+				"--cmd",
+				"node -e \"console.log('cmd2')\"",
+				"--format",
+				"md"
+			],
+			root
+		);
+		assert.equal(result.ok, true);
+		const content = fs.readFileSync(result.runs[0].outputPath, "utf8");
+
+		// Verify Index Headers
+		assert.match(content, /<!-- PRODEX_FILE_COUNT: 2 -->/);
+		assert.match(content, /<!-- PRODEX_COMMAND_OUTPUT_COUNT: 2 -->/);
+		assert.match(content, /## Files/);
+		assert.match(content, /## Command Outputs/);
+
+		// Verify command output index entries
+		assert.match(content, /- \[Command 1: node -e "console\.log\('cmd1'\)"\]\(#cmd-1\)/);
+		assert.match(content, /- \[Command 2: node -e "console\.log\('cmd2'\)"\]\(#cmd-2\)/);
+
+		// Verify line ranges on command index entries
+		assert.match(content, /- \[Command 1: node -e "console\.log\('cmd1'\)"\]\(#cmd-1\) L\d+-L\d+/);
+		assert.match(content, /- \[Command 2: node -e "console\.log\('cmd2'\)"\]\(#cmd-2\) L\d+-L\d+/);
+
+		// Verify PRODEX_INDEX_RANGE contains both files and command entries
+		const rangeMatch = content.match(/<!-- PRODEX_INDEX_RANGE: L(\d+)-L(\d+) -->/);
+		assert.ok(rangeMatch);
+		const startLine = parseInt(rangeMatch[1], 10);
+		const endLine = parseInt(rangeMatch[2], 10);
+
+		const lines = content.split("\n");
+		// Find list start/end
+		const listStartIdx = lines.findIndex(l => l.trim() === "<!-- PRODEX_INDEX_LIST_START -->");
+		const listEndIdx = lines.findIndex(l => l.trim() === "<!-- PRODEX_INDEX_LIST_END -->");
+
+		// Files list index start should be close to listStartIdx
+		assert.ok(startLine > listStartIdx);
+		assert.ok(endLine < listEndIdx + 2); // since endLine is 1-based and index matches listingEnd
+
+		// Verify anchors exist
+		assert.match(content, /<a id="cmd-1"><\/a>/);
+		assert.match(content, /<a id="cmd-2"><\/a>/);
+
+		// Verify source section navigation (linear chain)
+		// File 1 navigation: Back to top, Next
+		assert.match(content, /\[Back to top\]\(#index\) \| \[Next\]\(#2\)/);
+		// File 2 (last file) navigation: Previous, Back to top, Next (pointing to cmd-1)
+		assert.match(content, /\[Previous\]\(#1\) \| \[Back to top\]\(#index\) \| \[Next\]\(#cmd-1\)/);
+
+		// Assert source nav does not contain the literal "Command outputs" shortcut
+		assert.doesNotMatch(content, /\[Command outputs\]/);
+
+		// Verify command output section navigation
+		// Command 1: Previous (pointing to last file #2), Back to top, Next (pointing to cmd-2)
+		assert.match(content, /\[Previous\]\(#2\) \| \[Back to top\]\(#index\) \| \[Next\]\(#cmd-2\)/);
+		// Command 2: Previous, Back to top
+		assert.match(content, /\[Previous\]\(#cmd-1\) \| \[Back to top\]\(#index\)/);
+
+		// Verify ranges do not overlap
+		const indexRangeLines = lines.slice(listStartIdx + 1, listEndIdx);
+		// Gather Lx-Ly ranges
+		const ranges = [];
+		for (const line of indexRangeLines) {
+			const m = line.match(/L(\d+)-L(\d+)/);
+			if (m) {
+				ranges.push({ start: parseInt(m[1], 10), end: parseInt(m[2], 10) });
+			}
+		}
+		assert.equal(ranges.length, 4); // 2 files + 2 commands
+		for (let i = 0; i < ranges.length - 1; i++) {
+			assert.ok(ranges[i].end < ranges[i+1].start, `Range overlap: range ${i} end ${ranges[i].end} is not before range ${i+1} start ${ranges[i+1].start}`);
+		}
+
+		// Assert the last command output range has end > start
+		const lastCmdRange = ranges[3];
+		assert.ok(lastCmdRange.end > lastCmdRange.start, `Expected last command range to span multiple lines, but got ${lastCmdRange.start}-${lastCmdRange.end}`);
+
+		// Assert command output ranges cover their actual rendered sections
+		const cmd1Range = ranges[2];
+		const cmd1StartText = lines[cmd1Range.start - 1];
+		assert.ok(
+			cmd1StartText.includes("---") || cmd1StartText.includes("id=\"cmd-1\""),
+			`Expected start of command 1 range to be separator or anchor, got: ${cmd1StartText}`
+		);
+
+		const cmd1EndText = lines[cmd1Range.end - 1];
+		assert.ok(
+			cmd1EndText.trim() === "```" || cmd1EndText.trim() === "---" || cmd1EndText.trim() === "",
+			`Expected end of command 1 range to be fence or separator, got: ${cmd1EndText}`
+		);
+
+		const cmd2StartText = lines[lastCmdRange.start - 1];
+		assert.ok(
+			cmd2StartText.includes("---") || cmd2StartText.includes("id=\"cmd-2\""),
+			`Expected start of command 2 range to be separator or anchor, got: ${cmd2StartText}`
+		);
+
+		const cmd2EndText = lines[lastCmdRange.end - 1];
+		assert.ok(
+			cmd2EndText.trim() === "```" || cmd2EndText.trim() === "---" || cmd2EndText.trim() === "",
+			`Expected end of command 2 range to be fence or separator, got: ${cmd2EndText}`
+		);
+	});
+});
+
+test("Markdown with no command outputs does not render command output index group", async () => {
+	await usingTempProjectAsync(async (root) => {
+		writeJson(path.join(root, "prodex.json"), baseConfig());
+		writeFile(path.join(root, "src/index.ts"), "export const a = 1;");
+
+		const result = await runProdexCommand(
+			["node", "prodex", "pack", "-e", "src/index.ts", "--format", "md"],
+			root
+		);
+		assert.equal(result.ok, true);
+		const content = fs.readFileSync(result.runs[0].outputPath, "utf8");
+
+		assert.doesNotMatch(content, /## Files/);
+		assert.doesNotMatch(content, /## Command Outputs/);
+		assert.doesNotMatch(content, /PRODEX_COMMAND_OUTPUT_COUNT/);
+		// Verify source navigation has no command outputs link
+		assert.doesNotMatch(content, /\[Command outputs\]/);
+	});
+});
+
 function usingTempProject(fn) {
 	const root = fs.mkdtempSync(path.join(os.tmpdir(), "prodex-test-"));
 	try {

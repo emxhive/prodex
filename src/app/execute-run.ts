@@ -1,13 +1,17 @@
+import fs from "fs";
 import { CacheManager } from "../cache/cache-manager";
-import { runTrace } from "../tracing/trace-run";
+import { collectTraceSources } from "../tracing/collect-trace";
 import { setLoggerOptions } from "../diagnostics/logger";
 import { smartNaming } from "../output/naming";
 import { resolveEntries } from "./entry-resolver";
-import type { ExecutionPlan, RunResult, ProdexConfig } from "../types";
+import { executeAttachedCommand } from "../runtime/shell-command-runner";
+import { produceOutput } from "../output/produce-output";
+import pkg from "../../package.json";
+import type { ExecutionPlan, RunResult, FileSnapshot, CommandOutputResult, ArtifactPayload } from "../types";
 
 export async function executeRun(plan: ExecutionPlan): Promise<RunResult> {
 	CacheManager.clear();
-	setLoggerOptions(plan as any); // plan has format, debug, etc.
+	setLoggerOptions(plan as any);
 
 	const warnings: string[] = [];
 	const errors: string[] = [];
@@ -48,56 +52,142 @@ export async function executeRun(plan: ExecutionPlan): Promise<RunResult> {
 		};
 	}
 
-	const resolvedOutputName = plan.outputName?.trim() || (plan.command === "trace" ? smartNaming(entries) : (plan.command === "scope" ? plan.scopeKey : "pack-combined"));
-
-	const config: ProdexConfig = {
-		root: plan.root,
-		name: plan.outputName,
-		entry: plan.entry,
-		include: plan.include,
-		exclude: plan.exclude,
-		aliases: plan.aliases,
-		depth: plan.depth,
-		maxFiles: plan.maxFiles,
-		output: plan.output,
-		scopes: {},
-		dryRun: plan.dryRun,
-	};
-
-	const result = await runTrace({
-		cfg: config,
+	const traceResult = await collectTraceSources({
+		cfg: {
+			root: plan.root,
+			name: plan.outputName,
+			entry: plan.entry,
+			include: plan.include,
+			exclude: plan.exclude,
+			aliases: plan.aliases,
+			depth: plan.depth,
+			maxFiles: plan.maxFiles,
+			output: plan.output,
+			scopes: {},
+			dryRun: plan.dryRun,
+		},
 		opts: {
 			entries,
 			outputName: plan.outputName,
 		},
 	});
 
-	if (!result.outputPath && !plan.dryRun) {
+	if (!traceResult.files.length) {
 		return {
 			ok: false,
 			root: plan.root,
 			mode,
 			entries,
 			includes,
-			files: result.files,
-			stats: result.stats,
+			files: [],
+			stats: traceResult.stats,
 			warnings,
 			errors: ["No files matched the selected entries or include patterns."],
 			profile: plan.scopeKey,
 		};
 	}
 
+	const resolvedOutputName =
+		plan.outputName?.trim() ||
+		(plan.command === "trace"
+			? smartNaming(entries)
+			: plan.command === "scope"
+				? plan.scopeKey
+				: "pack-combined");
+
+	if (plan.dryRun) {
+		return {
+			ok: true,
+			root: plan.root,
+			mode,
+			outputName: resolvedOutputName,
+			entries,
+			includes,
+			files: traceResult.files,
+			stats: traceResult.stats,
+			warnings,
+			errors,
+			profile: plan.scopeKey,
+			plannedCommands: plan.attachmentOptions?.commands ?? [],
+		};
+	}
+
+	// 1. Snapshot resolved files
+	const filesSnapshots: FileSnapshot[] = [];
+	for (const file of traceResult.files) {
+		try {
+			const content = fs.readFileSync(file, "utf8");
+			filesSnapshots.push({ path: file, content });
+		} catch (err: any) {
+			filesSnapshots.push({ path: file, content: "", readError: err.message || String(err) });
+		}
+	}
+
+	// 2. Spawn attached commands sequentially
+	const commandOutputs: CommandOutputResult[] = [];
+	if (plan.attachmentOptions && plan.attachmentOptions.commands.length > 0) {
+		for (const command of plan.attachmentOptions.commands) {
+			const cmdRes = await executeAttachedCommand(
+				command,
+				plan.root,
+				plan.attachmentOptions.timeoutSeconds
+			);
+			commandOutputs.push(cmdRes);
+
+			if (cmdRes.status !== "success") {
+				const errorMsg = `Attached command "${command}" failed with status: ${cmdRes.status}`;
+				if (plan.attachmentOptions.failOnError) {
+					errors.push(errorMsg);
+				} else {
+					warnings.push(errorMsg);
+				}
+			}
+		}
+	}
+
+	// 3. Construct payload and write output
+	const payload: ArtifactPayload = {
+		root: plan.root,
+		files: filesSnapshots,
+		commandOutputs,
+		metadata: {
+			version: pkg.version,
+			timestamp: new Date().toISOString(),
+			commandKind: plan.command,
+			mode,
+			outputName: resolvedOutputName,
+			entries,
+			includes,
+			scopeKey: plan.scopeKey,
+		},
+	};
+
+	let produceResult: { outputPath: string; outputSizeBytes: number } | undefined;
+	try {
+		produceResult = await produceOutput({
+			name: resolvedOutputName,
+			payload,
+			format: plan.output.format,
+			dir: plan.output.dir,
+			versioned: plan.output.versioned,
+		});
+	} catch (err: any) {
+		errors.push(`Failed to generate output file: ${err.message || String(err)}`);
+	}
+
+	const ok = errors.length === 0 && produceResult !== undefined;
+
 	return {
-		ok: true,
+		ok,
 		root: plan.root,
 		mode,
-		outputPath: result.outputPath,
-		outputSizeBytes: result.outputSizeBytes,
+		outputPath: produceResult?.outputPath,
+		outputSizeBytes: produceResult?.outputSizeBytes,
 		outputName: resolvedOutputName,
 		entries,
 		includes,
-		files: result.files,
-		stats: result.stats,
+		files: traceResult.files,
+		stats: traceResult.stats,
 		warnings,
 		errors,
 		profile: plan.scopeKey,
@@ -109,4 +199,3 @@ function getRunMode(entryCount: number, includePatternCount: number): RunResult[
 	if (entryCount) return "trace";
 	return "include-only";
 }
-

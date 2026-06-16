@@ -42,6 +42,9 @@ function renderPackHelp(): string {
 		"  --depth <number>          Maximum dependency traversal depth.",
 		"  --max-files <number>      Maximum traced file count.",
 		"  --dry-run                 Perform a dry-run without writing output files.",
+		"  --cmd <command>           Run command sequentially for evidence capture. Repeatable.",
+		"  --cmd-timeout <seconds>   Command execution timeout (default: 180).",
+		"  --fail-on-cmd-error       Enforce nonzero exit if commands fail.",
 		"  -h, --help                Show pack help.",
 	].join("\n");
 }
@@ -59,6 +62,9 @@ function renderTraceHelp(): string {
 		"  --depth <number>          Maximum dependency traversal depth.",
 		"  --max-files <number>      Maximum traced file count.",
 		"  --dry-run                 Perform a dry-run without writing output files.",
+		"  --cmd <command>           Run command sequentially for evidence capture. Repeatable.",
+		"  --cmd-timeout <seconds>   Command execution timeout (default: 180).",
+		"  --fail-on-cmd-error       Enforce nonzero exit if commands fail.",
 		"  -h, --help                Show trace help.",
 	].join("\n");
 }
@@ -74,6 +80,9 @@ function renderScopeHelp(): string {
 		"  --list                    List configured scope keys.",
 		"  -F, --format <md|txt>     Output format.",
 		"  --dry-run                 Perform a dry-run without writing output files.",
+		"  --cmd <command>           Run command sequentially for evidence capture. Repeatable.",
+		"  --cmd-timeout <seconds>   Command execution timeout (default: 180).",
+		"  --fail-on-cmd-error       Enforce nonzero exit if commands fail.",
 		"  -h, --help                Show scope help.",
 	].join("\n");
 }
