@@ -2,6 +2,9 @@ export interface ProdexFlags {
 	/** Entry globs or file paths. Repeatable and comma-aware. */
 	entry?: string[];
 
+	/** Target file/module to resolve and trace from. Repeatable and comma-aware. */
+	target?: string[];
+
 	/** Extra files or globs appended without dependency resolution. */
 	include?: string[];
 

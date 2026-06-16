@@ -5,9 +5,21 @@ export function renderTxt(payload: ArtifactPayload): string {
 	const root = payload.root;
 	const sorted = [...payload.files].sort((a, b) => a.path.localeCompare(b.path));
 
+	const contextLines: string[] = [];
+	if (payload.metadata?.commandKind === "trace" && payload.metadata.targets && payload.metadata.targets.length > 0) {
+		const relativeEntries = payload.metadata.entries.map(e => rel(e, root));
+		contextLines.push(
+			"##==== Trace Target Context ====",
+			`## - Requested Target(s): ${payload.metadata.targets.join(", ")}`,
+			`## - Resolved Starting Point(s): ${relativeEntries.join(", ") || "none"}`,
+			`## - Traversal Depth: ${payload.metadata.depth !== undefined ? payload.metadata.depth : "none"}`,
+			""
+		);
+	}
+
 	const sectionToc = (payload.sections ?? []).map((sec) => "## - Section: " + sec.title);
 	const fileToc = sorted.map((file) => "## - File: " + rel(file.path, root));
-	const toc = ["##==== Combined Scope ====", ...sectionToc, ...fileToc].join("\n") + "\n\n";
+	const toc = ["##==== Combined Scope ====", ...contextLines, ...sectionToc, ...fileToc].join("\n") + "\n\n";
 
 	const genericSections = (payload.sections ?? [])
 		.map((sec) => {

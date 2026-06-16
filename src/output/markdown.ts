@@ -1,7 +1,7 @@
 import path from "path";
 import { INDEX_RANGE_PLACEHOLDER, LANG_MAP, LLM_NOTE, MD_FOOTER, MD_HEADER } from "./render-constants";
 import { rel } from "../filesystem/read-file";
-import type { ArtifactPayload, FileSnapshot, CommandOutputResult, ArtifactSection } from "../types";
+import type { ArtifactPayload, FileSnapshot, CommandOutputResult, ArtifactSection, ArtifactMetadata } from "../types";
 
 export interface MdTraceEntry {
 	file: string;
@@ -94,6 +94,7 @@ export function renderTraceMd(payload: ArtifactPayload) {
 		sections: payload.sections,
 		commandOutputs: payload.commandOutputs,
 		withRanges: false,
+		metadata: payload.metadata,
 	});
 
 	const cmdSections = renderMdCmdResults(payload.commandOutputs, root, sorted.length, sectionCount);
@@ -112,6 +113,7 @@ export function renderTraceMd(payload: ArtifactPayload) {
 		sections: payload.sections,
 		commandOutputs: payload.commandOutputs,
 		withRanges: true,
+		metadata: payload.metadata,
 	});
 
 	const content = [finalToc, ...genericSections, ...fileSections, cmdSections, MD_FOOTER].join("\n");
@@ -137,6 +139,7 @@ function buildToc(opts: {
 	sections?: ArtifactSection[];
 	commandOutputs?: CommandOutputResult[];
 	withRanges: boolean;
+	metadata?: ArtifactMetadata;
 }): string {
 	const sectionCount = opts.sections?.length ?? 0;
 	const cmdCount = opts.commandOutputs?.length ?? 0;
@@ -153,9 +156,24 @@ function buildToc(opts: {
 		LLM_NOTE,
 		"",
 		"# Index",
+	];
+
+	if (opts.metadata?.commandKind === "trace" && opts.metadata.targets && opts.metadata.targets.length > 0) {
+		const relativeEntries = opts.metadata.entries.map(e => rel(e, opts.root));
+		headers.push(
+			"",
+			"> **Trace Target Context**",
+			`> - **Requested Target(s):** ${opts.metadata.targets.map(t => `\`${t}\``).join(", ")}`,
+			`> - **Resolved Starting Point(s):** ${relativeEntries.map(e => `\`${e}\``).join(", ") || "none"}`,
+			`> - **Traversal Depth:** \`${opts.metadata.depth !== undefined ? opts.metadata.depth : "none"}\``,
+			""
+		);
+	}
+
+	headers.push(
 		`<!-- PRODEX_INDEX_RANGE: ${indexRange} -->`,
 		`<!-- PRODEX_FILE_COUNT: ${opts.count} -->`,
-	];
+	);
 
 	if (sectionCount > 0) {
 		headers.push(`<!-- PRODEX_SECTION_COUNT: ${sectionCount} -->`);

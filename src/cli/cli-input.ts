@@ -139,7 +139,7 @@ function readLongFlag(tokens: string[], index: number, flags: Partial<ProdexFlag
 	}
 
 	const value = inlineValue ?? tokens[index + 1];
-	if (value === undefined || value.startsWith("-")) {
+	if (value === undefined || (value.startsWith("-") && !/^-?\d+(\.\d+)?$/.test(value))) {
 		errors.push(`Flag "--${rawName}" expects a value.`);
 		return 0;
 	}
@@ -179,7 +179,7 @@ function readShortFlag(tokens: string[], index: number, flags: Partial<ProdexFla
 	}
 
 	const value = tokens[index + 1];
-	if (value === undefined || value.startsWith("-")) {
+	if (value === undefined || (value.startsWith("-") && !/^-?\d+(\.\d+)?$/.test(value))) {
 		errors.push(`Flag "-${cluster}" expects a value.`);
 		return 0;
 	}

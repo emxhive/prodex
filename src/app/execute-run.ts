@@ -6,7 +6,19 @@ import { executeAttachedCommand } from "../runtime/shell-command-runner";
 import { produceOutput } from "../output/produce-output";
 import { collectSources } from "./source-collector";
 import pkg from "../../package.json";
-import type { ExecutionPlan, RunResult, FileSnapshot, CommandOutputResult, ArtifactPayload } from "../types";
+import type { ExecutionPlan, RunResult, FileSnapshot, CommandOutputResult, ArtifactPayload, ArtifactSection } from "../types";
+
+function hasMeaningfulSectionContent(section: ArtifactSection): boolean {
+	const content = section.content.trim();
+	if (!content) return false;
+
+	const normalized = content.toLowerCase();
+	return ![
+		"(none)",
+		"(no changes)",
+		"(no cached diff stat)",
+	].includes(normalized);
+}
 
 export async function executeRun(plan: ExecutionPlan): Promise<RunResult> {
 	CacheManager.clear();
@@ -35,7 +47,10 @@ export async function executeRun(plan: ExecutionPlan): Promise<RunResult> {
 		};
 	}
 
-	const hasContent = collectResult.files.length > 0 || (collectResult.sections && collectResult.sections.length > 0);
+	const rawSections = collectResult.sections ?? [];
+	const filteredSections = rawSections.filter(hasMeaningfulSectionContent);
+
+	const hasContent = collectResult.files.length > 0 || filteredSections.length > 0;
 	if (!hasContent) {
 		return {
 			ok: false,
@@ -112,7 +127,7 @@ export async function executeRun(plan: ExecutionPlan): Promise<RunResult> {
 	// 3. Construct payload and write output
 	const payload: ArtifactPayload = {
 		root: plan.root,
-		sections: collectResult.sections,
+		sections: filteredSections,
 		files: filesSnapshots,
 		commandOutputs,
 		metadata: {
@@ -124,6 +139,8 @@ export async function executeRun(plan: ExecutionPlan): Promise<RunResult> {
 			entries,
 			includes,
 			scopeKey: plan.scopeKey,
+			targets: plan.target,
+			depth: plan.depth,
 		},
 	};
 

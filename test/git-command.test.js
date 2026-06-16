@@ -214,7 +214,7 @@ test("Artifact rendering: metadata sections first, navigation, counters", async 
 		const content = fs.readFileSync(result.runs[0].outputPath, "utf8");
 
 		// Header markers
-		assert.match(content, /<!-- PRODEX_SECTION_COUNT: 4 -->/);
+		assert.match(content, /<!-- PRODEX_SECTION_COUNT: 3 -->/);
 		assert.match(content, /<!-- PRODEX_FILE_COUNT: 2 -->/);
 		assert.match(content, /<!-- PRODEX_COMMAND_OUTPUT_COUNT: 1 -->/);
 
@@ -242,8 +242,8 @@ test("Artifact rendering: metadata sections first, navigation, counters", async 
 		// Section 1 navigation next points to sec-2
 		assert.match(content, /\[Next\]\(#sec-2\)/);
 
-		// Section 4 (File Notes, last section) next points to first file (#1)
-		assert.match(content, /<a id="sec-4"><\/a>\s*\n## File Notes\s*\n\[Previous\]\(#sec-3\) \| \[Back to top\]\(#index\) \| \[Next\]\(#1\)/);
+		// Section 3 (Git Cached Diff Stat, last section) next points to first file (#1)
+		assert.match(content, /<a id="sec-3"><\/a>\s*\n## Git Cached Diff Stat\s*\n\[Previous\]\(#sec-2\) \| \[Back to top\]\(#index\) \| \[Next\]\(#1\)/);
 
 		// File 2 (last file) navigation next points to cmd-1
 		assert.match(content, /\[Previous\]\(#1\) \| \[Back to top\]\(#index\) \| \[Next\]\(#cmd-1\)/);
@@ -268,8 +268,8 @@ test("Artifact rendering: metadata sections first, navigation, counters", async 
 			}
 		}
 
-		// Total sections (4) + Files (2) + Commands (1) = 7 ranges
-		assert.equal(ranges.length, 7);
+		// Total sections (3) + Files (2) + Commands (1) = 6 ranges
+		assert.equal(ranges.length, 6);
 		for (let idx = 0; idx < ranges.length - 1; idx++) {
 			assert.ok(ranges[idx].end < ranges[idx + 1].start, `Overlap between index ${idx} and ${idx+1}`);
 		}
@@ -297,9 +297,9 @@ test("Artifact rendering: --include-diff adds diff sections", async () => {
 		assert.equal(result.ok, true);
 		const content = fs.readFileSync(result.runs[0].outputPath, "utf8");
 
-		// Header markers should have 6 sections now
-		assert.match(content, /<!-- PRODEX_SECTION_COUNT: 6 -->/);
-		assert.match(content, /## Full Diff/);
+		// Header markers should have 4 sections now (omitting placeholder File Notes and Full Diff)
+		assert.match(content, /<!-- PRODEX_SECTION_COUNT: 4 -->/);
+		assert.doesNotMatch(content, /## Full Diff/);
 		assert.match(content, /## Cached Full Diff/);
 	});
 });
@@ -370,4 +370,138 @@ test("Markdown renderer uses dynamic fences for generic sections", () => {
 	// It should use 4 backticks because the content contains 3 backticks
 	assert.match(content, /````md\n```js/);
 	assert.match(content, /```\n````/);
+});
+
+test("Omission of empty and placeholder-only sections", async () => {
+	await usingTempProjectAsync(async (root) => {
+		initGitRepo(root);
+		writeJson(path.join(root, "prodex.json"), baseConfig());
+		execSync("git add prodex.json", { cwd: root, stdio: "ignore" });
+		execSync("git commit -m \"initial\"", { cwd: root, stdio: "ignore" });
+
+		// Add a committed file and delete it to get actual File Notes
+		writeFile(path.join(root, "src/deleted.ts"), "console.log('deleted');");
+		execSync("git add src/deleted.ts", { cwd: root, stdio: "ignore" });
+		execSync("git commit -m \"add deleted\"", { cwd: root, stdio: "ignore" });
+		fs.rmSync(path.join(root, "src/deleted.ts"));
+
+		// Also add an unstaged modification so we have a full diff
+		writeFile(path.join(root, "src/unstaged.ts"), "console.log('unstaged');");
+		execSync("git add src/unstaged.ts", { cwd: root, stdio: "ignore" });
+		execSync("git commit -m \"add unstaged\"", { cwd: root, stdio: "ignore" });
+		writeFile(path.join(root, "src/unstaged.ts"), "console.log('unstaged modified');");
+
+		// No cached changes exist.
+		// That means:
+		// - Git Status: M src/unstaged.ts, D src/deleted.ts (real, kept)
+		// - Git Diff Stat: diff stat of unstaged.ts (real, kept)
+		// - Git Cached Diff Stat: '(no cached diff stat)' (omitted)
+		// - File Notes: '- Deleted: src/deleted.ts' (real, kept!)
+		// - Full Diff: diff of unstaged.ts (real, kept)
+		// - Cached Full Diff: '(no changes)' (omitted)
+		//
+		// We expect 4 sections: Git Status, Git Diff Stat, File Notes, Full Diff
+
+		const result = await runProdexCommand(
+			["node", "prodex", "git", "--changed", "--include-diff", "--cmd", "node -e \"\"", "--format", "md"],
+			root
+		);
+
+		assert.equal(result.ok, true);
+		const content = fs.readFileSync(result.runs[0].outputPath, "utf8");
+
+		assert.match(content, /<!-- PRODEX_SECTION_COUNT: 4 -->/);
+
+		// The omitted section titles should not be present in the index
+		assert.doesNotMatch(content, /- \[Git Cached Diff Stat\]/);
+		assert.doesNotMatch(content, /- \[Cached Full Diff\]/);
+
+		// The omitted section titles should not be present in the body headers
+		assert.doesNotMatch(content, /## Git Cached Diff Stat/);
+		assert.doesNotMatch(content, /## Cached Full Diff/);
+
+		// The anchors for omitted sections should not be generated (e.g. sec-5, sec-6 should not exist)
+		assert.doesNotMatch(content, /id="sec-5"/);
+		assert.doesNotMatch(content, /id="sec-6"/);
+
+		// File Notes is kept and contains Deleted: src/deleted.ts
+		assert.match(content, /Deleted: src\/deleted\.ts/);
+
+		// Navigation check:
+		// Emitted sections: sec-1 (Git Status), sec-2 (Git Diff Stat), sec-3 (File Notes), sec-4 (Full Diff)
+		// sec-4 (Full Diff) next should point to #1 (unstaged.ts) because it's the last section.
+		// It should not point to sec-5 or sec-6.
+		assert.match(content, /<a id="sec-4"><\/a>\s*\n## Full Diff\s*\n\[Previous\]\(#sec-3\) \| \[Back to top\]\(#index\) \| \[Next\]\(#1\)/);
+
+		// File 1 next should point to cmd-1
+		assert.match(content, /\` File: src\/unstaged\.ts \`\s*\[Previous\]\(#sec-4\) \| \[Back to top\]\(#index\) \| \[Next\]\(#cmd-1\)/);
+
+		// Non-overlapping range checks should be correct (only 4 sections + 1 file + 1 command = 6 ranges)
+		const lines = content.split("\n");
+		const ranges = [];
+		const listStartIdx = lines.findIndex(l => l.includes("<!-- PRODEX_INDEX_LIST_START -->"));
+		const listEndIdx = lines.findIndex(l => l.includes("<!-- PRODEX_INDEX_LIST_END -->"));
+		const indexLines = lines.slice(listStartIdx + 1, listEndIdx);
+		for (const line of indexLines) {
+			const m = line.match(/L(\d+)-L(\d+)/);
+			if (m) {
+				ranges.push({ start: parseInt(m[1], 10), end: parseInt(m[2], 10) });
+			}
+		}
+		assert.equal(ranges.length, 6);
+		for (let idx = 0; idx < ranges.length - 1; idx++) {
+			assert.ok(ranges[idx].end < ranges[idx + 1].start, `Overlap between index ${idx} and ${idx+1}`);
+		}
+
+		// Command Output (even with empty stdout/stderr) is preserved.
+		assert.match(content, /<!-- PRODEX_COMMAND_OUTPUT_COUNT: 1 -->/);
+		assert.match(content, /## Command 1: node -e ""/);
+	});
+});
+
+test("Preservation of real sections", async () => {
+	await usingTempProjectAsync(async (root) => {
+		initGitRepo(root);
+		writeJson(path.join(root, "prodex.json"), baseConfig());
+		execSync("git add prodex.json", { cwd: root, stdio: "ignore" });
+		execSync("git commit -m \"initial\"", { cwd: root, stdio: "ignore" });
+
+		// 1. Stage a modification so Git Cached Diff Stat and Cached Full Diff have actual content.
+		writeFile(path.join(root, "src/staged.ts"), "console.log('staged');");
+		execSync("git add src/staged.ts", { cwd: root, stdio: "ignore" });
+
+		// We have staged changes but no unstaged changes.
+		// That means:
+		// - Git Status: real
+		// - Git Diff Stat: '(no diff stat)' (which is NOT in our filter list, so it will be kept)
+		// - Git Cached Diff Stat: real (kept)
+		// - File Notes: '(none)' (filtered out)
+		// - Full Diff: '(no changes)' (filtered out)
+		// - Cached Full Diff: real (kept)
+		//
+		// Sections expected: Git Status, Git Diff Stat, Git Cached Diff Stat, Cached Full Diff
+		// (File Notes and Full Diff are omitted because they are placeholder-only)
+
+		const result = await runProdexCommand(
+			["node", "prodex", "git", "--staged", "--include-diff", "--format", "md"],
+			root
+		);
+
+		assert.equal(result.ok, true);
+		const content = fs.readFileSync(result.runs[0].outputPath, "utf8");
+
+		// Full Diff and File Notes should be omitted.
+		assert.doesNotMatch(content, /## Full Diff/);
+		assert.doesNotMatch(content, /- \[Full Diff\]/);
+		assert.doesNotMatch(content, /## File Notes/);
+		assert.doesNotMatch(content, /- \[File Notes\]/);
+
+		// Git Cached Diff Stat and Cached Full Diff should be preserved.
+		assert.match(content, /## Git Cached Diff Stat/);
+		assert.match(content, /## Cached Full Diff/);
+		assert.match(content, /- \[Git Cached Diff Stat\]/);
+		assert.match(content, /- \[Cached Full Diff\]/);
+		// Total sections should be 4 (out of 6 potential ones, omitting File Notes and Full Diff)
+		assert.match(content, /<!-- PRODEX_SECTION_COUNT: 4 -->/);
+	});
 });

@@ -20,13 +20,14 @@ export const COMMANDS = ["pack", "trace", "scope", "git", "init", "migrate", "ru
 
 export const FLAGS: FlagSpec[] = [
 	{ long: "entry", short: "e", type: "list" },
+	{ long: "target", short: "t", type: "list" },
 	{ long: "include", short: "i", type: "list" },
 	{ long: "exclude", short: "x", type: "list" },
 	{ long: "name", short: "n", type: "string" },
 	{ long: "format", short: "F", type: "string" },
-	{ long: "depth", type: "number" },
+	{ long: "depth", short: "d", type: "number" },
 	{ long: "maxFiles", type: "number" },
-	{ long: "debug", short: "d", type: "boolean" },
+	{ long: "debug", type: "boolean" },
 	{ long: "scope", short: "s", type: "list" },
 	{ long: "key", short: "k", type: "list" },
 	{ long: "all", short: "a", type: "boolean" },
