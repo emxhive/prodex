@@ -49,7 +49,7 @@ function reportRuns(runs: RunResult[]): void {
 }
 
 function reportRunWarningsAndErrors(run: RunResult): void {
-	const label = run.profile ? ` [${run.profile}]` : "";
+	const label = run.scopeKey ? ` [${run.scopeKey}]` : "";
 	for (const warning of run.warnings) console.warn(`Warning${label}: ${warning}`);
 	for (const error of run.errors) console.error(`Error${label}: ${error}`);
 }
@@ -91,13 +91,14 @@ function reportScopes(scopes: string[]): void {
 
 function formatRunLabel(run: RunResult): string {
 	if (run.outputName) return run.outputName;
-	if (run.profile) return run.profile;
+	if (run.scopeKey) return run.scopeKey;
 	if (!run.outputPath) return "run";
 
 	const ext = path.extname(run.outputPath);
 	const base = path.basename(run.outputPath, ext);
 	return base.replace(/-trace(?:_\d{6}-\d{4})?$/, "") || "run";
 }
+
 
 function formatPath(filePath: string, root: string): string {
 	const absolute = path.resolve(filePath);

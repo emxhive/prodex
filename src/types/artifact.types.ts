@@ -1,3 +1,5 @@
+import type { ProdexCommandKind, ProdexRunMode } from "./app.types";
+
 export interface FileSnapshot {
 	path: string;
 	content: string;
@@ -21,8 +23,8 @@ export interface CommandOutputResult {
 export interface ArtifactMetadata {
 	version: string;
 	timestamp: string;
-	commandKind: "pack" | "trace" | "scope";
-	mode: "trace" | "include-only" | "mixed";
+	commandKind: ProdexCommandKind;
+	mode: ProdexRunMode;
 	outputName?: string;
 	entries: string[];
 	includes: string[];

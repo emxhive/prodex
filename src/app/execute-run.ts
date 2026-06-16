@@ -1,11 +1,10 @@
 import fs from "fs";
 import { CacheManager } from "../cache/cache-manager";
-import { collectTraceSources } from "../tracing/collect-trace";
 import { setLoggerOptions } from "../diagnostics/logger";
 import { smartNaming } from "../output/naming";
-import { resolveEntries } from "./entry-resolver";
 import { executeAttachedCommand } from "../runtime/shell-command-runner";
 import { produceOutput } from "../output/produce-output";
+import { collectSources } from "./source-collector";
 import pkg from "../../package.json";
 import type { ExecutionPlan, RunResult, FileSnapshot, CommandOutputResult, ArtifactPayload } from "../types";
 
@@ -16,13 +15,11 @@ export async function executeRun(plan: ExecutionPlan): Promise<RunResult> {
 	const warnings: string[] = [];
 	const errors: string[] = [];
 
-	const resolveResult = await resolveEntries(plan);
-	warnings.push(...resolveResult.warnings);
-	errors.push(...resolveResult.errors);
+	const collectResult = await collectSources(plan);
+	warnings.push(...collectResult.warnings);
+	errors.push(...collectResult.errors);
 
-	const entries = resolveResult.entries;
-	const includes = plan.include ?? [];
-	const mode = getRunMode(entries.length, includes.length);
+	const { entries, includes, mode } = collectResult;
 
 	if (errors.length) {
 		return {
@@ -34,11 +31,11 @@ export async function executeRun(plan: ExecutionPlan): Promise<RunResult> {
 			files: [],
 			warnings,
 			errors,
-			profile: plan.scopeKey,
+			scopeKey: plan.scopeKey,
 		};
 	}
 
-	if (!entries.length && !includes.length) {
+	if (!collectResult.files.length) {
 		return {
 			ok: false,
 			root: plan.root,
@@ -46,44 +43,10 @@ export async function executeRun(plan: ExecutionPlan): Promise<RunResult> {
 			entries,
 			includes,
 			files: [],
-			warnings,
-			errors: ["No entry files found and no include patterns were configured."],
-			profile: plan.scopeKey,
-		};
-	}
-
-	const traceResult = await collectTraceSources({
-		cfg: {
-			root: plan.root,
-			name: plan.outputName,
-			entry: plan.entry,
-			include: plan.include,
-			exclude: plan.exclude,
-			aliases: plan.aliases,
-			depth: plan.depth,
-			maxFiles: plan.maxFiles,
-			output: plan.output,
-			scopes: {},
-			dryRun: plan.dryRun,
-		},
-		opts: {
-			entries,
-			outputName: plan.outputName,
-		},
-	});
-
-	if (!traceResult.files.length) {
-		return {
-			ok: false,
-			root: plan.root,
-			mode,
-			entries,
-			includes,
-			files: [],
-			stats: traceResult.stats,
+			stats: collectResult.stats,
 			warnings,
 			errors: ["No files matched the selected entries or include patterns."],
-			profile: plan.scopeKey,
+			scopeKey: plan.scopeKey,
 		};
 	}
 
@@ -103,18 +66,18 @@ export async function executeRun(plan: ExecutionPlan): Promise<RunResult> {
 			outputName: resolvedOutputName,
 			entries,
 			includes,
-			files: traceResult.files,
-			stats: traceResult.stats,
+			files: collectResult.files,
+			stats: collectResult.stats,
 			warnings,
 			errors,
-			profile: plan.scopeKey,
+			scopeKey: plan.scopeKey,
 			plannedCommands: plan.attachmentOptions?.commands ?? [],
 		};
 	}
 
 	// 1. Snapshot resolved files
 	const filesSnapshots: FileSnapshot[] = [];
-	for (const file of traceResult.files) {
+	for (const file of collectResult.files) {
 		try {
 			const content = fs.readFileSync(file, "utf8");
 			filesSnapshots.push({ path: file, content });
@@ -186,16 +149,10 @@ export async function executeRun(plan: ExecutionPlan): Promise<RunResult> {
 		outputName: resolvedOutputName,
 		entries,
 		includes,
-		files: traceResult.files,
-		stats: traceResult.stats,
+		files: collectResult.files,
+		stats: collectResult.stats,
 		warnings,
 		errors,
-		profile: plan.scopeKey,
+		scopeKey: plan.scopeKey,
 	};
-}
-
-function getRunMode(entryCount: number, includePatternCount: number): RunResult["mode"] {
-	if (entryCount && includePatternCount) return "mixed";
-	if (entryCount) return "trace";
-	return "include-only";
 }
