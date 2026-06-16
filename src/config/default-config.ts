@@ -12,7 +12,7 @@ export const DEFAULT_PRODEX_CONFIG: ProdexConfigFile = {
 	aliases: {
 		"@": "resources/js",
 	},
-	depth: 10,
+	depth: 2,
 	maxFiles: 200,
 	scopes: {},
 };

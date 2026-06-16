@@ -37,6 +37,8 @@ export interface ArtifactMetadata {
 	entries: string[];
 	includes: string[];
 	scopeKey?: string;
+	targets?: string[];
+	depth?: number;
 }
 
 export interface ArtifactPayload {

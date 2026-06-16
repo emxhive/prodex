@@ -1,4 +1,5 @@
 import { resolveEntries } from "./entry-resolver";
+import { resolveTargets } from "./target-resolver";
 import { collectTraceSources } from "../tracing/collect-trace";
 import type { ExecutionPlan, SourceCollectionResult } from "../types";
 
@@ -7,7 +8,9 @@ export async function collectDependencySources(plan: ExecutionPlan): Promise<Sou
 	const warnings: string[] = [];
 	const errors: string[] = [];
 
-	const resolveResult = await resolveEntries(plan);
+	const resolveResult = plan.command === "trace"
+		? await resolveTargets(plan)
+		: await resolveEntries(plan);
 	warnings.push(...resolveResult.warnings);
 	errors.push(...resolveResult.errors);
 

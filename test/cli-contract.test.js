@@ -109,16 +109,33 @@ test("pack specific validation rules are enforced", async () => {
 });
 
 test("trace specific validation rules are enforced", async () => {
-	// trace with no --entry fails because --entry is required
-	const traceNoEntry = await runProdexCommand(["node", "prodex", "trace"], repoRoot);
-	assert.equal(traceNoEntry.ok, false);
-	assert.match(traceNoEntry.errors.join("\n"), /Command "trace" requires --entry/);
+	// trace with no --target fails because --target is required
+	const traceNoTarget = await runProdexCommand(["node", "prodex", "trace"], repoRoot);
+	assert.equal(traceNoTarget.ok, false);
+	assert.match(traceNoTarget.errors.join("\n"), /Command "trace" requires --target/);
 
-	const result1 = await runProdexCommand(["node", "prodex", "trace", "-i", "notes/context.md"], repoRoot);
-	assert.equal(result1.ok, false);
-	assert.match(result1.errors.join("\n"), /trace.*does not accept.*--include/i);
+	// trace with --entry fails with the removal message
+	const traceWithEntry = await runProdexCommand(["node", "prodex", "trace", "--entry", "src/index.ts"], repoRoot);
+	assert.equal(traceWithEntry.ok, false);
+	assert.match(traceWithEntry.errors.join("\n"), /`prodex trace --entry` has been removed/);
 
-	const result2 = await runProdexCommand(["node", "prodex", "trace", "--scope", "dashboard"], repoRoot);
+	// trace with --target but no --depth warns and uses configured default depth (but fails because target is missing)
+	const traceNoDepth = await runProdexCommand(["node", "prodex", "trace", "--target", "userService"], repoRoot);
+	assert.equal(traceNoDepth.ok, false);
+	assert.match(traceNoDepth.warnings.join("\n"), /No --depth provided. Using configured default depth/);
+	assert.match(traceNoDepth.runs[0].errors.join("\n"), /Target "userService" did not match any files/);
+
+	// trace with --target and invalid depth fails
+	const traceInvalidDepth = await runProdexCommand(["node", "prodex", "trace", "--target", "userService", "--depth", "-2"], repoRoot);
+	assert.equal(traceInvalidDepth.ok, false);
+	assert.match(traceInvalidDepth.errors.join("\n"), /--depth must be an integer greater than or equal to 0/);
+
+	const traceFloatDepth = await runProdexCommand(["node", "prodex", "trace", "--target", "userService", "--depth", "1.5"], repoRoot);
+	assert.equal(traceFloatDepth.ok, false);
+	assert.match(traceFloatDepth.errors.join("\n"), /--depth must be an integer greater than or equal to 0/);
+
+	// trace with --scope is still rejected
+	const result2 = await runProdexCommand(["node", "prodex", "trace", "--target", "userService", "--depth", "1", "--scope", "dashboard"], repoRoot);
 	assert.equal(result2.ok, false);
 	assert.match(result2.errors.join("\n"), /trace.*does not accept.*--scope/i);
 });
@@ -314,7 +331,7 @@ test("trace command produces tracing output and respects depth limit", async () 
 		writeFile(path.join(root, "src", "deep.ts"), "export const deep = true;\n");
 
 		const result = await runProdexCommand(
-			["node", "prodex", "trace", "-e", "src/index.ts", "--depth", "1", "-n", "trace-output", "--format", "txt"],
+			["node", "prodex", "trace", "-t", "src/index.ts", "--depth", "1", "-n", "trace-output", "--format", "txt"],
 			root
 		);
 
@@ -442,7 +459,7 @@ test("prodex trace uses smart naming if no --name is provided", async () => {
 		writeJson(path.join(root, "prodex.json"), baseConfig());
 		writeFile(path.join(root, "src", "index.ts"), "export const index = 1;\n");
 
-		const res = await runProdexCommand(["node", "prodex", "trace", "-e", "src/index.ts", "--format", "txt"], root);
+		const res = await runProdexCommand(["node", "prodex", "trace", "-t", "src/index.ts", "--depth", "0", "--format", "txt"], root);
 		assert.equal(res.ok, true);
 		assert.match(path.basename(res.runs[0].outputPath), /^index-trace_/);
 	});
@@ -468,7 +485,7 @@ test("dry-runs for pack, trace, and scope appear in reporter summary", async () 
 		assert.match(packStdout, /✓ pack-dry\s+include-only\s+1 files\s+0\.00 MB\s+dry-run/);
 
 		// 2. Trace dry-run
-		const traceRes = await runProdexCommand(["node", "prodex", "trace", "--dry-run", "-e", "src/dashboard.ts"], root);
+		const traceRes = await runProdexCommand(["node", "prodex", "trace", "--dry-run", "-t", "src/dashboard.ts", "--depth", "0"], root);
 		assert.equal(traceRes.ok, true);
 		const traceStdout = captureStdout(() => reportCommandResult(traceRes));
 		assert.match(traceStdout, /✓ dashboard\s+trace\s+1 files\s+0\.00 MB\s+dry-run/);
@@ -495,97 +512,112 @@ test("init creates a config version 5 and refuses accidental overwrite", async (
 	});
 });
 
-test("entry resolve fallback and discovery feature", async () => {
+test("trace target and strict entry behavior", async () => {
 	await usingTempProjectAsync(async (root) => {
-		writeJson(path.join(root, "prodex.json"), baseConfig({
-			scopes: {
-				dashboard: {
-					entry: ["dashboard"]
-				}
-			}
-		}));
-		writeFile(path.join(root, "src/index.ts"), "export const index = true;\n");
+		writeJson(path.join(root, "prodex.json"), baseConfig());
+		writeFile(path.join(root, "src/index.ts"), "import './helper';\nexport const index = true;\n");
 		writeFile(path.join(root, "src/helper.ts"), "export const helper = true;\n");
 		writeFile(path.join(root, "resources/js/pages/Dashboard.tsx"), "export const dash = 1;\n");
 		writeFile(path.join(root, "README.md"), "# README\n");
 
-		// 1. Exact match
-		const exactRes = await runProdexCommand(["node", "prodex", "trace", "-e", "src/index.ts", "--dry-run"], root);
-		assert.equal(exactRes.ok, true);
-		assert.deepEqual(exactRes.runs[0].entries.map(f => path.basename(f)).sort(), ["index.ts"]);
+		// 1. pack --entry accepts exact paths
+		const packExact = await runProdexCommand(["node", "prodex", "pack", "--entry", "src/index.ts", "-n", "p-exact", "--format", "txt"], root);
+		assert.equal(packExact.ok, true);
+		assert.deepEqual(packExact.runs[0].entries.map(f => path.basename(f)).sort(), ["index.ts"]);
 
-		// 2. Glob match with multiple files
-		const globRes = await runProdexCommand(["node", "prodex", "trace", "-e", "src/*.ts", "--dry-run"], root);
-		assert.equal(globRes.ok, true);
-		assert.deepEqual(globRes.runs[0].entries.map(f => path.basename(f)).sort(), ["helper.ts", "index.ts"]);
+		// 2. pack --entry accepts globs
+		const packGlob = await runProdexCommand(["node", "prodex", "pack", "--entry", "src/*.ts", "-n", "p-glob", "--format", "txt"], root);
+		assert.equal(packGlob.ok, true);
+		assert.deepEqual(packGlob.runs[0].entries.map(f => path.basename(f)).sort(), ["helper.ts", "index.ts"]);
 
-		// 3. Extensionless path expansion
-		const extRes = await runProdexCommand(["node", "prodex", "trace", "-e", "src/index", "--dry-run"], root);
-		assert.equal(extRes.ok, true);
-		assert.deepEqual(extRes.runs[0].entries.map(f => path.basename(f)).sort(), ["index.ts"]);
+		// 3. pack --entry index fails if no literal/glob match exists
+		const packFail = await runProdexCommand(["node", "prodex", "pack", "--entry", "index", "-n", "p-fail", "--format", "txt"], root);
+		assert.equal(packFail.ok, false);
+		assert.match(packFail.runs[0].errors.join("\n"), /Entry "index" did not match any files/);
 
-		// 4. Bare-name discovery
-		const bareRes = await runProdexCommand(["node", "prodex", "trace", "-e", "index", "--dry-run"], root);
-		assert.equal(bareRes.ok, true);
-		assert.deepEqual(bareRes.runs[0].entries.map(f => path.basename(f)).sort(), ["index.ts"]);
+		// 4. trace --entry fails with the removal message
+		const traceEntryFail = await runProdexCommand(["node", "prodex", "trace", "--entry", "src/index.ts"], root);
+		assert.equal(traceEntryFail.ok, false);
+		assert.match(traceEntryFail.errors.join("\n"), /`prodex trace --entry` has been removed/);
 
-		// 5. Bare-name discovery for dashboard
-		const dashRes = await runProdexCommand(["node", "prodex", "trace", "-e", "dashboard", "--dry-run"], root);
-		assert.equal(dashRes.ok, true);
-		assert.deepEqual(dashRes.runs[0].entries.map(f => path.basename(f)).sort(), ["Dashboard.tsx"]);
+		// 5. trace without --target fails
+		const traceNoTarget = await runProdexCommand(["node", "prodex", "trace", "--depth", "1"], root);
+		assert.equal(traceNoTarget.ok, false);
+		assert.match(traceNoTarget.errors.join("\n"), /Command "trace" requires --target/);
 
-		// 6. Case-insensitive bare-name matching
-		const caseRes = await runProdexCommand(["node", "prodex", "trace", "-e", "DASHboard", "--dry-run"], root);
-		assert.equal(caseRes.ok, true);
-		assert.deepEqual(caseRes.runs[0].entries.map(f => path.basename(f)).sort(), ["Dashboard.tsx"]);
+		// 6. trace -t auth without --depth proceeds using configured depth and warns
+		const traceNoDepth = await runProdexCommand(["node", "prodex", "trace", "--target", "src/index.ts", "--format", "txt"], root);
+		assert.equal(traceNoDepth.ok, true);
+		assert.match(traceNoDepth.warnings.join("\n"), /No --depth provided. Using configured default depth: 2/);
+		assert.deepEqual(traceNoDepth.runs[0].files.map(f => path.basename(f)).sort(), ["helper.ts", "index.ts"]);
 
-		// 7. Ambiguity failure: multiple matching files for bare-name
-		writeFile(path.join(root, "resources/js/components/Dashboard.tsx"), "export const another = 2;\n");
-		const ambigRes = await runProdexCommand(["node", "prodex", "trace", "-e", "dashboard", "--dry-run"], root);
-		assert.equal(ambigRes.ok, false);
-		assert.equal(ambigRes.exitCode, 1);
-		assert.match(ambigRes.runs[0].errors.join("\n"), /Entry "dashboard" matched multiple files/);
-		assert.match(ambigRes.runs[0].errors.join("\n"), /resources\/js\/pages\/Dashboard\.tsx/);
-		assert.match(ambigRes.runs[0].errors.join("\n"), /resources\/js\/components\/Dashboard\.tsx/);
+		// trace -t auth --depth 4 uses CLI depth and does not emit the default-depth warning
+		const traceWithDepth = await runProdexCommand(["node", "prodex", "trace", "--target", "src/index.ts", "--depth", "1", "--format", "txt"], root);
+		assert.equal(traceWithDepth.ok, true);
+		assert.equal(traceWithDepth.warnings.length, 0);
 
-		// 8. Exclude resolves ambiguity
-		const exRes = await runProdexCommand(["node", "prodex", "trace", "-e", "dashboard", "-x", "**/components/**", "--dry-run"], root);
-		assert.equal(exRes.ok, true);
-		assert.deepEqual(exRes.runs[0].entries.map(f => path.basename(f)).sort(), ["Dashboard.tsx"]);
+		// trace -t auth -d 4 works as a depth override
+		const traceWithShortDepth = await runProdexCommand(["node", "prodex", "trace", "--target", "src/index.ts", "-d", "1", "--format", "txt"], root);
+		assert.equal(traceWithShortDepth.ok, true);
+		assert.equal(traceWithShortDepth.warnings.length, 0);
+		assert.deepEqual(traceWithShortDepth.runs[0].files.map(f => path.basename(f)).sort(), ["helper.ts", "index.ts"]);
 
-		// 9. Zero matches error
-		const zeroRes = await runProdexCommand(["node", "prodex", "trace", "-e", "missing", "--dry-run"], root);
-		assert.equal(zeroRes.ok, false);
-		assert.equal(zeroRes.exitCode, 1);
-		assert.match(zeroRes.runs[0].errors.join("\n"), /Entry "missing" did not match any files/);
+		// invalid configured depth fails clearly
+		writeJson(path.join(root, "prodex.json"), baseConfig({ depth: -1 }));
+		const traceInvalidConfigDepth = await runProdexCommand(["node", "prodex", "trace", "--target", "src/index.ts"], root);
+		assert.equal(traceInvalidConfigDepth.ok, false);
+		assert.match(traceInvalidConfigDepth.errors.join("\n"), /--depth must be an integer greater than or equal to 0/);
+		// restore base config
+		writeJson(path.join(root, "prodex.json"), baseConfig());
 
-		// 10. Ambiguity failure: extensionless path expansion matches multiple files (e.g. index.ts and index.tsx)
-		writeFile(path.join(root, "src/index.tsx"), "export const reactIndex = true;\n");
-		const pathAmbigRes = await runProdexCommand(["node", "prodex", "trace", "-e", "src/index", "--dry-run"], root);
-		assert.equal(pathAmbigRes.ok, false);
-		assert.equal(pathAmbigRes.exitCode, 1);
-		assert.match(pathAmbigRes.runs[0].errors.join("\n"), /Entry "src\/index" matched multiple files/);
-		assert.match(pathAmbigRes.runs[0].errors.join("\n"), /src\/index\.ts/);
-		assert.match(pathAmbigRes.runs[0].errors.join("\n"), /src\/index\.tsx/);
+		// --debug remains accepted only as long form
+		const traceDebugLong = await runProdexCommand(["node", "prodex", "trace", "--target", "src/index.ts", "--depth", "0", "--debug"], root);
+		assert.equal(traceDebugLong.ok, true);
 
-		// Clean up the index.tsx and duplicate Dashboard.tsx to avoid affecting other scope/pack tests
-		fs.rmSync(path.join(root, "src/index.tsx"), { force: true });
+		// -d no longer means debug
+		const traceDebugShort = await runProdexCommand(["node", "prodex", "trace", "--target", "src/index.ts", "-d"], root);
+		assert.equal(traceDebugShort.ok, false);
+		assert.match(traceDebugShort.errors.join("\n"), /Flag "-d" expects a value/);
+
+		// 7. trace --target x --depth 0 includes only the resolved target file
+		const traceDepth0 = await runProdexCommand(["node", "prodex", "trace", "--target", "src/index.ts", "--depth", "0", "--format", "txt"], root);
+		assert.equal(traceDepth0.ok, true);
+		assert.deepEqual(traceDepth0.runs[0].files.map(f => path.basename(f)).sort(), ["index.ts"]);
+
+		// 8. trace --target x --depth 1 includes direct dependencies
+		const traceDepth1 = await runProdexCommand(["node", "prodex", "trace", "--target", "src/index.ts", "--depth", "1", "--format", "txt"], root);
+		assert.equal(traceDepth1.ok, true);
+		assert.deepEqual(traceDepth1.runs[0].files.map(f => path.basename(f)).sort(), ["helper.ts", "index.ts"]);
+
+		// 9. trace --target index --depth 1 resolves uniquely when one match exists
+		const traceUnique = await runProdexCommand(["node", "prodex", "trace", "--target", "dashboard", "--depth", "0", "--format", "txt"], root);
+		assert.equal(traceUnique.ok, true);
+		assert.deepEqual(traceUnique.runs[0].files.map(f => path.basename(f)).sort(), ["Dashboard.tsx"]);
+
+		// 10. trace --target index --depth 1 fails with listed matches when ambiguous
+		writeFile(path.join(root, "resources/js/components/Dashboard.tsx"), "export const comp = 1;\n");
+		const traceAmbig = await runProdexCommand(["node", "prodex", "trace", "--target", "dashboard", "--depth", "1"], root);
+		assert.equal(traceAmbig.ok, false);
+		assert.match(traceAmbig.runs[0].errors.join("\n"), /Ambiguous target "dashboard"/);
+		assert.match(traceAmbig.runs[0].errors.join("\n"), /resources\/js\/pages\/Dashboard\.tsx/);
+		assert.match(traceAmbig.runs[0].errors.join("\n"), /resources\/js\/components\/Dashboard\.tsx/);
+		// Clean up components Dashboard
 		fs.rmSync(path.join(root, "resources/js/components/Dashboard.tsx"), { force: true });
 
-		// 11. Pack CLI integration
-		const packRes = await runProdexCommand(["node", "prodex", "pack", "-e", "dashboard", "-i", "README.md", "-n", "review", "--dry-run"], root);
-		assert.equal(packRes.ok, true);
-		assert.deepEqual(packRes.runs[0].entries.map(f => path.basename(f)).sort(), ["Dashboard.tsx"]);
+		// 11. trace --target missing --depth 1 fails clearly
+		const traceMissing = await runProdexCommand(["node", "prodex", "trace", "--target", "missing", "--depth", "1"], root);
+		assert.equal(traceMissing.ok, false);
+		assert.match(traceMissing.runs[0].errors.join("\n"), /Target "missing" did not match any files/);
 
-		// 12. Scope integration
-		const scopeRes = await runProdexCommand(["node", "prodex", "scope", "-k", "dashboard", "--dry-run"], root);
-		assert.equal(scopeRes.ok, true);
-		assert.deepEqual(scopeRes.runs[0].entries.map(f => path.basename(f)).sort(), ["Dashboard.tsx"]);
+		// 12. trace --target "src/**/*.ts" --depth 1 fails because globs are not valid targets
+		const traceGlob = await runProdexCommand(["node", "prodex", "trace", "--target", "src/**/*.ts", "--depth", "1"], root);
+		assert.equal(traceGlob.ok, false);
+		assert.match(traceGlob.runs[0].errors.join("\n"), /Command "trace" does not accept glob targets/);
 
-		// 13. Includes remaining literal/glob-based (no discovery)
-		const includeRes = await runProdexCommand(["node", "prodex", "pack", "-i", "README.md", "-n", "incl", "--dry-run"], root);
-		assert.equal(includeRes.ok, true);
-		assert.deepEqual(includeRes.runs[0].files.map(f => path.basename(f)), ["README.md"]);
+		// 13. trace --include appends files directly and does not create trace roots
+		const traceInclude = await runProdexCommand(["node", "prodex", "trace", "--target", "dashboard", "--depth", "0", "--include", "README.md", "--format", "txt"], root);
+		assert.equal(traceInclude.ok, true);
+		assert.deepEqual(traceInclude.runs[0].files.map(f => path.basename(f)).sort(), ["Dashboard.tsx", "README.md"]);
 	});
 });
 
@@ -596,7 +628,7 @@ function baseConfig(overrides = {}) {
 		output: { dir: "prodex", versioned: true, format: "md" },
 		exclude: ["node_modules/**"],
 		aliases: {},
-		depth: 10,
+		depth: 2,
 		maxFiles: 200,
 		scopes: {},
 		...overrides,

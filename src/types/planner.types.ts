@@ -37,6 +37,7 @@ export interface ExecutionPlan {
 	command: ProdexCommandKind;
 	outputName?: string;
 	entry: string[];
+	target?: string[];
 	include: string[];
 	exclude: string[];
 	depth: number;
