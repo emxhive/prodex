@@ -1,5 +1,6 @@
 import type { ProdexFlags } from "./cli.types";
 import type { CommandAttachmentOptions } from "./artifact.types";
+import type { ProdexCommandKind } from "./app.types";
 
 export type CommandIntent =
 	| {
@@ -20,7 +21,7 @@ export type CommandIntent =
 
 export interface ExecutionPlan {
 	root: string;
-	command: "pack" | "trace" | "scope";
+	command: ProdexCommandKind;
 	outputName?: string;
 	entry: string[];
 	include: string[];

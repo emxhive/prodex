@@ -3,6 +3,20 @@ import type { ProdexFlags } from "./cli.types";
 import type { ProdexConfig } from "./config.types";
 import type { ChainResult } from "./tracing.types";
 
+export type ProdexCommandKind = "pack" | "trace" | "scope";
+export type ProdexRunMode = "trace" | "include-only" | "mixed";
+
+export interface SourceCollectionResult {
+	files: string[];
+	entries: string[];
+	includes: string[];
+	mode: ProdexRunMode;
+	stats?: ChainResult["stats"];
+	warnings: string[];
+	errors: string[];
+}
+
+
 export type CliCommand =
 	| { kind: "pack"; rootArg?: string; flags: Partial<ProdexFlags> }
 	| { kind: "trace"; rootArg?: string; flags: Partial<ProdexFlags> }
@@ -23,13 +37,13 @@ export interface RunPlan {
 	config: ProdexConfig;
 	flags: Partial<ProdexFlags>;
 	outputName?: string;
-	profile?: string;
+	scopeKey?: string;
 }
 
 export interface RunResult {
 	ok: boolean;
 	root: string;
-	mode: "trace" | "include-only" | "mixed";
+	mode: ProdexRunMode;
 	outputPath?: string;
 	outputSizeBytes?: number;
 	outputName?: string;
@@ -39,7 +53,7 @@ export interface RunResult {
 	stats?: ChainResult["stats"];
 	warnings: string[];
 	errors: string[];
-	profile?: string;
+	scopeKey?: string;
 	plannedCommands?: string[];
 }
 
