@@ -35,7 +35,8 @@ export async function executeRun(plan: ExecutionPlan): Promise<RunResult> {
 		};
 	}
 
-	if (!collectResult.files.length) {
+	const hasContent = collectResult.files.length > 0 || (collectResult.sections && collectResult.sections.length > 0);
+	if (!hasContent) {
 		return {
 			ok: false,
 			root: plan.root,
@@ -45,7 +46,7 @@ export async function executeRun(plan: ExecutionPlan): Promise<RunResult> {
 			files: [],
 			stats: collectResult.stats,
 			warnings,
-			errors: ["No files matched the selected entries or include patterns."],
+			errors: ["No files or metadata sections matched the selected options."],
 			scopeKey: plan.scopeKey,
 		};
 	}
@@ -111,6 +112,7 @@ export async function executeRun(plan: ExecutionPlan): Promise<RunResult> {
 	// 3. Construct payload and write output
 	const payload: ArtifactPayload = {
 		root: plan.root,
+		sections: collectResult.sections,
 		files: filesSnapshots,
 		commandOutputs,
 		metadata: {

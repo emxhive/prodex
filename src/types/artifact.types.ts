@@ -6,6 +6,14 @@ export interface FileSnapshot {
 	readError?: string;
 }
 
+export interface ArtifactSection {
+	id: string;
+	title: string;
+	kind: "text" | "code";
+	language?: string;
+	content: string;
+}
+
 export interface CommandOutputResult {
 	command: string;
 	cwd: string;
@@ -33,6 +41,7 @@ export interface ArtifactMetadata {
 
 export interface ArtifactPayload {
 	root: string;
+	sections?: ArtifactSection[];
 	files: FileSnapshot[];
 	commandOutputs?: CommandOutputResult[];
 	metadata: ArtifactMetadata;

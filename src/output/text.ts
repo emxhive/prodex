@@ -1,13 +1,21 @@
 import { rel } from "../filesystem/read-file";
-import type { ArtifactPayload, CommandOutputResult } from "../types";
+import type { ArtifactPayload, CommandOutputResult, ArtifactSection } from "../types";
 
 export function renderTxt(payload: ArtifactPayload): string {
 	const root = payload.root;
 	const sorted = [...payload.files].sort((a, b) => a.path.localeCompare(b.path));
 
-	const toc = ["##==== Combined Scope ====", ...sorted.map((file) => "## - " + rel(file.path, root))].join("\n") + "\n\n";
+	const sectionToc = (payload.sections ?? []).map((sec) => "## - Section: " + sec.title);
+	const fileToc = sorted.map((file) => "## - File: " + rel(file.path, root));
+	const toc = ["##==== Combined Scope ====", ...sectionToc, ...fileToc].join("\n") + "\n\n";
 
-	const sections = sorted
+	const genericSections = (payload.sections ?? [])
+		.map((sec) => {
+			return ["##==== section: " + sec.title + " ====", "##region " + sec.title, sec.content, "##endregion", ""].join("\n");
+		})
+		.join("");
+
+	const fileSections = sorted
 		.map((file) => {
 			const relativePath = rel(file.path, root);
 			const code = file.readError ? `Error reading file: ${file.readError}` : file.content;
@@ -17,7 +25,7 @@ export function renderTxt(payload: ArtifactPayload): string {
 
 	const cmdAttachments = renderTxtCmdResults(payload.commandOutputs, root);
 
-	return [toc, sections, cmdAttachments].join("");
+	return [toc, genericSections, fileSections, cmdAttachments].join("");
 }
 
 function renderTxtCmdResults(cmdResults?: CommandOutputResult[], root = process.cwd()): string {

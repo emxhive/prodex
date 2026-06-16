@@ -3,6 +3,7 @@ import { migrateCommand } from "./commands/migrate-command";
 import { packCommand } from "./commands/pack-command";
 import { traceCommand } from "./commands/trace-command";
 import { scopeCommand } from "./commands/scope-command";
+import { gitCommand } from "./commands/git-command";
 import { parseCliInput } from "./cli/cli-input";
 import { renderHelp, renderVersion, reportCommandResult } from "./cli/reporter";
 import type { CommandResult } from "./types";
@@ -124,6 +125,25 @@ export async function runProdexCommand(args = process.argv, cwd = process.cwd())
 			warnings,
 			errors,
 			runs: scope.runs,
+		};
+	}
+
+	if (parsed.command.kind === "git") {
+		const gitRes = await gitCommand({
+			rootArg: parsed.command.rootArg,
+			flags: parsed.command.flags,
+			cwd,
+		});
+		warnings.push(...gitRes.warnings);
+		errors.push(...gitRes.errors);
+		if (errors.length) return { ok: false, exitCode: 1, warnings, errors, runs: [] };
+		const ok = gitRes.runs.every((item) => item.ok);
+		return {
+			ok,
+			exitCode: ok ? 0 : 1,
+			warnings,
+			errors,
+			runs: gitRes.runs,
 		};
 	}
 

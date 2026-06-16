@@ -4,6 +4,7 @@ export function renderHelp(topic?: string): string {
 	if (topic === "pack") return renderPackHelp();
 	if (topic === "trace") return renderTraceHelp();
 	if (topic === "scope") return renderScopeHelp();
+	if (topic === "git") return renderGitHelp();
 	if (topic === "init") return renderInitHelp();
 	if (topic === "migrate") return renderMigrateHelp();
 
@@ -12,6 +13,7 @@ export function renderHelp(topic?: string): string {
 		"  prodex pack [root] [options]",
 		"  prodex trace [root] [options]",
 		"  prodex scope [root] [options]",
+		"  prodex git [root] [options]",
 		"  prodex init [root]",
 		"  prodex migrate [root] [--write|--check]",
 		"",
@@ -108,5 +110,28 @@ function renderMigrateHelp(): string {
 		"Options:",
 		"  --write                  Back up and update prodex.json.",
 		"  --check                  Exit nonzero if migration is required.",
+	].join("\n");
+}
+
+function renderGitHelp(): string {
+	return [
+		"Usage:",
+		"  prodex git [root] [options]",
+		"",
+		"Options:",
+		"  --changed                 Include staged, unstaged, and untracked changes (default).",
+		"  --staged                  Include staged changes.",
+		"  --unstaged                Include unstaged changes.",
+		"  --untracked               Include untracked files.",
+		"  --include-diff            Include full git diff output in generic sections.",
+		"  -i, --include <glob>      Extra file/glob to append. Repeatable and comma-aware.",
+		"  -x, --exclude <glob>      File/glob to skip. Repeatable and comma-aware.",
+		"  -n, --name <name>         Output basename for this run.",
+		"  -F, --format <md|txt>     Output format.",
+		"  --dry-run                 Perform a dry-run without writing output files.",
+		"  --cmd <command>           Run command sequentially for evidence capture. Repeatable.",
+		"  --cmd-timeout <seconds>   Command execution timeout (default: 180).",
+		"  --fail-on-cmd-error       Enforce nonzero exit if commands fail.",
+		"  -h, --help                Show git help.",
 	].join("\n");
 }

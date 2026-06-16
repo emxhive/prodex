@@ -9,7 +9,7 @@ export function parseCliInput(argv: string[] = process.argv): CliParseResult {
 	const flags: Partial<ProdexFlags> = {};
 
 	if (!tokens.length) {
-		errors.push("Missing command. Use `prodex pack`, `prodex trace`, `prodex scope`, or `prodex migrate`.");
+		errors.push("Missing command. Use `prodex pack`, `prodex trace`, `prodex scope`, `prodex git`, or `prodex migrate`.");
 		return { warnings, errors };
 	}
 
@@ -23,7 +23,7 @@ export function parseCliInput(argv: string[] = process.argv): CliParseResult {
 
 	const commandName = tokens[0];
 	if (!isCommand(commandName)) {
-		errors.push(`Unknown command "${commandName}". Use pack, trace, scope, or migrate.`);
+		errors.push(`Unknown command "${commandName}". Use pack, trace, scope, git, or migrate.`);
 		return { warnings, errors };
 	}
 
@@ -92,6 +92,9 @@ export function parseCliInput(argv: string[] = process.argv): CliParseResult {
 	}
 	if (commandName === "scope") {
 		return { command: { kind: "scope", rootArg, flags }, warnings, errors };
+	}
+	if (commandName === "git") {
+		return { command: { kind: "git", rootArg, flags }, warnings, errors };
 	}
 
 	return { warnings, errors };

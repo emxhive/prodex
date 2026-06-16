@@ -16,7 +16,7 @@ export type FlagSpec = {
 	type: "boolean" | "string" | "number" | "list" | "raw-list";
 };
 
-export const COMMANDS = ["pack", "trace", "scope", "init", "migrate", "run", "profiles"] as const;
+export const COMMANDS = ["pack", "trace", "scope", "git", "init", "migrate", "run", "profiles"] as const;
 
 export const FLAGS: FlagSpec[] = [
 	{ long: "entry", short: "e", type: "list" },
@@ -40,6 +40,13 @@ export const FLAGS: FlagSpec[] = [
 	{ long: "help", short: "h", type: "boolean" },
 	{ long: "version", short: "v", type: "boolean" },
 
+	// Git specific flags
+	{ long: "changed", type: "boolean" },
+	{ long: "staged", type: "boolean" },
+	{ long: "unstaged", type: "boolean" },
+	{ long: "untracked", type: "boolean" },
+	{ long: "includeDiff", type: "boolean" },
+
 	// Deprecated / legacy flags (parsed to return guided errors)
 	{ long: "profile", short: "p", type: "list" },
 	{ long: "allProfiles", type: "boolean" },
@@ -53,6 +60,7 @@ export const FLAG_ALIASES: Record<string, FlagName> = {
 	"max-depth": "maxDepth",
 	"cmd-timeout": "cmdTimeout",
 	"fail-on-cmd-error": "failOnCmdError",
+	"include-diff": "includeDiff",
 };
 
 export const FLAGS_BY_LONG = new Map(FLAGS.map((flag) => [flag.long, flag]));
