@@ -1,4 +1,5 @@
 import type { ProdexFlags } from "./cli.types";
+import type { CommandAttachmentOptions } from "./artifact.types";
 
 export type CommandIntent =
 	| {
@@ -34,4 +35,5 @@ export interface ExecutionPlan {
 	};
 	dryRun: boolean;
 	scopeKey?: string;
+	attachmentOptions?: CommandAttachmentOptions;
 }

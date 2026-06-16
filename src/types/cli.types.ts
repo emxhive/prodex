@@ -38,6 +38,15 @@ export interface ProdexFlags {
 	/** Perform a dry-run execution. */
 	dryRun?: boolean;
 
+	/** Sequential attached shell commands to execute. */
+	cmd?: string[];
+
+	/** Per-command timeout in seconds. */
+	cmdTimeout?: number | null;
+
+	/** Enforce strict mode, exiting nonzero if any command fails. */
+	failOnCmdError?: boolean;
+
 	/** Deprecated legacy flags */
 	profile?: string[];
 	allProfiles?: boolean;

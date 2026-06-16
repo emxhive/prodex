@@ -1,4 +1,4 @@
-import type { ProdexConfigFile, ProdexFlags, ExecutionPlan, CommandIntent, ProdexScope } from "../types";
+import type { ProdexConfigFile, ProdexFlags, ExecutionPlan, CommandIntent, ProdexScope, CommandAttachmentOptions } from "../types";
 import { DEFAULT_PRODEX_CONFIG } from "../config/default-config";
 import { sanitizeFileName } from "../filesystem/path";
 
@@ -7,6 +7,48 @@ export interface PlannerResult {
 	warnings: string[];
 	errors: string[];
 	listScopes?: string[];
+}
+
+function parseCommandAttachmentOptions(flags: Partial<ProdexFlags>, errors: string[]): CommandAttachmentOptions | undefined {
+	const commands = flags.cmd ?? [];
+	const hasCmd = commands.length > 0;
+	const hasTimeout = flags.cmdTimeout !== undefined && flags.cmdTimeout !== null;
+	const hasFailOnError = flags.failOnCmdError !== undefined;
+
+	// Reject command-specific flags when no command is provided
+	if ((hasTimeout || hasFailOnError) && !hasCmd) {
+		errors.push("Command attachment options (--cmd-timeout, --fail-on-cmd-error) require providing at least one command using --cmd.");
+	}
+
+	// Reject blank commands
+	for (const cmd of commands) {
+		if (!cmd.trim()) {
+			errors.push("Command string specified via --cmd cannot be blank.");
+		}
+	}
+
+	// Always validate timeout if specified
+	let timeoutSeconds = 180;
+	if (hasTimeout) {
+		const val = flags.cmdTimeout;
+		if (typeof val !== "number" || !Number.isFinite(val) || val <= 0) {
+			errors.push("Flag --cmd-timeout expects a positive finite number.");
+		} else {
+			timeoutSeconds = val;
+		}
+	}
+
+	if (commands.length === 0) {
+		return undefined;
+	}
+
+	const failOnError = !!flags.failOnCmdError;
+
+	return {
+		commands,
+		timeoutSeconds,
+		failOnError,
+	};
 }
 
 export function createExecutionPlans(params: {
@@ -28,6 +70,7 @@ export function createExecutionPlans(params: {
 	};
 
 	const flags = intent.flags ?? {};
+	const attachmentOptions = parseCommandAttachmentOptions(flags, errors);
 
 	if (intent.kind === "pack") {
 		// Validation
@@ -67,6 +110,10 @@ export function createExecutionPlans(params: {
 		const mergedInclude = [...scopeIncludes, ...(flags.include ?? [])];
 		const mergedExclude = [...rootExclude, ...scopeExcludes, ...(flags.exclude ?? [])];
 
+		if (errors.length) {
+			return { plans: [], warnings, errors };
+		}
+
 		const plan: ExecutionPlan = {
 			root,
 			command: "pack",
@@ -83,6 +130,7 @@ export function createExecutionPlans(params: {
 				format: flags.format ?? defaultOutput.format,
 			},
 			dryRun: !!flags.dryRun,
+			attachmentOptions,
 		};
 
 		return { plans: [plan], warnings, errors };
@@ -123,6 +171,7 @@ export function createExecutionPlans(params: {
 				format: flags.format ?? defaultOutput.format,
 			},
 			dryRun: !!flags.dryRun,
+			attachmentOptions,
 		};
 
 		return { plans: [plan], warnings, errors };
@@ -165,7 +214,15 @@ export function createExecutionPlans(params: {
 		const availableScopes = Object.keys(userConfig.scopes ?? {}).sort();
 
 		if (hasList) {
+			if ((flags.cmd && flags.cmd.length > 0) || flags.cmdTimeout !== undefined || flags.failOnCmdError !== undefined) {
+				errors.push('Option "--list" cannot be used with command attachment options.');
+				return { plans: [], warnings, errors };
+			}
 			return { plans: [], warnings, errors, listScopes: availableScopes };
+		}
+
+		if (errors.length) {
+			return { plans: [], warnings, errors };
 		}
 
 		let targetKeys: string[] = [];
@@ -205,6 +262,7 @@ export function createExecutionPlans(params: {
 				},
 				dryRun: !!flags.dryRun,
 				scopeKey: key,
+				attachmentOptions,
 			});
 		}
 

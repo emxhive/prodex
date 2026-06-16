@@ -16,14 +16,21 @@ export function reportCommandResult(result: CommandResult): void {
 function reportRuns(runs: RunResult[]): void {
 	for (const run of runs) {
 		reportRunWarningsAndErrors(run);
+		if (run.plannedCommands && run.plannedCommands.length > 0) {
+			console.log(`[dry-run] Planned command attachments to run in sequence:`);
+			for (const cmd of run.plannedCommands) {
+				console.log(`  - ${cmd}`);
+			}
+		}
 	}
 
-	const successfulRuns = runs.filter((run) => run.ok);
-	if (!successfulRuns.length) return;
+	const reportableRuns = runs.filter((run) => run.ok || run.outputPath);
+	if (!reportableRuns.length) return;
 
-	const rows = successfulRuns.map((run) => {
+	const rows = reportableRuns.map((run) => {
 		const sizeMb = run.outputSizeBytes !== undefined ? (run.outputSizeBytes / (1024 * 1024)).toFixed(2) : "0.00";
 		return {
+			icon: run.ok ? "✓" : "✗",
 			label: formatRunLabel(run),
 			mode: run.mode,
 			files: `${run.files.length} files`,
@@ -37,7 +44,7 @@ function reportRuns(runs: RunResult[]): void {
 	const sizeWidth = maxWidth(rows.map((row) => row.size));
 
 	for (const row of rows) {
-		console.log(`✓ ${row.label.padEnd(labelWidth)}  ${row.mode.padEnd(modeWidth)}  ${row.files.padStart(filesWidth)}  ${row.size.padStart(sizeWidth)}  ${row.output}`);
+		console.log(`${row.icon} ${row.label.padEnd(labelWidth)}  ${row.mode.padEnd(modeWidth)}  ${row.files.padStart(filesWidth)}  ${row.size.padStart(sizeWidth)}  ${row.output}`);
 	}
 }
 

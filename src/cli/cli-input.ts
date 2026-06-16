@@ -72,8 +72,16 @@ export function parseCliInput(argv: string[] = process.argv): CliParseResult {
 		return { warnings, errors };
 	}
 
-	if (commandName === "init") return { command: { kind: "init", rootArg }, warnings, errors };
+	if (commandName === "init") {
+		if (flags.cmd !== undefined || flags.cmdTimeout !== undefined || flags.failOnCmdError !== undefined) {
+			errors.push('Command "init" does not accept command attachment options.');
+		}
+		return { command: { kind: "init", rootArg }, warnings, errors };
+	}
 	if (commandName === "migrate") {
+		if (flags.cmd !== undefined || flags.cmdTimeout !== undefined || flags.failOnCmdError !== undefined) {
+			errors.push('Command "migrate" does not accept command attachment options.');
+		}
 		return { command: { kind: "migrate", rootArg, write: !!(flags as any).write, check: !!(flags as any).check }, warnings, errors };
 	}
 	if (commandName === "pack") {
@@ -188,6 +196,11 @@ function assignFlag(flags: Partial<ProdexFlags>, spec: FlagSpec, value: string, 
 		const values = splitStringList(value);
 		const current = ((flags as any)[spec.long] ?? []) as string[];
 		(flags as any)[spec.long] = [...current, ...values];
+		return;
+	}
+	if (spec.type === "raw-list") {
+		const current = ((flags as any)[spec.long] ?? []) as string[];
+		(flags as any)[spec.long] = [...current, value];
 		return;
 	}
 	if (spec.long === "format" && !["md", "txt"].includes(value)) {

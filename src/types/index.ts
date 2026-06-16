@@ -6,4 +6,4 @@ export * from "./resolver.types";
 export * from "./utils.types";
 export * from "./app.types";
 export * from "./planner.types";
-
+export * from "./artifact.types";
