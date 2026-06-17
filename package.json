@@ -41,7 +41,7 @@
     "dev": "tsc --watch",
     "gen:schema": "node schema/generate.js",
     "check:architecture": "node scripts/check-architecture.js",
-    "test": "npm run check:architecture && npm run build && node --test test/cli-contract.test.js test/git-command.test.js test/cleanup.test.js",
+    "test": "npm run check:architecture && npm run build && node --test test/cli-contract.test.js test/git-command.test.js test/cleanup.test.js test/grep-command.test.js",
     "prepack": "npm run build",
     "pack:check": "npm pack --dry-run"
   },

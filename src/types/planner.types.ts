@@ -22,6 +22,11 @@ export type CommandIntent =
 			kind: "git";
 			rootArg?: string;
 			flags: Partial<ProdexFlags>;
+	  }
+	| {
+			kind: "grep";
+			rootArg?: string;
+			flags: Partial<ProdexFlags>;
 	  };
 
 export interface GitPlanOptions {
@@ -30,6 +35,14 @@ export interface GitPlanOptions {
 	unstaged?: boolean;
 	untracked?: boolean;
 	includeDiff?: boolean;
+}
+
+export interface GrepPlanOptions {
+	mode: "query" | "any" | "all" | "regex";
+	terms: string[];
+	negativeTerms: string[];
+	within: string[];
+	skip: string[];
 }
 
 export interface ExecutionPlan {
@@ -52,4 +65,5 @@ export interface ExecutionPlan {
 	scopeKey?: string;
 	attachmentOptions?: CommandAttachmentOptions;
 	gitOptions?: GitPlanOptions;
+	grepOptions?: GrepPlanOptions;
 }

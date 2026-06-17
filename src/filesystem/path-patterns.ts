@@ -7,7 +7,7 @@ export function isGlobPattern(str: string): boolean {
 }
 
 export interface NormalizationOptions {
-	role?: "entry" | "include" | "exclude" | "skip";
+	role?: "entry" | "include" | "exclude" | "skip" | "within";
 }
 
 /**
