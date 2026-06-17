@@ -1,23 +1,27 @@
 import micromatch from "micromatch";
 import path from "path";
-import { rel } from "../filesystem/read-file";
 import { normalizePath } from "../filesystem/path";
 
 
-/**
- * Centralized exclusion logic.
- * Accepts namespaces, absolute paths, or relative paths
- * and converts everything to a normalized, root-relative glob target.
- */
 export function isExcluded(p: string, patterns: string[] = [], root: string = process.cwd()): boolean {
 	if (!patterns?.length) return false;
 	if (!p) return false;
 
-	let norm = normalizePath(p);
+	const normAbsolute = normalizePath(path.resolve(root, p));
+	const normRelative = normalizePath(path.relative(root, normAbsolute));
 
-	if (!path.isAbsolute(norm) && /^[A-Z]/.test(norm)) return false;
+	for (const pattern of patterns) {
+		const normPattern = normalizePath(pattern);
+		if (path.isAbsolute(normPattern)) {
+			if (micromatch.isMatch(normAbsolute, normPattern)) {
+				return true;
+			}
+		} else {
+			if (micromatch.isMatch(normRelative, normPattern)) {
+				return true;
+			}
+		}
+	}
 
-	if (path.isAbsolute(norm)) norm = normalizePath(rel(norm, root));
-
-	return micromatch.isMatch(norm, patterns);
+	return false;
 }

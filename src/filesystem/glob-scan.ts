@@ -2,23 +2,35 @@ import path from "path";
 import fg, { Options } from "fast-glob";
 import { logger } from "../diagnostics/logger";
 import { inspectValue } from "./inspect";
+import { normalizePath } from "./path";
 
 const GLOBAL_IGNORE = ["**/node_modules/**", "**/vendor/**", "**/dist/**"];
 
-export async function globScan(patterns: string[], opts: Options) {
-	const { absolute = true, cwd = process.cwd() } = opts;
+export interface GlobScanOptions {
+	cwd?: string;
+	caseSensitiveMatch?: boolean;
+}
+
+export async function globScan(patterns: string[], opts: GlobScanOptions = {}) {
+	const { cwd = process.cwd(), caseSensitiveMatch } = opts;
 
 	if (!patterns?.length) return { files: [] };
-	const files = (
-		await fg(patterns, {
-			cwd,
-			extglob: true,
-			dot: true,
-			onlyFiles: true,
-			ignore: GLOBAL_IGNORE,
-			absolute,
-		})
-	).map((file) => path.resolve(file));
+
+	const rawFiles = await fg(patterns, {
+		cwd,
+		extglob: true,
+		dot: true,
+		onlyFiles: true,
+		ignore: GLOBAL_IGNORE,
+		absolute: true,
+		caseSensitiveMatch,
+	});
+
+	// Slash normalization & absolute path resolution
+	const files = rawFiles.map((file) => normalizePath(path.resolve(cwd, file)));
+
+	// Deterministic file sorting
+	files.sort();
 
 	logger.debug("globScan ->", inspectValue(files));
 	return { files };

@@ -1,4 +1,5 @@
 import type { ExecutionPlan, CommandIntent, ProdexConfigFile, CommandAttachmentOptions } from "../../types";
+import { normalizePathOrGlob } from "../../filesystem/path-patterns";
 
 export function buildPackPlan(params: {
 	intent: CommandIntent;
@@ -48,9 +49,9 @@ export function buildPackPlan(params: {
 		}
 	}
 
-	const mergedEntry = [...scopeEntries, ...(flags.entry ?? [])];
-	const mergedInclude = [...scopeIncludes, ...(flags.include ?? [])];
-	const mergedExclude = [...rootExclude, ...scopeExcludes, ...(flags.exclude ?? [])];
+	const mergedEntry = [...scopeEntries, ...(flags.entry ?? [])].map((item) => normalizePathOrGlob(item, root, { role: "entry" }));
+	const mergedInclude = [...scopeIncludes, ...(flags.include ?? [])].map((item) => normalizePathOrGlob(item, root, { role: "include" }));
+	const mergedExclude = [...rootExclude, ...scopeExcludes, ...(flags.exclude ?? [])].map((item) => normalizePathOrGlob(item, root, { role: "exclude" }));
 
 	if (errors.length) {
 		return [];

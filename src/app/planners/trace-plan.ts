@@ -1,5 +1,6 @@
 import { DEFAULT_PRODEX_CONFIG } from "../../config/default-config";
 import type { ExecutionPlan, CommandIntent, ProdexConfigFile, CommandAttachmentOptions } from "../../types";
+import { normalizePathOrGlob } from "../../filesystem/path-patterns";
 
 export function buildTracePlan(params: {
 	intent: CommandIntent;
@@ -66,7 +67,8 @@ export function buildTracePlan(params: {
 
 	if (errors.length) return [];
 
-	const mergedExclude = [...(userConfig.exclude ?? []), ...(flags.exclude ?? [])];
+	const mergedExclude = [...(userConfig.exclude ?? []), ...(flags.exclude ?? [])].map((item) => normalizePathOrGlob(item, root, { role: "exclude" }));
+	const finalInclude = (flags.include ?? []).map((item) => normalizePathOrGlob(item, root, { role: "include" }));
 
 	const plan: ExecutionPlan = {
 		root,
@@ -74,7 +76,7 @@ export function buildTracePlan(params: {
 		outputName: flags.name,
 		entry: [],
 		target: unique(flags.target ?? []),
-		include: unique(flags.include ?? []),
+		include: unique(finalInclude),
 		exclude: unique(mergedExclude),
 		depth: finalDepth,
 		maxFiles: flags.maxFiles ?? maxFiles,

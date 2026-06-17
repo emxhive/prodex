@@ -1,5 +1,5 @@
 import { followChain } from "./follow-chain";
-import { applyIncludes } from "./include-files";
+import { buildFinalFileSet } from "../filesystem/file-set";
 import type { ProdexConfig, TraceOptions, ChainResult } from "../types";
 
 export interface CollectSourcesParams {
@@ -14,7 +14,12 @@ export interface CollectSourcesParams {
 export async function collectTraceSources({ cfg, opts }: CollectSourcesParams): Promise<ChainResult> {
 	const entries = opts.entries ?? [];
 	const result = entries.length ? await followChain(entries, cfg) : undefined;
-	const files = await applyIncludes(cfg, result?.files ?? []);
+	const files = await buildFinalFileSet({
+		root: cfg.root,
+		sources: result?.files ?? [],
+		include: cfg.include ?? [],
+		exclude: cfg.exclude ?? [],
+	});
 
 	return {
 		files,
