@@ -4,6 +4,7 @@ import { buildPackPlan } from "./planners/pack-plan";
 import { buildTracePlan } from "./planners/trace-plan";
 import { buildScopePlan } from "./planners/scope-plan";
 import { buildGitPlan } from "./planners/git-plan";
+import { buildGrepPlan } from "./planners/grep-plan";
 import { parseCommandAttachmentOptions } from "./planners/attachment-options";
 
 export interface PlannerResult {
@@ -89,6 +90,22 @@ export function createExecutionPlans(params: {
 
 	if (intent.kind === "git") {
 		const plans = buildGitPlan({
+			intent,
+			userConfig,
+			root,
+			aliases,
+			depth,
+			maxFiles,
+			defaultOutput,
+			attachmentOptions,
+			warnings,
+			errors,
+		});
+		return { plans, warnings, errors };
+	}
+
+	if (intent.kind === "grep") {
+		const plans = buildGrepPlan({
 			intent,
 			userConfig,
 			root,

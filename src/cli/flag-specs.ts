@@ -16,7 +16,7 @@ export type FlagSpec = {
 	type: "boolean" | "string" | "number" | "list" | "raw-list";
 };
 
-export const COMMANDS = ["pack", "trace", "scope", "git", "init", "migrate", "run", "profiles"] as const;
+export const COMMANDS = ["pack", "trace", "scope", "git", "grep", "init", "migrate", "run", "profiles"] as const;
 
 export const FLAGS: FlagSpec[] = [
 	{ long: "entry", short: "e", type: "list" },
@@ -54,6 +54,29 @@ export const FLAGS: FlagSpec[] = [
 	{ long: "maxDepth", type: "number" },
 ];
 
+export const GREP_FLAGS: FlagSpec[] = [
+	{ long: "query", short: "q", type: "string" },
+	{ long: "any", type: "list" },
+	{ long: "grepAll", type: "list" },
+	{ long: "regex", short: "r", type: "string" },
+	{ long: "not", type: "list" },
+	{ long: "within", type: "list" },
+	{ long: "skip", type: "list" },
+
+	{ long: "name", short: "n", type: "string" },
+	{ long: "format", short: "F", type: "string" },
+	{ long: "dryRun", type: "boolean" },
+	{ long: "include", short: "i", type: "list" },
+	{ long: "exclude", short: "x", type: "list" },
+	{ long: "cmd", type: "raw-list" },
+	{ long: "cmdTimeout", type: "number" },
+	{ long: "failOnCmdError", type: "boolean" },
+	{ long: "maxFiles", type: "number" },
+	{ long: "help", short: "h", type: "boolean" },
+	{ long: "version", short: "v", type: "boolean" },
+	{ long: "debug", type: "boolean" },
+];
+
 export const FLAG_ALIASES: Record<string, FlagName> = {
 	"max-files": "maxFiles",
 	"dry-run": "dryRun",
@@ -64,5 +87,13 @@ export const FLAG_ALIASES: Record<string, FlagName> = {
 	"include-diff": "includeDiff",
 };
 
+export const GREP_FLAG_ALIASES: Record<string, FlagName> = {
+	...FLAG_ALIASES,
+	"all": "grepAll",
+};
+
 export const FLAGS_BY_LONG = new Map(FLAGS.map((flag) => [flag.long, flag]));
 export const FLAGS_BY_SHORT = new Map(FLAGS.filter((flag) => flag.short).map((flag) => [flag.short!, flag]));
+
+export const GREP_FLAGS_BY_LONG = new Map(GREP_FLAGS.map((flag) => [flag.long, flag]));
+export const GREP_FLAGS_BY_SHORT = new Map(GREP_FLAGS.filter((flag) => flag.short).map((flag) => [flag.short!, flag]));

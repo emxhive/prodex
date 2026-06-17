@@ -4,8 +4,8 @@ import type { ProdexConfig } from "./config.types";
 import type { ChainResult } from "./tracing.types";
 import type { ArtifactSection } from "./artifact.types";
 
-export type ProdexCommandKind = "pack" | "trace" | "scope" | "git";
-export type ProdexRunMode = "trace" | "include-only" | "mixed" | "git";
+export type ProdexCommandKind = "pack" | "trace" | "scope" | "git" | "grep";
+export type ProdexRunMode = "trace" | "include-only" | "mixed" | "git" | "grep";
 
 export interface SourceCollectionResult {
 	files: string[];
@@ -24,6 +24,7 @@ export type CliCommand =
 	| { kind: "trace"; rootArg?: string; flags: Partial<ProdexFlags> }
 	| { kind: "scope"; rootArg?: string; flags: Partial<ProdexFlags> }
 	| { kind: "git"; rootArg?: string; flags: Partial<ProdexFlags> }
+	| { kind: "grep"; rootArg?: string; flags: Partial<ProdexFlags> }
 	| { kind: "init"; rootArg?: string; force?: boolean }
 	| { kind: "migrate"; rootArg?: string; write?: boolean; check?: boolean }
 	| { kind: "help"; topic?: string }

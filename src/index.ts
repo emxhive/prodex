@@ -4,6 +4,7 @@ import { packCommand } from "./commands/pack-command";
 import { traceCommand } from "./commands/trace-command";
 import { scopeCommand } from "./commands/scope-command";
 import { gitCommand } from "./commands/git-command";
+import { grepCommand } from "./commands/grep-command";
 import { parseCliInput } from "./cli/cli-input";
 import { renderHelp, renderVersion, reportCommandResult } from "./cli/reporter";
 import type { CommandResult } from "./types";
@@ -144,6 +145,25 @@ export async function runProdexCommand(args = process.argv, cwd = process.cwd())
 			warnings,
 			errors,
 			runs: gitRes.runs,
+		};
+	}
+
+	if (parsed.command.kind === "grep") {
+		const grepRes = await grepCommand({
+			rootArg: parsed.command.rootArg,
+			flags: parsed.command.flags,
+			cwd,
+		});
+		warnings.push(...grepRes.warnings);
+		errors.push(...grepRes.errors);
+		if (errors.length) return { ok: false, exitCode: 1, warnings, errors, runs: [] };
+		const ok = grepRes.runs.every((item) => item.ok);
+		return {
+			ok,
+			exitCode: ok ? 0 : 1,
+			warnings,
+			errors,
+			runs: grepRes.runs,
 		};
 	}
 

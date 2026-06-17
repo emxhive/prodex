@@ -1,6 +1,16 @@
 import type { CliParseResult, ProdexFlags } from "../types";
 import { splitStringList } from "../config/string-list";
-import { COMMANDS, FLAG_ALIASES, FLAGS_BY_LONG, FLAGS_BY_SHORT, type FlagSpec } from "./flag-specs";
+import {
+	COMMANDS,
+	FLAG_ALIASES,
+	FLAGS_BY_LONG,
+	FLAGS_BY_SHORT,
+	GREP_FLAG_ALIASES,
+	GREP_FLAGS_BY_LONG,
+	GREP_FLAGS_BY_SHORT,
+	type FlagSpec,
+	type FlagName
+} from "./flag-specs";
 
 export function parseCliInput(argv: string[] = process.argv): CliParseResult {
 	const tokens = stripExecutable(argv);
@@ -9,7 +19,7 @@ export function parseCliInput(argv: string[] = process.argv): CliParseResult {
 	const flags: Partial<ProdexFlags> = {};
 
 	if (!tokens.length) {
-		errors.push("Missing command. Use `prodex pack`, `prodex trace`, `prodex scope`, `prodex git`, or `prodex migrate`.");
+		errors.push("Missing command. Use `prodex pack`, `prodex trace`, `prodex scope`, `prodex grep`, `prodex git`, or `prodex migrate`.");
 		return { warnings, errors };
 	}
 
@@ -23,9 +33,14 @@ export function parseCliInput(argv: string[] = process.argv): CliParseResult {
 
 	const commandName = tokens[0];
 	if (!isCommand(commandName)) {
-		errors.push(`Unknown command "${commandName}". Use pack, trace, scope, git, or migrate.`);
+		errors.push(`Unknown command "${commandName}". Use pack, trace, scope, grep, git, or migrate.`);
 		return { warnings, errors };
 	}
+
+	const isGrep = commandName === "grep";
+	const flagsByLong = isGrep ? GREP_FLAGS_BY_LONG : FLAGS_BY_LONG;
+	const flagsByShort = isGrep ? GREP_FLAGS_BY_SHORT : FLAGS_BY_SHORT;
+	const flagAliases = isGrep ? GREP_FLAG_ALIASES : FLAG_ALIASES;
 
 	let rootArg: string | undefined;
 	for (let i = 1; i < tokens.length; i++) {
@@ -33,12 +48,12 @@ export function parseCliInput(argv: string[] = process.argv): CliParseResult {
 
 		if (!token) continue;
 		if (token.startsWith("--")) {
-			const consumed = readLongFlag(tokens, i, flags, errors);
+			const consumed = readLongFlag(tokens, i, flags, errors, flagAliases, flagsByLong);
 			i += consumed;
 			continue;
 		}
 		if (token.startsWith("-") && token !== "-") {
-			const consumed = readShortFlag(tokens, i, flags, errors);
+			const consumed = readShortFlag(tokens, i, flags, errors, flagsByShort);
 			i += consumed;
 			continue;
 		}
@@ -96,6 +111,9 @@ export function parseCliInput(argv: string[] = process.argv): CliParseResult {
 	if (commandName === "git") {
 		return { command: { kind: "git", rootArg, flags }, warnings, errors };
 	}
+	if (commandName === "grep") {
+		return { command: { kind: "grep", rootArg, flags }, warnings, errors };
+	}
 
 	return { warnings, errors };
 }
@@ -119,14 +137,21 @@ function isCommand(token: string): boolean {
 	return COMMANDS.includes(token as any);
 }
 
-function readLongFlag(tokens: string[], index: number, flags: Partial<ProdexFlags>, errors: string[]): number {
+function readLongFlag(
+	tokens: string[],
+	index: number,
+	flags: Partial<ProdexFlags>,
+	errors: string[],
+	flagAliases: Record<string, FlagName>,
+	flagsByLong: Map<FlagName, FlagSpec>
+): number {
 	const token = tokens[index];
 	const raw = token.slice(2);
 	const equalsAt = raw.indexOf("=");
 	const rawName = equalsAt === -1 ? raw : raw.slice(0, equalsAt);
-	const name = FLAG_ALIASES[rawName] ?? rawName;
+	const name = flagAliases[rawName] ?? rawName;
 	const inlineValue = equalsAt === -1 ? undefined : raw.slice(equalsAt + 1);
-	const spec = FLAGS_BY_LONG.get(name as any);
+	const spec = flagsByLong.get(name as any);
 
 	if (!spec) {
 		errors.push(`Unknown flag "--${rawName}".`);
@@ -148,13 +173,19 @@ function readLongFlag(tokens: string[], index: number, flags: Partial<ProdexFlag
 	return inlineValue === undefined ? 1 : 0;
 }
 
-function readShortFlag(tokens: string[], index: number, flags: Partial<ProdexFlags>, errors: string[]): number {
+function readShortFlag(
+	tokens: string[],
+	index: number,
+	flags: Partial<ProdexFlags>,
+	errors: string[],
+	flagsByShort: Map<string, FlagSpec>
+): number {
 	const token = tokens[index];
 	const cluster = token.slice(1);
 
 	if (cluster.length > 1) {
 		for (const ch of cluster) {
-			const spec = FLAGS_BY_SHORT.get(ch);
+			const spec = flagsByShort.get(ch);
 			if (!spec) {
 				errors.push(`Unknown flag "-${ch}".`);
 				continue;
@@ -168,7 +199,7 @@ function readShortFlag(tokens: string[], index: number, flags: Partial<ProdexFla
 		return 0;
 	}
 
-	const spec = FLAGS_BY_SHORT.get(cluster);
+	const spec = flagsByShort.get(cluster);
 	if (!spec) {
 		errors.push(`Unknown flag "-${cluster}".`);
 		return 0;

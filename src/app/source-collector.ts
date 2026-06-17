@@ -1,6 +1,7 @@
 import type { ExecutionPlan, SourceCollectionResult } from "../types";
 import { collectDependencySources } from "./dependency-source-provider";
 import { collectGitSources } from "./git-source-provider";
+import { collectGrepSources } from "./grep-source-provider";
 
 export interface SourceProvider {
 	collect(plan: ExecutionPlan): Promise<SourceCollectionResult>;
@@ -15,6 +16,8 @@ export async function collectSources(plan: ExecutionPlan): Promise<SourceCollect
 			return collectDependencySources(plan);
 		case "git":
 			return collectGitSources(plan);
+		case "grep":
+			return collectGrepSources(plan);
 		default: {
 			const exhaustiveCheck: never = plan.command;
 			return {

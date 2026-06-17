@@ -65,6 +65,27 @@ export interface ProdexFlags {
 	/** Git-specific: Include full git diff output in generic sections. */
 	includeDiff?: boolean;
 
+	/** Grep-specific: search query */
+	query?: string;
+
+	/** Grep-specific: comma-separated list of terms for OR search */
+	any?: string[];
+
+	/** Grep-specific: comma-separated list of terms for AND search */
+	grepAll?: string[];
+
+	/** Grep-specific: regex pattern for search */
+	regex?: string;
+
+	/** Grep-specific: negative terms list */
+	not?: string[];
+
+	/** Grep-specific: search only inside these paths/globs */
+	within?: string[];
+
+	/** Grep-specific: do not search inside these paths/globs */
+	skip?: string[];
+
 	/** Deprecated legacy flags */
 	profile?: string[];
 	allProfiles?: boolean;

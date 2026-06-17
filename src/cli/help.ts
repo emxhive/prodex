@@ -5,6 +5,7 @@ export function renderHelp(topic?: string): string {
 	if (topic === "trace") return renderTraceHelp();
 	if (topic === "scope") return renderScopeHelp();
 	if (topic === "git") return renderGitHelp();
+	if (topic === "grep") return renderGrepHelp();
 	if (topic === "init") return renderInitHelp();
 	if (topic === "migrate") return renderMigrateHelp();
 
@@ -14,6 +15,7 @@ export function renderHelp(topic?: string): string {
 		"  prodex trace [root] --target <target> [--depth <number>] [options]",
 		"  prodex scope [root] [options]",
 		"  prodex git [root] [options]",
+		"  prodex grep [root] --query \"text\" [options]",
 		"  prodex init [root]",
 		"  prodex migrate [root] [--write|--check]",
 		"",
@@ -134,5 +136,31 @@ function renderGitHelp(): string {
 		"  --cmd-timeout <seconds>   Command execution timeout (default: 180).",
 		"  --fail-on-cmd-error       Enforce nonzero exit if commands fail.",
 		"  -h, --help                Show git help.",
+	].join("\n");
+}
+
+function renderGrepHelp(): string {
+	return [
+		"Usage:",
+		"  prodex grep [root] [options]",
+		"",
+		"Options:",
+		"  -q, --query <text>        fixed-string search",
+		"  --any <list>              OR fixed-string search",
+		"  --all <list>              AND fixed-string search",
+		"  -r, --regex <pattern>     regex search",
+		"  --not <list>              fixed-string negative file filter",
+		"  --within <list>           search only inside these paths/globs",
+		"  --skip <list>             do not search inside these paths/globs",
+		"  -i, --include <glob>      Extra file/glob to append. Repeatable and comma-aware.",
+		"  -x, --exclude <glob>      File/glob to skip. Repeatable and comma-aware.",
+		"  -n, --name <name>         Output basename for this run.",
+		"  -F, --format <md|txt>     Output format.",
+		"  --max-files <number>      Maximum matched files count.",
+		"  --dry-run                 Perform a dry-run without writing output files.",
+		"  --cmd <command>           Run command sequentially for evidence capture. Repeatable.",
+		"  --cmd-timeout <seconds>   Command execution timeout (default: 180).",
+		"  --fail-on-cmd-error       Enforce nonzero exit if commands fail.",
+		"  -h, --help                Show grep help.",
 	].join("\n");
 }
