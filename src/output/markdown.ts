@@ -15,25 +15,40 @@ export function renderTraceMd(payload: ArtifactPayload) {
 	const sorted = [...payload.files].sort((a, b) => a.path.localeCompare(b.path));
 	const filesList = sorted.map((f) => f.path);
 	const cmdCount = payload.commandOutputs?.length ?? 0;
-	const hasCmdOutputs = cmdCount > 0;
 	const sectionCount = payload.sections?.length ?? 0;
-	const hasSections = sectionCount > 0;
+
+	const isGit = payload.metadata?.commandKind === "git";
+	const isFileFirst = !isGit;
+
+	// Build exact sequence of anchors to generate correct sequentially-flowing navigation
+	const orderedAnchors: string[] = [];
+	if (isFileFirst) {
+		for (let i = 1; i <= sorted.length; i++) orderedAnchors.push(`${i}`);
+		for (let i = 1; i <= cmdCount; i++) orderedAnchors.push(`cmd-${i}`);
+		for (let i = 1; i <= sectionCount; i++) orderedAnchors.push(`sec-${i}`);
+	} else {
+		for (let i = 1; i <= sectionCount; i++) orderedAnchors.push(`sec-${i}`);
+		for (let i = 1; i <= sorted.length; i++) orderedAnchors.push(`${i}`);
+		for (let i = 1; i <= cmdCount; i++) orderedAnchors.push(`cmd-${i}`);
+	}
+
+	const getNavLine = (anchorId: string): string => {
+		const idx = orderedAnchors.indexOf(anchorId);
+		if (idx === -1) return `[Back to top](#index)`;
+		const navParts: string[] = [];
+		if (idx > 0) {
+			navParts.push(`[Previous](#${orderedAnchors[idx - 1]})`);
+		}
+		navParts.push(`[Back to top](#index)`);
+		if (idx < orderedAnchors.length - 1) {
+			navParts.push(`[Next](#${orderedAnchors[idx + 1]})`);
+		}
+		return navParts.join(" | ");
+	};
 
 	// Render generic sections
 	const genericSections = (payload.sections ?? []).map((sec, index) => {
-		const navParts: string[] = [];
-		if (index > 0) {
-			navParts.push(`[Previous](#sec-${index})`);
-		}
-		navParts.push(`[Back to top](#index)`);
-		if (index < sectionCount - 1) {
-			navParts.push(`[Next](#sec-${index + 2})`);
-		} else if (sorted.length > 0) {
-			navParts.push(`[Next](#1)`);
-		} else if (hasCmdOutputs) {
-			navParts.push(`[Next](#cmd-1)`);
-		}
-		const navLine = navParts.join(" | ");
+		const navLine = getNavLine(`sec-${index + 1}`);
 
 		const lang = sec.language || "txt";
 		const fence = getDynamicFence(sec.content);
@@ -51,19 +66,7 @@ export function renderTraceMd(payload: ArtifactPayload) {
 
 	// Render file snapshots
 	const fileSections = sorted.map((file, index) => {
-		const navParts: string[] = [];
-		if (index > 0) {
-			navParts.push(`[Previous](#${index})`);
-		} else if (hasSections) {
-			navParts.push(`[Previous](#sec-${sectionCount})`);
-		}
-		navParts.push(`[Back to top](#index)`);
-		if (index < sorted.length - 1) {
-			navParts.push(`[Next](#${index + 2})`);
-		} else if (hasCmdOutputs) {
-			navParts.push(`[Next](#cmd-1)`);
-		}
-		const navLine = navParts.join(" | ");
+		const navLine = getNavLine(`${index + 1}`);
 
 		const relativePath = rel(file.path, root);
 		const ext = path.extname(file.path).toLowerCase();
@@ -97,9 +100,13 @@ export function renderTraceMd(payload: ArtifactPayload) {
 		metadata: payload.metadata,
 	});
 
-	const cmdSections = renderMdCmdResults(payload.commandOutputs, root, sorted.length, sectionCount);
+	const cmdSections = renderMdCmdResults(payload.commandOutputs, root, sorted.length, sectionCount, orderedAnchors);
 
-	const firstPassContent = [firstPassToc, ...genericSections, ...fileSections, cmdSections, MD_FOOTER].join("\n");
+	const bodySections = isFileFirst
+		? [...fileSections, cmdSections, ...genericSections]
+		: [...genericSections, ...fileSections, cmdSections];
+
+	const firstPassContent = [firstPassToc, ...bodySections.filter(Boolean), MD_FOOTER].join("\n");
 	const firstPassAnalysis = analyzeTrace(firstPassContent, sorted.length, sectionCount, cmdCount);
 	const finalToc = buildToc({
 		files: filesList,
@@ -116,7 +123,7 @@ export function renderTraceMd(payload: ArtifactPayload) {
 		metadata: payload.metadata,
 	});
 
-	const content = [finalToc, ...genericSections, ...fileSections, cmdSections, MD_FOOTER].join("\n");
+	const content = [finalToc, ...bodySections.filter(Boolean), MD_FOOTER].join("\n");
 	const analysis = analyzeTrace(content, sorted.length, sectionCount, cmdCount);
 
 	return {
@@ -144,7 +151,6 @@ function buildToc(opts: {
 	const sectionCount = opts.sections?.length ?? 0;
 	const cmdCount = opts.commandOutputs?.length ?? 0;
 	const fileCount = opts.files.length;
-	const totalItems = fileCount + sectionCount + cmdCount;
 
 	const indexRange =
 		opts.withRanges && opts.listingStart && opts.listingEnd
@@ -184,51 +190,59 @@ function buildToc(opts: {
 
 	headers.push("<!-- PRODEX_INDEX_LIST_START -->");
 
-	// 1. Metadata Sections
-	if (sectionCount > 0 && opts.sections) {
-		if (fileCount > 0 || cmdCount > 0) {
-			headers.push("## Metadata Sections");
+	const isGit = opts.metadata?.commandKind === "git";
+	const isFileFirst = !isGit;
+
+	const secItems = (sectionCount > 0 && opts.sections) ? opts.sections.map((sec, index) => {
+		const label = sec.title;
+		if (!opts.withRanges || !opts.sectionTrace) {
+			return `- [${label}](#sec-${index + 1})`;
 		}
-		const secItems = opts.sections.map((sec, index) => {
-			const label = sec.title;
-			if (!opts.withRanges || !opts.sectionTrace) {
-				return `- [${label}](#sec-${index + 1})`;
-			}
-			const trace = opts.sectionTrace[index];
-			return `- [${label}](#sec-${index + 1}) L${trace.startLine}-L${trace.endLine}`;
-		});
-		headers.push(...secItems);
+		const trace = opts.sectionTrace[index];
+		return `- [${label}](#sec-${index + 1}) L${trace.startLine}-L${trace.endLine}`;
+	}) : [];
+
+	const fileItems = fileCount > 0 ? opts.files.map((file, index) => {
+		const relativePath = rel(file, opts.root);
+		if (!opts.withRanges || !opts.trace) {
+			return `- [${relativePath}](#${index + 1})`;
+		}
+		const trace = opts.trace[index];
+		return `- [${relativePath}](#${index + 1}) L${trace.startLine}-L${trace.endLine}`;
+	}) : [];
+
+	const cmdItems = (cmdCount > 0 && opts.commandOutputs) ? opts.commandOutputs.map((cmd, index) => {
+		const label = `Command ${index + 1}: ${cmd.command}`;
+		if (!opts.withRanges || !opts.cmdTrace) {
+			return `- [${label}](#cmd-${index + 1})`;
+		}
+		const trace = opts.cmdTrace[index];
+		return `- [${label}](#cmd-${index + 1}) L${trace.startLine}-L${trace.endLine}`;
+	}) : [];
+
+	const categoryCount = (sectionCount > 0 ? 1 : 0) + (fileCount > 0 ? 1 : 0) + (cmdCount > 0 ? 1 : 0);
+	const showHeaders = categoryCount > 1;
+	const parts: { header: string; items: string[] }[] = [];
+
+	if (isFileFirst) {
+		if (fileCount > 0) parts.push({ header: "## Files", items: fileItems });
+		if (cmdCount > 0) parts.push({ header: "## Command Outputs", items: cmdItems });
+		if (sectionCount > 0) parts.push({ header: "## Metadata Sections", items: secItems });
+	} else {
+		if (sectionCount > 0) parts.push({ header: "## Metadata Sections", items: secItems });
+		if (fileCount > 0) parts.push({ header: "## Files", items: fileItems });
+		if (cmdCount > 0) parts.push({ header: "## Command Outputs", items: cmdItems });
 	}
 
-	// 2. Files
-	if (fileCount > 0) {
-		if (sectionCount > 0 || cmdCount > 0) {
-			headers.push("", "## Files");
+	parts.forEach((part, pIdx) => {
+		if (pIdx > 0) {
+			headers.push("");
 		}
-		const fileItems = opts.files.map((file, index) => {
-			const relativePath = rel(file, opts.root);
-			if (!opts.withRanges || !opts.trace) {
-				return `- [${relativePath}](#${index + 1})`;
-			}
-			const trace = opts.trace[index];
-			return `- [${relativePath}](#${index + 1}) L${trace.startLine}-L${trace.endLine}`;
-		});
-		headers.push(...fileItems);
-	}
-
-	// 3. Command Outputs
-	if (cmdCount > 0 && opts.commandOutputs) {
-		headers.push("", "## Command Outputs");
-		const cmdItems = opts.commandOutputs.map((cmd, index) => {
-			const label = `Command ${index + 1}: ${cmd.command}`;
-			if (!opts.withRanges || !opts.cmdTrace) {
-				return `- [${label}](#cmd-${index + 1})`;
-			}
-			const trace = opts.cmdTrace[index];
-			return `- [${label}](#cmd-${index + 1}) L${trace.startLine}-L${trace.endLine}`;
-		});
-		headers.push(...cmdItems);
-	}
+		if (showHeaders) {
+			headers.push(part.header);
+		}
+		headers.push(...part.items);
+	});
 
 	headers.push("<!-- PRODEX_INDEX_LIST_END -->", "", "---");
 
@@ -258,22 +272,24 @@ function analyzeTrace(
 	const genericStarts = findGenericSectionStartIndexes(lines, sectionCount, footerStartIndex);
 	const cmdStarts = findCmdSectionStartIndexes(lines, cmdCount, footerStartIndex);
 
-	const firstFileStart = sectionStarts.length > 0 ? sectionStarts[0] : footerStartIndex;
-	const firstCmdStart = cmdStarts.length > 0 ? cmdStarts[0] : footerStartIndex;
+	const allStarts = [
+		...sectionStarts,
+		...genericStarts,
+		...cmdStarts,
+		footerStartIndex
+	].sort((a, b) => a - b);
+
+	const getEndLine = (start: number) => {
+		if (start >= footerStartIndex) return footerStartIndex;
+		const nextStart = allStarts.find(val => val > start) ?? footerStartIndex;
+		return Math.max(start, nextStart - 1);
+	};
 
 	return {
 		listingStart,
 		listingEnd,
 		sectionTrace: genericStarts.map((startIndex, index) => {
-			let nextStart = footerStartIndex;
-			if (index < sectionCount - 1) {
-				nextStart = genericStarts[index + 1];
-			} else if (count > 0) {
-				nextStart = firstFileStart;
-			} else if (cmdCount > 0) {
-				nextStart = firstCmdStart;
-			}
-			const endIndex = Math.max(startIndex, nextStart - 1);
+			const endIndex = getEndLine(startIndex);
 			return {
 				file: "",
 				anchor: index + 1,
@@ -282,13 +298,7 @@ function analyzeTrace(
 			};
 		}),
 		trace: sectionStarts.map((startIndex, index) => {
-			let nextStart = footerStartIndex;
-			if (index < count - 1) {
-				nextStart = sectionStarts[index + 1];
-			} else if (cmdCount > 0) {
-				nextStart = firstCmdStart;
-			}
-			const endIndex = Math.max(startIndex, nextStart - 1);
+			const endIndex = getEndLine(startIndex);
 			return {
 				file: "",
 				anchor: index + 1,
@@ -297,8 +307,7 @@ function analyzeTrace(
 			};
 		}),
 		cmdTrace: cmdStarts.map((startIndex, index) => {
-			const nextStart = index < cmdCount - 1 ? cmdStarts[index + 1] : footerStartIndex;
-			const endIndex = Math.max(startIndex, nextStart - 1);
+			const endIndex = getEndLine(startIndex);
 			return {
 				file: "",
 				anchor: index + 1,
@@ -432,6 +441,7 @@ export function renderMdCmdResults(
 	root = process.cwd(),
 	totalCount = 0,
 	sectionCount = 0,
+	orderedAnchors?: string[],
 ): string {
 	if (!cmdResults || cmdResults.length === 0) return "";
 
@@ -443,19 +453,34 @@ export function renderMdCmdResults(
 		const durationSec = (res.durationMs / 1000).toFixed(1);
 		const fence = getDynamicFence(res.combinedOutput);
 
-		const navParts: string[] = [];
-		if (i > 0) {
-			navParts.push(`[Previous](#cmd-${i})`);
-		} else if (totalCount > 0) {
-			navParts.push(`[Previous](#${totalCount})`);
-		} else if (sectionCount > 0) {
-			navParts.push(`[Previous](#sec-${sectionCount})`);
+		const anchorId = `cmd-${i + 1}`;
+		let navLine: string;
+		if (orderedAnchors) {
+			const idx = orderedAnchors.indexOf(anchorId);
+			const navParts: string[] = [];
+			if (idx > 0) {
+				navParts.push(`[Previous](#${orderedAnchors[idx - 1]})`);
+			}
+			navParts.push(`[Back to top](#index)`);
+			if (idx < orderedAnchors.length - 1) {
+				navParts.push(`[Next](#${orderedAnchors[idx + 1]})`);
+			}
+			navLine = navParts.join(" | ");
+		} else {
+			const navParts: string[] = [];
+			if (i > 0) {
+				navParts.push(`[Previous](#cmd-${i})`);
+			} else if (totalCount > 0) {
+				navParts.push(`[Previous](#${totalCount})`);
+			} else if (sectionCount > 0) {
+				navParts.push(`[Previous](#sec-${sectionCount})`);
+			}
+			navParts.push(`[Back to top](#index)`);
+			if (i < cmdCount - 1) {
+				navParts.push(`[Next](#cmd-${i + 2})`);
+			}
+			navLine = navParts.join(" | ");
 		}
-		navParts.push(`[Back to top](#index)`);
-		if (i < cmdCount - 1) {
-			navParts.push(`[Next](#cmd-${i + 2})`);
-		}
-		const navLine = navParts.join(" | ");
 
 		lines.push(
 			`---`,

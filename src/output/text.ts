@@ -17,9 +17,13 @@ export function renderTxt(payload: ArtifactPayload): string {
 		);
 	}
 
+	const isGit = payload.metadata?.commandKind === "git";
+	const isFileFirst = !isGit;
+
 	const sectionToc = (payload.sections ?? []).map((sec) => "## - Section: " + sec.title);
 	const fileToc = sorted.map((file) => "## - File: " + rel(file.path, root));
-	const toc = ["##==== Combined Scope ====", ...contextLines, ...sectionToc, ...fileToc].join("\n") + "\n\n";
+	const tocParts = isFileFirst ? [...fileToc, ...sectionToc] : [...sectionToc, ...fileToc];
+	const toc = ["##==== Combined Scope ====", ...contextLines, ...tocParts].join("\n") + "\n\n";
 
 	const genericSections = (payload.sections ?? [])
 		.map((sec) => {
@@ -37,7 +41,11 @@ export function renderTxt(payload: ArtifactPayload): string {
 
 	const cmdAttachments = renderTxtCmdResults(payload.commandOutputs, root);
 
-	return [toc, genericSections, fileSections, cmdAttachments].join("");
+	const bodyParts = isFileFirst
+		? [toc, fileSections, cmdAttachments, genericSections]
+		: [toc, genericSections, fileSections, cmdAttachments];
+
+	return bodyParts.join("");
 }
 
 function renderTxtCmdResults(cmdResults?: CommandOutputResult[], root = process.cwd()): string {

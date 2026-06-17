@@ -297,3 +297,99 @@ test("command attachments work with dry-run and live executions", async () => {
 		assert.match(content, /grep command attached output/);
 	});
 });
+
+test("Artifact layout policy and navigation flow for file-first vs git commands", async () => {
+	await usingTempProject(async (root) => {
+		writeJson(path.join(root, "prodex.json"), baseConfig({
+			output: { dir: "prodex", versioned: false, format: "md" }
+		}));
+		writeFile(path.join(root, "src/foo.txt"), "matched query");
+
+		// Run a file-first command: grep, with command output
+		const resGrep = await runProdexCommand([
+			"node", "prodex", "grep",
+			"-q", "matched query",
+			"--cmd", "node -e \"console.log('grep command output content')\"",
+			"-n", "grep-layout-test",
+			"--format", "md"
+		], root);
+
+		assert.equal(resGrep.ok, true);
+		const mdContent = fs.readFileSync(resGrep.runs[0].outputPath, "utf8");
+
+		// 1. prodex grep Markdown body renders file contents before Grep Summary
+		const bodyFile = mdContent.indexOf("#### 1");
+		const bodySummary = mdContent.indexOf("## Grep Summary");
+		assert.ok(bodyFile > 0 && bodySummary > 0);
+		assert.ok(bodyFile < bodySummary, "Expected file contents before Grep Summary in body");
+
+		// 2. prodex grep Markdown body renders command outputs before Grep Summary
+		const bodyCmd = mdContent.indexOf("# Command Outputs");
+		assert.ok(bodyCmd > 0);
+		assert.ok(bodyCmd < bodySummary, "Expected command outputs before Grep Summary in body");
+
+		// 3. prodex grep Markdown/TOC order matches file-first body order
+		const listStartIdx = mdContent.indexOf("<!-- PRODEX_INDEX_LIST_START -->");
+		const listEndIdx = mdContent.indexOf("<!-- PRODEX_INDEX_LIST_END -->");
+		const tocBlock = mdContent.slice(listStartIdx, listEndIdx);
+
+		const tocFiles = tocBlock.indexOf("## Files");
+		const tocCmds = tocBlock.indexOf("## Command Outputs");
+		const tocSummary = tocBlock.indexOf("## Metadata Sections");
+		assert.ok(tocFiles > -1 && tocCmds > -1 && tocSummary > -1);
+		assert.ok(tocFiles < tocCmds, "TOC Files should be before Command Outputs");
+		assert.ok(tocCmds < tocSummary, "TOC Command Outputs should be before Metadata Sections");
+
+		// 6. Navigation Previous / Next follows the rendered order after reordering
+		// File 1 (first item) next points to cmd-1
+		assert.match(mdContent, /\[Back to top\]\(#index\) \| \[Next\]\(#cmd-1\)/);
+		// Command 1 previous points to 1, next points to sec-1
+		assert.match(mdContent, /\[Previous\]\(#1\) \| \[Back to top\]\(#index\) \| \[Next\]\(#sec-1\)/);
+		// Section 1 (Grep Summary) previous points to cmd-1, next points to sec-2
+		assert.match(mdContent, /\[Previous\]\(#cmd-1\) \| \[Back to top\]\(#index\) \| \[Next\]\(#sec-2\)/);
+
+		// 7. Line-range/index metadata check
+		const lines = mdContent.split("\n");
+		const ranges = [];
+		const lineStartIdx = lines.findIndex(l => l.includes("<!-- PRODEX_INDEX_LIST_START -->"));
+		const lineEndIdx = lines.findIndex(l => l.includes("<!-- PRODEX_INDEX_LIST_END -->"));
+		for (const line of lines.slice(lineStartIdx + 1, lineEndIdx)) {
+			const m = line.match(/L(\d+)-L(\d+)/);
+			if (m) {
+				ranges.push({ start: parseInt(m[1], 10), end: parseInt(m[2], 10) });
+			}
+		}
+		// 1 file, 1 cmd output, 2 generic sections = 4 ranges
+		assert.equal(ranges.length, 4);
+		for (let idx = 0; idx < ranges.length - 1; idx++) {
+			assert.ok(ranges[idx].end < ranges[idx + 1].start, `Overlap in line range between index ${idx} and ${idx + 1}`);
+		}
+
+		// 4. prodex grep TXT output follows the same order
+		const resGrepTxt = await runProdexCommand([
+			"node", "prodex", "grep",
+			"-q", "matched query",
+			"--cmd", "node -e \"console.log('grep command output content')\"",
+			"-n", "grep-layout-test-txt",
+			"--format", "txt"
+		], root);
+
+		assert.equal(resGrepTxt.ok, true);
+		const txtContent = fs.readFileSync(resGrepTxt.runs[0].outputPath, "utf8");
+
+		const txtFileIndex = txtContent.indexOf("##==== path: ");
+		const txtCmdIndex = txtContent.indexOf("##==== Command Attachments ====");
+		const txtSummaryIndex = txtContent.indexOf("##==== section: Grep Summary ====");
+
+		assert.ok(txtFileIndex > -1 && txtCmdIndex > -1 && txtSummaryIndex > -1);
+		assert.ok(txtFileIndex < txtCmdIndex, "TXT: file should be before command outputs");
+		assert.ok(txtCmdIndex < txtSummaryIndex, "TXT: command outputs should be before Grep Summary");
+
+		// TXT TOC ordering check
+		const txtTocHeader = txtContent.indexOf("##==== Combined Scope ====");
+		const txtTocFile = txtContent.indexOf("## - File: ");
+		const txtTocSec = txtContent.indexOf("## - Section: ");
+		assert.ok(txtTocHeader > -1 && txtTocFile > -1 && txtTocSec > -1);
+		assert.ok(txtTocFile < txtTocSec, "TXT TOC: File should be before Section");
+	});
+});
