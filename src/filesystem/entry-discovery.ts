@@ -1,23 +1,15 @@
 import fs from "fs";
 import path from "path";
-import fg from "fast-glob";
+import { globScan } from "./glob-scan";
 
 export const ENTRY_RESOLVE_EXTS = [".ts", ".tsx", ".js", ".jsx", ".mjs", ".php"];
-const GLOBAL_IGNORE = ["**/node_modules/**", "**/vendor/**", "**/dist/**"];
 
 /**
  * Perform exact/glob match search.
  */
 export async function scanGlob(patterns: string[], root: string): Promise<string[]> {
-	const files = await fg(patterns, {
-		cwd: root,
-		extglob: true,
-		dot: true,
-		onlyFiles: true,
-		ignore: GLOBAL_IGNORE,
-		absolute: true,
-	});
-	return files.map((file) => path.resolve(file));
+	const { files } = await globScan(patterns, { cwd: root });
+	return files;
 }
 
 /**
@@ -41,43 +33,40 @@ export function expandPathLike(pattern: string, root: string): string[] {
 }
 
 /**
- * Searches the workspace case-insensitively for files that match the bare name stem exactly.
+ * Searches the workspace for files that match the bare name stem exactly.
  */
-export async function discoverBareName(bareName: string, root: string): Promise<string[]> {
-	const targetStem = bareName.toLowerCase();
-	
+export async function discoverBareName(bareName: string, root: string, caseSensitive = false): Promise<string[]> {
 	const searchPatterns = [
 		`**/${bareName}`,
 		...ENTRY_RESOLVE_EXTS.map((ext) => `**/${bareName}${ext}`),
 		...ENTRY_RESOLVE_EXTS.map((ext) => `**/${bareName}/index${ext}`),
 	];
 
-	const files = await fg(searchPatterns, {
+	const { files } = await globScan(searchPatterns, {
 		cwd: root,
-		extglob: true,
-		dot: true,
-		onlyFiles: true,
-		ignore: GLOBAL_IGNORE,
-		absolute: true,
-		caseSensitiveMatch: false,
+		caseSensitiveMatch: caseSensitive,
 	});
 
 	const resolvedMatches = new Set<string>();
+	const targetStem = caseSensitive ? bareName : bareName.toLowerCase();
 
 	for (const file of files) {
 		const absFile = path.resolve(file);
-		const ext = path.extname(absFile).toLowerCase();
+		const ext = path.extname(absFile);
+		const extLower = ext.toLowerCase();
 
 		// Ensure extension is empty or is one of the supported extensions
-		if (ext !== "" && !ENTRY_RESOLVE_EXTS.includes(ext)) {
+		if (extLower !== "" && !ENTRY_RESOLVE_EXTS.includes(extLower)) {
 			continue;
 		}
 
-		const stem = path.basename(absFile, ext).toLowerCase();
+		const stemRaw = path.basename(absFile, ext);
+		const stem = caseSensitive ? stemRaw : stemRaw.toLowerCase();
 		if (stem === targetStem) {
 			resolvedMatches.add(absFile);
 		} else if (stem === "index") {
-			const parentDir = path.basename(path.dirname(absFile)).toLowerCase();
+			const parentDirRaw = path.basename(path.dirname(absFile));
+			const parentDir = caseSensitive ? parentDirRaw : parentDirRaw.toLowerCase();
 			if (parentDir === targetStem) {
 				resolvedMatches.add(absFile);
 			}

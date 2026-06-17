@@ -1,8 +1,8 @@
 import fs from "fs";
 import path from "path";
-import fg from "fast-glob";
 import { isExcluded } from "../tracing/exclude";
-import { expandPathLike } from "../filesystem/entry-discovery";
+import { expandPathLike, discoverBareName } from "../filesystem/entry-discovery";
+import { isGlobPattern } from "../filesystem/path-patterns";
 import type { ExecutionPlan } from "../types";
 
 export interface TargetResolutionResult {
@@ -11,57 +11,7 @@ export interface TargetResolutionResult {
 	errors: string[];
 }
 
-const ENTRY_RESOLVE_EXTS = [".ts", ".tsx", ".js", ".jsx", ".mjs", ".php"];
-const GLOBAL_IGNORE = ["**/node_modules/**", "**/vendor/**", "**/dist/**"];
-
-function isGlobPattern(str: string): boolean {
-	return str.includes("*") || str.includes("?") || (str.includes("{") && str.includes("}")) || (str.includes("[") && str.includes("]"));
-}
-
-async function runBareNameDiscovery(bareName: string, root: string, caseSensitive: boolean): Promise<string[]> {
-	const searchPatterns = [
-		`**/${bareName}`,
-		...ENTRY_RESOLVE_EXTS.map((ext) => `**/${bareName}${ext}`),
-		...ENTRY_RESOLVE_EXTS.map((ext) => `**/${bareName}/index${ext}`),
-	];
-
-	const files = await fg(searchPatterns, {
-		cwd: root,
-		extglob: true,
-		dot: true,
-		onlyFiles: true,
-		ignore: GLOBAL_IGNORE,
-		absolute: true,
-		caseSensitiveMatch: caseSensitive,
-	});
-
-	const resolvedMatches = new Set<string>();
-	const targetStem = caseSensitive ? bareName : bareName.toLowerCase();
-
-	for (const file of files) {
-		const absFile = path.resolve(file);
-		const ext = path.extname(absFile);
-		const extLower = ext.toLowerCase();
-
-		if (extLower !== "" && !ENTRY_RESOLVE_EXTS.includes(extLower)) {
-			continue;
-		}
-
-		const stemRaw = path.basename(absFile, ext);
-		const stem = caseSensitive ? stemRaw : stemRaw.toLowerCase();
-		if (stem === targetStem) {
-			resolvedMatches.add(absFile);
-		} else if (stem === "index") {
-			const parentDirRaw = path.basename(path.dirname(absFile));
-			const parentDir = caseSensitive ? parentDirRaw : parentDirRaw.toLowerCase();
-			if (parentDir === targetStem) {
-				resolvedMatches.add(absFile);
-			}
-		}
-	}
-
-	return Array.from(resolvedMatches);
-}
+// runBareNameDiscovery consolidated into discoverBareName from entry-discovery
 
 function formatAmbiguousTargetError(target: string, candidates: string[], root: string): string {
 	const formattedMatches = candidates
@@ -136,7 +86,7 @@ export async function resolveTargets(plan: ExecutionPlan): Promise<TargetResolut
 		// 3. Bare-name discovery
 		const isPathLike = target.includes("/") || target.includes("\\");
 		if (!isPathLike) {
-			const step3Matches = await runBareNameDiscovery(target, root, true);
+			const step3Matches = await discoverBareName(target, root, true);
 			const step3NonExcluded = step3Matches.filter((file) => !isExcluded(file, excludes, root));
 			if (step3NonExcluded.length > 0) {
 				if (step3NonExcluded.length === 1) {
@@ -150,7 +100,7 @@ export async function resolveTargets(plan: ExecutionPlan): Promise<TargetResolut
 
 		// 4. Case-insensitive bare-name discovery
 		if (!isPathLike) {
-			const step4Matches = await runBareNameDiscovery(target, root, false);
+			const step4Matches = await discoverBareName(target, root, false);
 			const step4NonExcluded = step4Matches.filter((file) => !isExcluded(file, excludes, root));
 			if (step4NonExcluded.length > 0) {
 				if (step4NonExcluded.length === 1) {

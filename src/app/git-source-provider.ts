@@ -1,28 +1,10 @@
 import { spawnSync } from "child_process";
 import fs from "fs";
 import path from "path";
-import { isExcluded } from "../tracing/exclude";
-import { globScan } from "../filesystem/glob-scan";
+import { isBinaryFile } from "../filesystem/binary";
+import { buildFinalFileSet } from "../filesystem/file-set";
+import { normalizePath } from "../filesystem/path";
 import type { ExecutionPlan, SourceCollectionResult, ArtifactSection } from "../types";
-
-export function isBinaryFile(filePath: string): boolean {
-	try {
-		const stat = fs.statSync(filePath);
-		if (!stat.isFile()) return false;
-
-		const fd = fs.openSync(filePath, "r");
-		const buffer = Buffer.alloc(1024);
-		const bytesRead = fs.readSync(fd, buffer, 0, 1024, 0);
-		fs.closeSync(fd);
-
-		for (let i = 0; i < bytesRead; i++) {
-			if (buffer[i] === 0) return true;
-		}
-		return false;
-	} catch {
-		return false;
-	}
-}
 
 export function runGit(args: string[], cwd: string, warnings: string[], errors: string[], maxBuffer = 10 * 1024 * 1024): string {
 	try {
@@ -138,7 +120,7 @@ export async function collectGitSources(plan: ExecutionPlan): Promise<SourceColl
 		if (gitOptions.untracked && isUntracked) isSelected = true;
 
 		if (isSelected) {
-			const absolutePath = path.resolve(gitRoot, fileGitRel);
+			const absolutePath = normalizePath(path.resolve(gitRoot, fileGitRel));
 			gitSelectedPaths.push(absolutePath);
 
 			if (X === "D" || Y === "D") {
@@ -146,24 +128,19 @@ export async function collectGitSources(plan: ExecutionPlan): Promise<SourceColl
 			}
 
 			if (isRename) {
-				const oldAbsolutePath = path.resolve(gitRoot, oldFileGitRel);
+				const oldAbsolutePath = normalizePath(path.resolve(gitRoot, oldFileGitRel));
 				renamedList.push({ oldPath: oldAbsolutePath, newPath: absolutePath });
 			}
 		}
 	}
 
-	// 4. Expand --include globs/files
-	const includedPaths: string[] = [];
-	if (plan.include && plan.include.length > 0) {
-		const scan = await globScan(plan.include, { cwd: plan.root, absolute: true });
-		includedPaths.push(...scan.files);
-	}
-
-	// 5. Merge and deduplicate
-	const mergedPaths = [...new Set([...gitSelectedPaths, ...includedPaths])];
-
-	// 6. Apply --exclude (exclude wins over both Git-selected and --include)
-	const filteredPaths = mergedPaths.filter(p => !isExcluded(p, plan.exclude, plan.root));
+	// 4. Merge, resolve includes, apply excludes, and sort deterministically
+	const filteredPaths = await buildFinalFileSet({
+		root: plan.root,
+		sources: gitSelectedPaths,
+		include: plan.include ?? [],
+		exclude: plan.exclude,
+	});
 
 	// 7. Classify final path set
 	const finalFiles: string[] = [];

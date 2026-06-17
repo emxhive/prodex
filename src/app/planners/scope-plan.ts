@@ -1,4 +1,5 @@
 import type { ExecutionPlan, CommandIntent, ProdexConfigFile, CommandAttachmentOptions } from "../../types";
+import { normalizePathOrGlob } from "../../filesystem/path-patterns";
 
 export interface ScopePlanResult {
 	plans: ExecutionPlan[];
@@ -87,13 +88,17 @@ export function buildScopePlan(params: {
 	const plans: ExecutionPlan[] = [];
 	for (const key of targetKeys) {
 		const scope = userConfig.scopes![key];
+		const scopeEntries = (scope.entry ?? []).map((item) => normalizePathOrGlob(item, root, { role: "entry" }));
+		const scopeIncludes = (scope.include ?? []).map((item) => normalizePathOrGlob(item, root, { role: "include" }));
+		const scopeExcludes = [...(userConfig.exclude ?? []), ...(scope.exclude ?? [])].map((item) => normalizePathOrGlob(item, root, { role: "exclude" }));
+
 		plans.push({
 			root,
 			command: "scope",
 			outputName: scope.name ?? key,
-			entry: scope.entry ?? [],
-			include: scope.include ?? [],
-			exclude: unique([...(userConfig.exclude ?? []), ...(scope.exclude ?? [])]),
+			entry: scopeEntries,
+			include: scopeIncludes,
+			exclude: unique(scopeExcludes),
 			depth,
 			maxFiles,
 			aliases,

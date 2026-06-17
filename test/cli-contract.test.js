@@ -427,7 +427,7 @@ test("prodex pack CLI combinations", async () => {
 		// pack -e src/index.ts uses only CLI entry plus global excludes
 		const res1 = await runProdexCommand(["node", "prodex", "pack", "-e", "src/index.ts", "-n", "cli-entry", "--format", "txt"], root);
 		assert.equal(res1.ok, true);
-		assert.equal(res1.runs[0].entries[0], path.resolve(root, "src/index.ts"));
+		assert.equal(res1.runs[0].entries[0], path.resolve(root, "src/index.ts").replaceAll("\\", "/"));
 
 		// pack -i README.md: include-only works
 		const res2 = await runProdexCommand(["node", "prodex", "pack", "-i", "README.md", "-n", "cli-include", "--format", "txt"], root);

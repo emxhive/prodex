@@ -1,4 +1,5 @@
 import type { ExecutionPlan, CommandIntent, ProdexConfigFile, CommandAttachmentOptions } from "../../types";
+import { normalizePathOrGlob } from "../../filesystem/path-patterns";
 
 export function buildGitPlan(params: {
 	intent: CommandIntent;
@@ -29,8 +30,8 @@ export function buildGitPlan(params: {
 	}
 
 	const rootExclude = userConfig.exclude ?? [];
-	const mergedInclude = flags.include ?? [];
-	const mergedExclude = [...rootExclude, ...(flags.exclude ?? [])];
+	const mergedInclude = (flags.include ?? []).map((item) => normalizePathOrGlob(item, root, { role: "include" }));
+	const mergedExclude = [...rootExclude, ...(flags.exclude ?? [])].map((item) => normalizePathOrGlob(item, root, { role: "exclude" }));
 
 	const gitOptions = {
 		changed: !!flags.changed,
