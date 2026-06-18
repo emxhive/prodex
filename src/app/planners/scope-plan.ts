@@ -1,5 +1,6 @@
 import type { ExecutionPlan, CommandIntent, ProdexConfigFile, CommandAttachmentOptions } from "../../types";
 import { normalizePathOrGlob } from "../../filesystem/path-patterns";
+import { uniqueTrimmed } from "./list-utils";
 
 export interface ScopePlanResult {
 	plans: ExecutionPlan[];
@@ -98,7 +99,7 @@ export function buildScopePlan(params: {
 			outputName: scope.name ?? key,
 			entry: scopeEntries,
 			include: scopeIncludes,
-			exclude: unique(scopeExcludes),
+			exclude: uniqueTrimmed(scopeExcludes),
 			depth,
 			maxFiles,
 			aliases,
@@ -114,8 +115,4 @@ export function buildScopePlan(params: {
 	}
 
 	return { plans };
-}
-
-function unique(items: string[]): string[] {
-	return [...new Set(items.map((item) => item.trim()).filter(Boolean))];
 }

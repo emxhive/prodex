@@ -1,5 +1,6 @@
 import type { ExecutionPlan, CommandIntent, ProdexConfigFile, CommandAttachmentOptions } from "../../types";
 import { normalizePathOrGlob } from "../../filesystem/path-patterns";
+import { uniqueTrimmed } from "./list-utils";
 
 export function buildGrepPlan(params: {
 	intent: CommandIntent;
@@ -102,8 +103,8 @@ export function buildGrepPlan(params: {
 		command: "grep",
 		outputName: flags.name ?? "grep-results",
 		entry: [],
-		include: unique(mergedInclude),
-		exclude: unique(mergedExclude),
+		include: uniqueTrimmed(mergedInclude),
+		exclude: uniqueTrimmed(mergedExclude),
 		depth: flags.depth ?? depth,
 		maxFiles: flags.maxFiles ?? maxFiles,
 		aliases,
@@ -117,15 +118,11 @@ export function buildGrepPlan(params: {
 		grepOptions: {
 			mode,
 			terms,
-			negativeTerms: unique(negativeTerms),
-			within: unique(mergedWithin),
-			skip: unique(mergedSkip),
+			negativeTerms: uniqueTrimmed(negativeTerms),
+			within: uniqueTrimmed(mergedWithin),
+			skip: uniqueTrimmed(mergedSkip),
 		},
 	};
 
 	return [plan];
-}
-
-function unique(items: string[]): string[] {
-	return [...new Set(items.map((item) => item.trim()).filter(Boolean))];
 }
