@@ -1,6 +1,7 @@
 import { DEFAULT_PRODEX_CONFIG } from "../../config/default-config";
 import type { ExecutionPlan, CommandIntent, ProdexConfigFile, CommandAttachmentOptions } from "../../types";
 import { normalizePathOrGlob } from "../../filesystem/path-patterns";
+import { uniqueTrimmed } from "./list-utils";
 
 export function buildTracePlan(params: {
 	intent: CommandIntent;
@@ -75,9 +76,9 @@ export function buildTracePlan(params: {
 		command: "trace",
 		outputName: flags.name,
 		entry: [],
-		target: unique(flags.target ?? []),
-		include: unique(finalInclude),
-		exclude: unique(mergedExclude),
+		target: uniqueTrimmed(flags.target ?? []),
+		include: uniqueTrimmed(finalInclude),
+		exclude: uniqueTrimmed(mergedExclude),
 		depth: finalDepth,
 		maxFiles: flags.maxFiles ?? maxFiles,
 		aliases,
@@ -91,8 +92,4 @@ export function buildTracePlan(params: {
 	};
 
 	return [plan];
-}
-
-function unique(items: string[]): string[] {
-	return [...new Set(items.map((item) => item.trim()).filter(Boolean))];
 }

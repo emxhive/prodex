@@ -1,5 +1,6 @@
 import type { ExecutionPlan, CommandIntent, ProdexConfigFile, CommandAttachmentOptions } from "../../types";
 import { normalizePathOrGlob } from "../../filesystem/path-patterns";
+import { uniqueTrimmed } from "./list-utils";
 
 export function buildGitPlan(params: {
 	intent: CommandIntent;
@@ -56,8 +57,8 @@ export function buildGitPlan(params: {
 		command: "git",
 		outputName: flags.name ?? "git-changes",
 		entry: [],
-		include: unique(mergedInclude),
-		exclude: unique(mergedExclude),
+		include: uniqueTrimmed(mergedInclude),
+		exclude: uniqueTrimmed(mergedExclude),
 		depth,
 		maxFiles,
 		aliases,
@@ -72,8 +73,4 @@ export function buildGitPlan(params: {
 	};
 
 	return [plan];
-}
-
-function unique(items: string[]): string[] {
-	return [...new Set(items.map((item) => item.trim()).filter(Boolean))];
 }

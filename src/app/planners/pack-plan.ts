@@ -1,5 +1,6 @@
 import type { ExecutionPlan, CommandIntent, ProdexConfigFile, CommandAttachmentOptions } from "../../types";
 import { normalizePathOrGlob } from "../../filesystem/path-patterns";
+import { uniqueTrimmed } from "./list-utils";
 
 export function buildPackPlan(params: {
 	intent: CommandIntent;
@@ -61,9 +62,9 @@ export function buildPackPlan(params: {
 		root,
 		command: "pack",
 		outputName: flags.name ?? "pack-combined",
-		entry: unique(mergedEntry),
-		include: unique(mergedInclude),
-		exclude: unique(mergedExclude),
+		entry: uniqueTrimmed(mergedEntry),
+		include: uniqueTrimmed(mergedInclude),
+		exclude: uniqueTrimmed(mergedExclude),
 		depth: flags.depth ?? depth,
 		maxFiles: flags.maxFiles ?? maxFiles,
 		aliases,
@@ -77,8 +78,4 @@ export function buildPackPlan(params: {
 	};
 
 	return [plan];
-}
-
-function unique(items: string[]): string[] {
-	return [...new Set(items.map((item) => item.trim()).filter(Boolean))];
 }
