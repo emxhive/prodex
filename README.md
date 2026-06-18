@@ -132,10 +132,12 @@ prodex init
 ```bash
 prodex pack [root] -e src/index.ts -i README.md -n review
 prodex pack [root] --scope dashboard -n dashboard-review
-prodex trace [root] -e src/index.ts --depth 2
+prodex trace [root] -t src/index.ts --depth 2
 prodex scope [root] -k dashboard
 prodex scope [root] --all
 prodex scope [root] --list
+prodex git [root] --changed
+prodex grep [root] --query "database"
 prodex migrate [root]
 prodex migrate [root] --check
 prodex migrate [root] --write
@@ -165,7 +167,7 @@ Trace imports from an entrypoint.
 
 | Flag | Short | Type | Description |
 | --- | --- | --- | --- |
-| `--entry` | `-e` | list | Entry file or glob to trace. Repeatable and comma-aware. |
+| `--target` | `-t` | list | Target file/module to resolve and trace from. Repeatable and comma-aware. |
 | `--exclude` | `-x` | list | File or glob to skip during traversal. Repeatable and comma-aware. |
 | `--name` | `-n` | string | Output basename for this trace. |
 | `--format` | `-F` | `md`/`txt` | Output format. Markdown is the default. |
@@ -184,6 +186,12 @@ Run configured scopes separately.
 | `--list` |  | boolean | List configured scope keys. |
 | `--format` | `-F` | `md`/`txt` | Output format. Markdown is the default. |
 | `--dry-run` |  | boolean | Perform a dry-run without writing output files. |
+
+### `git` and `grep` Commands
+
+Run git-based or text-search extractions. Use command-specific help for details on all available options:
+* `prodex git [root] --help`
+* `prodex grep [root] --help`
 
 ### Global Help and Version
 

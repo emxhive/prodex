@@ -1,4 +1,6 @@
 import pkg from "../../package.json";
+import { FLAGS, GREP_FLAGS, FLAG_ALIASES } from "./flag-specs";
+import { PUBLIC_FLAGS, COMMAND_HELP_FLAGS, FLAG_DESCRIPTION_OVERRIDES, type CommandHelpTopic, type PublicHelpFlagName } from "./help-specs";
 
 export function renderHelp(topic?: string): string {
 	if (topic === "pack") return renderPackHelp();
@@ -31,25 +33,68 @@ export function renderVersion(): string {
 	return `prodex v${pkg.version}`;
 }
 
+function getLongFlagCliName(longFlag: string, isGrep = false): string {
+	if (isGrep && longFlag === "grepAll") return "all";
+	for (const [kebab, camel] of Object.entries(FLAG_ALIASES)) {
+		if (camel === longFlag) return kebab;
+	}
+	return longFlag.replace(/[A-Z]/g, (m) => `-${m.toLowerCase()}`);
+}
+
+function renderCommandHelpOptions(commandName: CommandHelpTopic): string[] {
+	const allowed = COMMAND_HELP_FLAGS[commandName];
+	if (!allowed) return [];
+
+	const isGrep = commandName === "grep";
+	const specs = isGrep ? GREP_FLAGS : FLAGS;
+
+	return allowed.map((flagKey) => {
+		const doc = PUBLIC_FLAGS[flagKey];
+		if (!doc) {
+			throw new Error(`Missing help documentation for flag "${flagKey}"`);
+		}
+
+		const spec = specs.find((s) => s.long === doc.long);
+		if (!spec) {
+			throw new Error(`Missing parsing spec for flag "${doc.long}"`);
+		}
+
+		const cliName = getLongFlagCliName(spec.long, isGrep);
+		let leftSide = "";
+		if (spec.short) {
+			leftSide = `  -${spec.short}, --${cliName}`;
+		} else {
+			leftSide = `      --${cliName}`;
+		}
+
+		if (doc.hint) {
+			leftSide += ` ${doc.hint}`;
+		}
+
+		let description = doc.description;
+		if (doc.long === "help") {
+			description = `Show ${commandName} help.`;
+		} else {
+			const commandOverrides = FLAG_DESCRIPTION_OVERRIDES[commandName as keyof typeof FLAG_DESCRIPTION_OVERRIDES];
+			if (commandOverrides) {
+				const override = (commandOverrides as Record<string, string>)[doc.long];
+				if (override) {
+					description = override;
+				}
+			}
+		}
+
+		return `${leftSide.padEnd(28)}${description}`;
+	});
+}
+
 function renderPackHelp(): string {
 	return [
 		"Usage:",
 		"  prodex pack [root] [options]",
 		"",
 		"Options:",
-		"  -e, --entry <glob>       Entry file/glob. Repeatable and comma-aware.",
-		"  -i, --include <glob>      Extra file/glob to append. Repeatable and comma-aware.",
-		"  -x, --exclude <glob>      File/glob to skip. Repeatable and comma-aware.",
-		"  -s, --scope <key>         Merge a configured scope's files.",
-		"  -n, --name <name>         Output basename for this pack.",
-		"  -F, --format <md|txt>     Output format.",
-		"  -d, --depth <number>      Maximum dependency traversal depth.",
-		"  --max-files <number>      Maximum traced file count.",
-		"  --dry-run                 Perform a dry-run without writing output files.",
-		"  --cmd <command>           Run command sequentially for evidence capture. Repeatable.",
-		"  --cmd-timeout <seconds>   Command execution timeout (default: 180).",
-		"  --fail-on-cmd-error       Enforce nonzero exit if commands fail.",
-		"  -h, --help                Show pack help.",
+		...renderCommandHelpOptions("pack"),
 	].join("\n");
 }
 
@@ -59,18 +104,7 @@ function renderTraceHelp(): string {
 		"  prodex trace [root] --target <target> [--depth <number>] [options]",
 		"",
 		"Options:",
-		"  -t, --target <target>    Target file/module to resolve and trace from. Repeatable and comma-aware.",
-		"  -d, --depth <number>     Dependency traversal depth. Defaults to configured depth.",
-		"  -i, --include <glob>     Extra path/glob to append directly.",
-		"  -x, --exclude <glob>     Path/glob to skip.",
-		"  -n, --name <name>         Output basename for this trace.",
-		"  -F, --format <md|txt>     Output format.",
-		"  --max-files <number>      Maximum traced file count.",
-		"  --dry-run                 Perform a dry-run without writing output files.",
-		"  --cmd <command>           Run command sequentially for evidence capture. Repeatable.",
-		"  --cmd-timeout <seconds>   Command execution timeout (default: 180).",
-		"  --fail-on-cmd-error       Enforce nonzero exit if commands fail.",
-		"  -h, --help                Show trace help.",
+		...renderCommandHelpOptions("trace"),
 	].join("\n");
 }
 
@@ -80,15 +114,7 @@ function renderScopeHelp(): string {
 		"  prodex scope [root] [options]",
 		"",
 		"Options:",
-		"  -k, --key <key>           Scope key to execute. Repeatable and comma-aware.",
-		"  -a, --all                 Run all configured scopes.",
-		"  --list                    List configured scope keys.",
-		"  -F, --format <md|txt>     Output format.",
-		"  --dry-run                 Perform a dry-run without writing output files.",
-		"  --cmd <command>           Run command sequentially for evidence capture. Repeatable.",
-		"  --cmd-timeout <seconds>   Command execution timeout (default: 180).",
-		"  --fail-on-cmd-error       Enforce nonzero exit if commands fail.",
-		"  -h, --help                Show scope help.",
+		...renderCommandHelpOptions("scope"),
 	].join("\n");
 }
 
@@ -111,8 +137,7 @@ function renderMigrateHelp(): string {
 		"Preview, check, or write a prodex.json migration to config version 5.",
 		"",
 		"Options:",
-		"  --write                  Back up and update prodex.json.",
-		"  --check                  Exit nonzero if migration is required.",
+		...renderCommandHelpOptions("migrate"),
 	].join("\n");
 }
 
@@ -122,20 +147,7 @@ function renderGitHelp(): string {
 		"  prodex git [root] [options]",
 		"",
 		"Options:",
-		"  --changed                 Include staged, unstaged, and untracked changes (default).",
-		"  --staged                  Include staged changes.",
-		"  --unstaged                Include unstaged changes.",
-		"  --untracked               Include untracked files.",
-		"  --include-diff            Include full git diff output in generic sections.",
-		"  -i, --include <glob>      Extra file/glob to append. Repeatable and comma-aware.",
-		"  -x, --exclude <glob>      File/glob to skip. Repeatable and comma-aware.",
-		"  -n, --name <name>         Output basename for this run.",
-		"  -F, --format <md|txt>     Output format.",
-		"  --dry-run                 Perform a dry-run without writing output files.",
-		"  --cmd <command>           Run command sequentially for evidence capture. Repeatable.",
-		"  --cmd-timeout <seconds>   Command execution timeout (default: 180).",
-		"  --fail-on-cmd-error       Enforce nonzero exit if commands fail.",
-		"  -h, --help                Show git help.",
+		...renderCommandHelpOptions("git"),
 	].join("\n");
 }
 
@@ -145,22 +157,6 @@ function renderGrepHelp(): string {
 		"  prodex grep [root] [options]",
 		"",
 		"Options:",
-		"  -q, --query <text>        fixed-string search",
-		"  --any <list>              OR fixed-string search",
-		"  --all <list>              AND fixed-string search",
-		"  -r, --regex <pattern>     regex search",
-		"  --not <list>              fixed-string negative file filter",
-		"  --within <list>           search only inside these paths/globs",
-		"  --skip <list>             do not search inside these paths/globs",
-		"  -i, --include <glob>      Extra file/glob to append. Repeatable and comma-aware.",
-		"  -x, --exclude <glob>      File/glob to skip. Repeatable and comma-aware.",
-		"  -n, --name <name>         Output basename for this run.",
-		"  -F, --format <md|txt>     Output format.",
-		"  --max-files <number>      Maximum matched files count.",
-		"  --dry-run                 Perform a dry-run without writing output files.",
-		"  --cmd <command>           Run command sequentially for evidence capture. Repeatable.",
-		"  --cmd-timeout <seconds>   Command execution timeout (default: 180).",
-		"  --fail-on-cmd-error       Enforce nonzero exit if commands fail.",
-		"  -h, --help                Show grep help.",
+		...renderCommandHelpOptions("grep"),
 	].join("\n");
 }

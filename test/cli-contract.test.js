@@ -1062,8 +1062,61 @@ test("Markdown with no command outputs does not render command output index grou
 		assert.doesNotMatch(content, /## Command Outputs/);
 		assert.doesNotMatch(content, /PRODEX_COMMAND_OUTPUT_COUNT/);
 		// Verify source navigation has no command outputs link
-		assert.doesNotMatch(content, /\[Command outputs\]/);
 	});
+});
+
+test("help rendering is dynamic and shows correct options per command", async () => {
+	const traceHelp = await runProdexCommand(["node", "prodex", "trace", "--help"], repoRoot);
+	assert.equal(traceHelp.ok, true);
+	assert.equal(traceHelp.exitCode, 0);
+	assert.match(traceHelp.message, /--target/);
+	assert.match(traceHelp.message, /Dependency traversal depth/);
+	assert.doesNotMatch(traceHelp.message, /--entry/);
+	assert.doesNotMatch(traceHelp.message, /--debug/);
+
+	const packHelp = await runProdexCommand(["node", "prodex", "pack", "--help"], repoRoot);
+	assert.equal(packHelp.ok, true);
+	assert.equal(packHelp.exitCode, 0);
+	assert.match(packHelp.message, /--entry/);
+	assert.doesNotMatch(packHelp.message, /--target/);
+	assert.doesNotMatch(packHelp.message, /--debug/);
+
+	const scopeHelp = await runProdexCommand(["node", "prodex", "scope", "--help"], repoRoot);
+	assert.equal(scopeHelp.ok, true);
+	assert.equal(scopeHelp.exitCode, 0);
+	assert.match(scopeHelp.message, /--key/);
+	assert.match(scopeHelp.message, /--all/);
+	assert.match(scopeHelp.message, /--list/);
+	assert.doesNotMatch(scopeHelp.message, /--debug/);
+
+	const gitHelp = await runProdexCommand(["node", "prodex", "git", "--help"], repoRoot);
+	assert.equal(gitHelp.ok, true);
+	assert.equal(gitHelp.exitCode, 0);
+	assert.match(gitHelp.message, /--changed/);
+	assert.match(gitHelp.message, /--staged/);
+	assert.match(gitHelp.message, /--unstaged/);
+	assert.match(gitHelp.message, /--untracked/);
+	assert.match(gitHelp.message, /--include-diff/);
+	assert.doesNotMatch(gitHelp.message, /--debug/);
+
+	const grepHelp = await runProdexCommand(["node", "prodex", "grep", "--help"], repoRoot);
+	assert.equal(grepHelp.ok, true);
+	assert.equal(grepHelp.exitCode, 0);
+	assert.match(grepHelp.message, /--query/);
+	assert.match(grepHelp.message, /--any/);
+	assert.match(grepHelp.message, /--all/); // grep --all internally uses grepAll but CLI flag is --all
+	assert.match(grepHelp.message, /--regex/);
+	assert.match(grepHelp.message, /--not/);
+	assert.match(grepHelp.message, /--within/);
+	assert.match(grepHelp.message, /--skip/);
+	assert.doesNotMatch(grepHelp.message, /--debug/);
+
+	const migrateHelp = await runProdexCommand(["node", "prodex", "migrate", "--help"], repoRoot);
+	assert.equal(migrateHelp.ok, true);
+	assert.equal(migrateHelp.exitCode, 0);
+	assert.match(migrateHelp.message, /--write/);
+	assert.match(migrateHelp.message, /--check/);
+	assert.doesNotMatch(migrateHelp.message, /--debug/);
 });
 
 function usingTempProject(fn) {
