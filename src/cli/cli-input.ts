@@ -66,37 +66,17 @@ export function parseCliInput(argv: string[] = process.argv): CliParseResult {
 
 	if ((flags as any).help) return { command: { kind: "help", topic: commandName }, warnings, errors };
 
-	// Enforce deprecation checks for old syntax
-	if (commandName === "run") {
-		errors.push("`prodex run` has been replaced.\nUse `prodex pack`, `prodex trace`, or `prodex scope`.");
-	}
-	if (commandName === "profiles") {
-		errors.push("`prodex profiles` has been replaced.\nUse `prodex scope --list`.");
-	}
-	if (flags.profile !== undefined) {
-		errors.push("`--profile` has been replaced.\nUse `prodex pack --scope <key>` to merge scopes into one pack, or `prodex scope -k <key>` to run configured scopes separately.");
-	}
-	if ((flags as any).allProfiles !== undefined) {
-		errors.push("`--all-profiles` has been replaced.\nUse `--all` with `prodex scope`.");
-	}
-	if ((flags as any).maxDepth !== undefined) {
-		errors.push("`--max-depth` has been replaced.\nUse `--depth`.");
-	}
+	const validationErrors = validateCliInput(commandName, flags);
+	errors.push(...validationErrors);
 
 	if (errors.length) {
 		return { warnings, errors };
 	}
 
 	if (commandName === "init") {
-		if (flags.cmd !== undefined || flags.cmdTimeout !== undefined || flags.failOnCmdError !== undefined) {
-			errors.push('Command "init" does not accept command attachment options.');
-		}
 		return { command: { kind: "init", rootArg }, warnings, errors };
 	}
 	if (commandName === "migrate") {
-		if (flags.cmd !== undefined || flags.cmdTimeout !== undefined || flags.failOnCmdError !== undefined) {
-			errors.push('Command "migrate" does not accept command attachment options.');
-		}
 		return { command: { kind: "migrate", rootArg, write: !!(flags as any).write, check: !!(flags as any).check }, warnings, errors };
 	}
 	if (commandName === "pack") {
@@ -116,6 +96,34 @@ export function parseCliInput(argv: string[] = process.argv): CliParseResult {
 	}
 
 	return { warnings, errors };
+}
+
+function validateCliInput(commandName: string, flags: Partial<ProdexFlags>): string[] {
+	const errors: string[] = [];
+
+	if (commandName === "run") {
+		errors.push("`prodex run` has been replaced.\nUse `prodex pack`, `prodex trace`, or `prodex scope`.");
+	}
+	if (commandName === "profiles") {
+		errors.push("`prodex profiles` has been replaced.\nUse `prodex scope --list`.");
+	}
+	if (flags.profile !== undefined) {
+		errors.push("`--profile` has been replaced.\nUse `prodex pack --scope <key>` to merge scopes into one pack, or `prodex scope -k <key>` to run configured scopes separately.");
+	}
+	if ((flags as any).allProfiles !== undefined) {
+		errors.push("`--all-profiles` has been replaced.\nUse `--all` with `prodex scope`.");
+	}
+	if ((flags as any).maxDepth !== undefined) {
+		errors.push("`--max-depth` has been replaced.\nUse `--depth`.");
+	}
+
+	if (commandName === "init" || commandName === "migrate") {
+		if (flags.cmd !== undefined || flags.cmdTimeout !== undefined || flags.failOnCmdError !== undefined) {
+			errors.push(`Command "${commandName}" does not accept command attachment options.`);
+		}
+	}
+
+	return errors;
 }
 
 function stripExecutable(argv: string[]): string[] {
