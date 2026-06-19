@@ -4,15 +4,14 @@ import { logger } from "../diagnostics/logger";
 import { inspectValue } from "./inspect";
 import { normalizePath } from "./path";
 
-const GLOBAL_IGNORE = ["**/node_modules/**", "**/vendor/**", "**/dist/**"];
-
 export interface GlobScanOptions {
 	cwd?: string;
 	caseSensitiveMatch?: boolean;
+	ignore?: string[];
 }
 
 export async function globScan(patterns: string[], opts: GlobScanOptions = {}) {
-	const { cwd = process.cwd(), caseSensitiveMatch } = opts;
+	const { cwd = process.cwd(), caseSensitiveMatch, ignore } = opts;
 
 	if (!patterns?.length) return { files: [] };
 
@@ -21,7 +20,7 @@ export async function globScan(patterns: string[], opts: GlobScanOptions = {}) {
 		extglob: true,
 		dot: true,
 		onlyFiles: true,
-		ignore: GLOBAL_IGNORE,
+		ignore,
 		absolute: true,
 		caseSensitiveMatch,
 	});
