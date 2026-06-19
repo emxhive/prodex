@@ -7,7 +7,7 @@ export interface JsResolverCtx {
 
 export interface PhpResolverCtx {
 	kind: "php";
-	psr4: Record<string, string>;
+	psr4: Record<string, string | string[]>;
 	nsKeys: string[];
 	bindings: Record<string, string>;
 }
