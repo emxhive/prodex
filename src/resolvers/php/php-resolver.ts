@@ -9,7 +9,7 @@ import { readFileSafe } from "../../filesystem/read-file";
 import { emptyResolverResult, newResolverStats, resolverSetDiff, uniqueResolvedFiles } from "../resolver-result";
 import type { PhpResolverCtx, ResolverParams, ResolverResult } from "../../types";
 import { loadLaravelBindings } from "./bindings";
-import { extractPhpImports, expandGroupedUses } from "./extract-imports";
+import { extractPhpUseMap, extractPhpReferences, resolvePhpReference } from "./extract-imports";
 import { resolvePsr4 } from "./psr4";
 
 export async function resolvePhpImports({ cfg, filePath, ctx }: ResolverParams): Promise<ResolverResult> {
@@ -19,13 +19,31 @@ export async function resolvePhpImports({ cfg, filePath, ctx }: ResolverParams):
 
 	const currentNamespace = getCurrentNamespace(code);
 	const phpCtx = buildPhpCtx(cfg.root, ctx as PhpResolverCtx | undefined);
-	const imports = expandGroupedUses(extractPhpImports(code));
+
+	const useMap = extractPhpUseMap(code);
+	const rawReferences = extractPhpReferences(code);
+	const candidateImports = new Set<string>();
+
+	for (const fqcn of Object.values(useMap)) {
+		candidateImports.add(fqcn);
+	}
+
+	for (const ref of rawReferences) {
+		const resolvedRef = resolvePhpReference(ref, currentNamespace, useMap, phpCtx);
+		if (resolvedRef) {
+			candidateImports.add(resolvedRef);
+		}
+	}
+
 	const stats = newResolverStats();
 	const files: string[] = [];
 
-	for (const importName of imports) {
-		const resolvedImport = resolveNamespaceImport(importName, currentNamespace, phpCtx);
-		if (!resolvedImport) continue;
+	for (const resolvedImport of candidateImports) {
+		const isFilePath = resolvedImport.startsWith(".") || resolvedImport.includes("/") || resolvedImport.endsWith(".php");
+		const matchesNamespace = startsWithAnyNamespace(resolvedImport, phpCtx.nsKeys);
+		if (!isFilePath && !matchesNamespace) {
+			continue;
+		}
 
 		const resolvedPath = await tryResolvePhpFile(resolvedImport, filePath, phpCtx.psr4);
 		stats.expected.add(resolvedImport);
@@ -47,34 +65,56 @@ function getCurrentNamespace(code: string): string | null {
 	return nsMatch ? nsMatch[1].trim() : null;
 }
 
-function resolveNamespaceImport(importName: string, currentNamespace: string | null, ctx: PhpResolverCtx): string | null {
-	if (!importName || typeof importName !== "string") return null;
-
-	let resolved = importName;
-	const isFullyQualified = resolved.includes("\\") || resolved.startsWith("\\");
-	if (!isFullyQualified && currentNamespace) resolved = `${currentNamespace}\\${resolved}`;
-	if (ctx.bindings[resolved]) resolved = ctx.bindings[resolved];
-
-	return startsWithAnyNamespace(resolved, ctx.nsKeys) ? resolved : null;
-}
-
-async function tryResolvePhpFile(imp: string, fromFile: string, psr4: Record<string, string>): Promise<string | null> {
+async function tryResolvePhpFile(imp: string, fromFile: string, psr4: Record<string, string | string[]>): Promise<string | null> {
 	const key = `php:${imp}:${fromFile}`;
 	const cached = CacheManager.get(CACHE_KEYS.PHP_FILECACHE, key);
 	if (cached !== undefined) return cached;
 
-	const nsKey = Object.keys(psr4).find((candidate) => imp.startsWith(candidate));
+	if (imp.startsWith(".") || imp.includes("/") || imp.endsWith(".php")) {
+		const absolutePath = path.resolve(path.dirname(fromFile), imp);
+		try {
+			const stats = await fsp.stat(absolutePath);
+			if (stats.isFile()) {
+				const resolved = path.resolve(absolutePath);
+				CacheManager.set(CACHE_KEYS.PHP_FILECACHE, key, resolved);
+				return resolved;
+			}
+		} catch {}
+		if (!imp.endsWith(".php")) {
+			try {
+				const stats = await fsp.stat(absolutePath + ".php");
+				if (stats.isFile()) {
+					const resolved = path.resolve(absolutePath + ".php");
+					CacheManager.set(CACHE_KEYS.PHP_FILECACHE, key, resolved);
+					return resolved;
+				}
+			} catch {}
+		}
+		CacheManager.set(CACHE_KEYS.PHP_FILECACHE, key, null);
+		return null;
+	}
+
+	const nsKey = Object.keys(psr4).find((candidate) => {
+		return imp === candidate || imp.startsWith(candidate + "\\");
+	});
+
 	if (!nsKey) {
 		CacheManager.set(CACHE_KEYS.PHP_FILECACHE, key, null);
 		return null;
 	}
 
-	const relativeImport = normalizePath(imp.replace(nsKey, ""));
-	const candidates = [
-		path.join(psr4[nsKey], relativeImport),
-		path.join(psr4[nsKey], relativeImport + ".php"),
-		path.join(psr4[nsKey], relativeImport, "index.php"),
-	];
+	const relativeImport = normalizePath(imp.slice(nsKey.length).replace(/^\\+/, ""));
+	const mappedDirs = psr4[nsKey];
+	const dirs = Array.isArray(mappedDirs) ? mappedDirs : [mappedDirs];
+
+	const candidates: string[] = [];
+	for (const dir of dirs) {
+		candidates.push(
+			path.join(dir, relativeImport),
+			path.join(dir, relativeImport + ".php"),
+			path.join(dir, relativeImport, "index.php"),
+		);
+	}
 
 	const results = await Promise.allSettled(
 		candidates.map(async (candidate) => {
@@ -101,7 +141,9 @@ function buildPhpCtx(root: string, prev?: PhpResolverCtx): PhpResolverCtx {
 }
 
 function startsWithAnyNamespace(imp: string, nsKeys: string[]): boolean {
-	for (const nsKey of nsKeys) if (imp.startsWith(nsKey)) return true;
+	for (const nsKey of nsKeys) {
+		if (imp === nsKey || imp.startsWith(nsKey + "\\")) return true;
+	}
 	return false;
 }
 
