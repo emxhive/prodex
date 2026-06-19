@@ -58,7 +58,6 @@ export const COMMAND_HELP_FLAGS = {
 		"name",
 		"format",
 		"depth",
-		"maxFiles",
 		"dryRun",
 		"cmd",
 		"cmdTimeout",
@@ -72,7 +71,6 @@ export const COMMAND_HELP_FLAGS = {
 		"exclude",
 		"name",
 		"format",
-		"maxFiles",
 		"dryRun",
 		"cmd",
 		"cmdTimeout",
@@ -118,7 +116,6 @@ export const COMMAND_HELP_FLAGS = {
 		"exclude",
 		"name",
 		"format",
-		"maxFiles",
 		"dryRun",
 		"cmd",
 		"cmdTimeout",
@@ -141,7 +138,6 @@ export const FLAG_DESCRIPTION_OVERRIDES = {
 	},
 	grep: {
 		name: "Output basename for this run.",
-		maxFiles: "Maximum matched files count.",
 	},
 } as const satisfies Partial<Record<CommandHelpTopic, Partial<Record<PublicHelpFlagName, string>>>>;
 
