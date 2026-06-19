@@ -16,10 +16,16 @@ export interface ProdexConfig {
 	scopes: Record<string, ProdexScope>;
 }
 
+export interface ProdexConfigFileOutput {
+	dir?: string;
+	versioned?: boolean;
+	format?: "md" | "txt";
+}
+
 export type ProdexConfigFile = {
 	$schema: string;
 	version: number;
-	output?: DeepPartial<ProdexConfig["output"]>;
+	output?: ProdexConfigFileOutput;
 	exclude?: string[];
 	aliases?: Record<string, string>;
 	depth?: number;
