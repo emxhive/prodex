@@ -505,3 +505,220 @@ test("Preservation of real sections", async () => {
 		assert.match(content, /<!-- PRODEX_SECTION_COUNT: 4 -->/);
 	});
 });
+
+test("Git historical modes: commit mode snapshots content from commit, handles deleted, renamed, binary, include/exclude", async () => {
+	await usingTempProjectAsync(async (root) => {
+		initGitRepo(root);
+		writeJson(path.join(root, "prodex.json"), baseConfig());
+		execSync("git add prodex.json", { cwd: root, stdio: "ignore" });
+		execSync("git commit -m \"initial\"", { cwd: root, stdio: "ignore" });
+
+		// 1. Add some files and commit them
+		writeFile(path.join(root, "src/file1.ts"), "const original = 1;");
+		writeFile(path.join(root, "src/file-binary.png"), "binary content \0 hello"); // contains NUL byte, so binary
+		writeFile(path.join(root, "src/file-delete.ts"), "will be deleted");
+		execSync("git add src/file1.ts src/file-binary.png src/file-delete.ts", { cwd: root, stdio: "ignore" });
+		execSync("git commit -m \"add files\"", { cwd: root, stdio: "ignore" });
+
+		// Save the revision
+		const rev = execSync("git rev-parse HEAD", { cwd: root, encoding: "utf8" }).trim();
+
+		// 2. Modify files on disk to confirm we snapshot from commit, not working tree
+		writeFile(path.join(root, "src/file1.ts"), "const modified = 999;");
+		fs.rmSync(path.join(root, "src/file-delete.ts")); // delete on disk
+		writeFile(path.join(root, "src/file-new.ts"), "not in that commit");
+
+		// Run prodex git --commit <rev>
+		const result = await runProdexCommand(["node", "prodex", "git", "--commit", rev, "--format", "md"], root);
+		assert.equal(result.ok, true);
+		const content = fs.readFileSync(result.runs[0].outputPath, "utf8");
+
+		// File count should be 2 because file-binary is binary and file-delete is present in this rev
+		assert.match(content, /<!-- PRODEX_FILE_COUNT: 2 -->/);
+		// Check that file1.ts contains original content, not modified content
+		assert.match(content, /const original = 1;/);
+		assert.doesNotMatch(content, /const modified = 999;/);
+
+		// Binary and Deleted check
+		assert.match(content, /Binary: src\/file-binary\.png/);
+		assert.doesNotMatch(content, /Deleted: src\/file-delete\.ts/); // because it was present in that rev!
+
+		// Exclude check
+		const resultExcl = await runProdexCommand(["node", "prodex", "git", "--commit", rev, "--exclude", "src/file1.ts", "--format", "md"], root);
+		assert.equal(resultExcl.ok, true);
+		const contentExcl = fs.readFileSync(resultExcl.runs[0].outputPath, "utf8");
+		assert.match(contentExcl, /<!-- PRODEX_FILE_COUNT: 1 -->/);
+
+		// Include check
+		writeFile(path.join(root, "src/file-extra.ts"), "extra content");
+		const resultIncl = await runProdexCommand(["node", "prodex", "git", "--commit", rev, "--include", "src/file-extra.ts", "--format", "md"], root);
+		assert.equal(resultIncl.ok, true);
+		const contentIncl = fs.readFileSync(resultIncl.runs[0].outputPath, "utf8");
+		assert.match(contentIncl, /<!-- PRODEX_FILE_COUNT: 3 -->/);
+		assert.match(contentIncl, /extra content/);
+
+		// Include diff checks
+		const resultDiff = await runProdexCommand(["node", "prodex", "git", "--commit", rev, "--include-diff", "--format", "md"], root);
+		assert.equal(resultDiff.ok, true);
+		const contentDiff = fs.readFileSync(resultDiff.runs[0].outputPath, "utf8");
+		assert.match(contentDiff, /## Commit Diff/);
+		assert.match(contentDiff, /add files/);
+	});
+});
+
+test("Git historical modes: range mode snapshots content from head of range, supports warning and diff", async () => {
+	await usingTempProjectAsync(async (root) => {
+		initGitRepo(root);
+		writeJson(path.join(root, "prodex.json"), baseConfig());
+		execSync("git add prodex.json", { cwd: root, stdio: "ignore" });
+		execSync("git commit -m \"initial\"", { cwd: root, stdio: "ignore" });
+
+		const baseRev = execSync("git rev-parse HEAD", { cwd: root, encoding: "utf8" }).trim();
+
+		// Add first commit
+		writeFile(path.join(root, "src/file1.ts"), "v1");
+		execSync("git add src/file1.ts", { cwd: root, stdio: "ignore" });
+		execSync("git commit -m \"commit 1\"", { cwd: root, stdio: "ignore" });
+
+		// Add second commit (modifies file1.ts)
+		writeFile(path.join(root, "src/file1.ts"), "v2");
+		execSync("git add src/file1.ts", { cwd: root, stdio: "ignore" });
+		execSync("git commit -m \"commit 2\"", { cwd: root, stdio: "ignore" });
+
+		const headRev = execSync("git rev-parse HEAD", { cwd: root, encoding: "utf8" }).trim();
+
+		// Modify file1.ts on disk to confirm we snapshot from headRev
+		writeFile(path.join(root, "src/file1.ts"), "disk-version");
+
+		// Run range mode
+		const result = await runProdexCommand(["node", "prodex", "git", "--range", `${baseRev}..${headRev}`, "--format", "md"], root);
+		assert.equal(result.ok, true);
+		const content = fs.readFileSync(result.runs[0].outputPath, "utf8");
+
+		// Should show v2, not disk-version
+		assert.match(content, /v2/);
+		assert.doesNotMatch(content, /disk-version/);
+
+		// Warning check for three-dot range
+		const result3dot = await runProdexCommand(["node", "prodex", "git", "--range", `${baseRev}...${headRev}`, "--format", "md"], root);
+		assert.equal(result3dot.ok, true);
+		assert.match(result3dot.runs[0].warnings.join("\n"), /Using three-dot range/);
+	});
+});
+
+test("Git historical modes: against mode compares merge-base against HEAD, snapshots from HEAD", async () => {
+	await usingTempProjectAsync(async (root) => {
+		initGitRepo(root);
+		writeJson(path.join(root, "prodex.json"), baseConfig());
+		execSync("git add prodex.json", { cwd: root, stdio: "ignore" });
+		execSync("git commit -m \"initial\"", { cwd: root, stdio: "ignore" });
+
+		// Rename current branch to main
+		execSync("git branch -m main", { cwd: root, stdio: "ignore" });
+
+		// We are on main branch. Let's create a feature branch
+		execSync("git checkout -b feature", { cwd: root, stdio: "ignore" });
+
+		// Write a file in feature branch and commit
+		writeFile(path.join(root, "src/feature.ts"), "feature branch code");
+		execSync("git add src/feature.ts", { cwd: root, stdio: "ignore" });
+		execSync("git commit -m \"feature commit\"", { cwd: root, stdio: "ignore" });
+
+		// Go back to main, write another file and commit
+		execSync("git checkout main", { cwd: root, stdio: "ignore" });
+		writeFile(path.join(root, "src/main-only.ts"), "main code");
+		execSync("git add src/main-only.ts", { cwd: root, stdio: "ignore" });
+		execSync("git commit -m \"main commit\"", { cwd: root, stdio: "ignore" });
+
+		// Go back to feature
+		execSync("git checkout feature", { cwd: root, stdio: "ignore" });
+
+		// Modify feature.ts on disk to verify snapshot comes from HEAD revision
+		writeFile(path.join(root, "src/feature.ts"), "modified on disk");
+
+		// Run against main mode
+		const result = await runProdexCommand(["node", "prodex", "git", "--against", "main", "--format", "md"], root);
+		assert.equal(result.ok, true);
+		const content = fs.readFileSync(result.runs[0].outputPath, "utf8");
+
+		// File count should be 1 (src/feature.ts). main-only.ts should not be there because we are against main!
+		assert.match(content, /<!-- PRODEX_FILE_COUNT: 1 -->/);
+		assert.match(content, /feature branch code/);
+		assert.doesNotMatch(content, /modified on disk/);
+		assert.doesNotMatch(content, /main-only\.ts/);
+	});
+});
+
+test("Git historical modes: commit mode records deleted files as notes only", async () => {
+	await usingTempProjectAsync(async (root) => {
+		initGitRepo(root);
+		writeJson(path.join(root, "prodex.json"), baseConfig());
+		execSync("git add prodex.json", { cwd: root, stdio: "ignore" });
+		execSync("git commit -m \"initial\"", { cwd: root, stdio: "ignore" });
+
+		// 1. Create and commit src/delete-me.ts
+		writeFile(path.join(root, "src/delete-me.ts"), "will be deleted");
+		execSync("git add src/delete-me.ts", { cwd: root, stdio: "ignore" });
+		execSync("git commit -m \"add delete-me\"", { cwd: root, stdio: "ignore" });
+
+		// 2. Delete src/delete-me.ts
+		fs.rmSync(path.join(root, "src/delete-me.ts"));
+
+		// 3. Commit the deletion
+		execSync("git add src/delete-me.ts", { cwd: root, stdio: "ignore" });
+		execSync("git commit -m \"delete delete-me\"", { cwd: root, stdio: "ignore" });
+
+		const deleteCommit = execSync("git rev-parse HEAD", { cwd: root, encoding: "utf8" }).trim();
+
+		// 4. Run prodex git --commit <deleteCommit> --format md
+		const result = await runProdexCommand(["node", "prodex", "git", "--commit", deleteCommit, "--format", "md"], root);
+		assert.equal(result.ok, true);
+		const content = fs.readFileSync(result.runs[0].outputPath, "utf8");
+
+		// 5. Assert File Notes contains: Deleted: src/delete-me.ts
+		assert.match(content, /Deleted: src\/delete-me\.ts/);
+
+		// 6. Assert the artifact does not include a file section for src/delete-me.ts
+		assert.doesNotMatch(content, /File: src\/delete-me\.ts/);
+
+		// 7. Assert the file count does not include delete-me.ts
+		assert.match(content, /<!-- PRODEX_FILE_COUNT: 0 -->/);
+	});
+});
+
+test("Git historical modes: commit mode records renamed files and snapshots the new path", async () => {
+	await usingTempProjectAsync(async (root) => {
+		initGitRepo(root);
+		writeJson(path.join(root, "prodex.json"), baseConfig());
+		execSync("git add prodex.json", { cwd: root, stdio: "ignore" });
+		execSync("git commit -m \"initial\"", { cwd: root, stdio: "ignore" });
+
+		// 1. Create and commit src/old-name.ts
+		writeFile(path.join(root, "src/old-name.ts"), "const renamed = true;");
+		execSync("git add src/old-name.ts", { cwd: root, stdio: "ignore" });
+		execSync("git commit -m \"add old-name\"", { cwd: root, stdio: "ignore" });
+
+		// 2. git mv src/old-name.ts src/new-name.ts
+		execSync("git mv src/old-name.ts src/new-name.ts", { cwd: root, stdio: "ignore" });
+
+		// 3. Commit the rename
+		execSync("git commit -m \"rename to new-name\"", { cwd: root, stdio: "ignore" });
+
+		const renameCommit = execSync("git rev-parse HEAD", { cwd: root, encoding: "utf8" }).trim();
+
+		// 4. Run prodex git --commit <renameCommit> --format md
+		const result = await runProdexCommand(["node", "prodex", "git", "--commit", renameCommit, "--format", "md"], root);
+		assert.equal(result.ok, true);
+		const content = fs.readFileSync(result.runs[0].outputPath, "utf8");
+
+		// 5. Assert File Notes contains: Renamed: src/old-name.ts -> src/new-name.ts
+		assert.match(content, /Renamed: src\/old-name\.ts -> src\/new-name\.ts/);
+
+		// 6. Assert the artifact includes File: src/new-name.ts
+		assert.match(content, /File: src\/new-name\.ts/);
+
+		// 7. Assert the artifact does not include File: src/old-name.ts
+		assert.doesNotMatch(content, /File: src\/old-name\.ts/);
+		assert.match(content, /const renamed = true;/);
+	});
+});

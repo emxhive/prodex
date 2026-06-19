@@ -29,13 +29,34 @@ export type CommandIntent =
 			flags: Partial<ProdexFlags>;
 	  };
 
-export interface GitPlanOptions {
-	changed?: boolean;
-	staged?: boolean;
-	unstaged?: boolean;
-	untracked?: boolean;
-	includeDiff?: boolean;
-}
+export type GitPlanOptions =
+	| {
+			mode: "working-tree";
+			changed: boolean;
+			staged: boolean;
+			unstaged: boolean;
+			untracked: boolean;
+			includeDiff: boolean;
+	  }
+	| {
+			mode: "commit";
+			rev: string;
+			includeDiff: boolean;
+	  }
+	| {
+			mode: "range";
+			spec: string;
+			base: string;
+			head: string;
+			includeDiff: boolean;
+	  }
+	| {
+			mode: "against";
+			base: string;
+			mergeBase?: string; // resolved later
+			includeDiff: boolean;
+	  };
+
 
 export interface GrepPlanOptions {
 	mode: "query" | "any" | "all" | "regex";

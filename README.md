@@ -184,11 +184,33 @@ Run configured scopes separately.
 | `--format` | `-F` | `md`/`txt` | Output format. Markdown is the default. |
 | `--dry-run` |  | boolean | Perform a dry-run without writing output files. |
 
-### `git` and `grep` Commands
+### `git` Command
 
-Run git-based or text-search extractions. Use command-specific help for details on all available options:
-* `prodex git [root] --help`
+Run git-based extractions.
+
+```bash
+prodex git [root] --changed
+prodex git [root] --commit <rev>
+prodex git [root] --range <base..head>
+prodex git [root] --range <base...head>
+prodex git [root] --against <base>
+```
+
+#### Working-tree Selector
+* `--changed` / `--staged` / `--unstaged` / `--untracked` (default: `--changed`): Reviews files from the current working tree and snapshots their content from disk.
+
+#### Historical Git Modes
+Historical modes snapshot file contents from Git history at the specified revisions, rather than reading them from the current working tree on disk.
+* `--commit <rev>`: Reviews files changed by one commit and snapshots contents from that commit.
+* `--range <base..head>`: Reviews files changed between `base` and `head` and snapshots contents from `head`.
+* `--range <base...head>`: Reviews files changed between `merge-base(base, head)` and `head` and snapshots contents from `head`.
+* `--against <base>`: Reviews current HEAD against `merge-base(base, HEAD)`, useful for branch/PR-style review, snapshotting contents from HEAD.
+
+### `grep` Command
+
+Run text-search extractions. Use command-specific help for details on all available options:
 * `prodex grep [root] --help`
+
 
 ### Global Help and Version
 

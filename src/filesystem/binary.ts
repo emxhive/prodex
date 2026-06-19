@@ -18,3 +18,7 @@ export function isBinaryFile(filePath: string): boolean {
 		return false;
 	}
 }
+
+export function isBinaryBuffer(buffer: Buffer): boolean {
+	return buffer.subarray(0, 1024).includes(0);
+}

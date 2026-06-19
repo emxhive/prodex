@@ -34,6 +34,10 @@ export const PUBLIC_FLAGS = {
 	unstaged: { long: "unstaged", description: "Include unstaged changes.", hint: "" },
 	untracked: { long: "untracked", description: "Include untracked files.", hint: "" },
 	includeDiff: { long: "includeDiff", description: "Include full git diff output in generic sections.", hint: "" },
+	commit: { long: "commit", description: "Snapshot files changed by a single commit.", hint: "<rev>" },
+	range: { long: "range", description: "Snapshot files changed between two commits (base..head or base...head).", hint: "<spec>" },
+	against: { long: "against", description: "Compare merge-base of <base> and HEAD against HEAD.", hint: "<base>" },
+
 
 	// Grep specific flags
 	query: { long: "query", description: "fixed-string search", hint: "<text>" },
@@ -93,6 +97,9 @@ export const COMMAND_HELP_FLAGS = {
 		"staged",
 		"unstaged",
 		"untracked",
+		"commit",
+		"range",
+		"against",
 		"includeDiff",
 		"include",
 		"exclude",

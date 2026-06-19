@@ -65,6 +65,16 @@ export interface ProdexFlags {
 	/** Git-specific: Include full git diff output in generic sections. */
 	includeDiff?: boolean;
 
+	/** Git-specific: Snapshot files changed by a single commit. */
+	commit?: string;
+
+	/** Git-specific: Snapshot files changed between two commits (base..head or base...head). */
+	range?: string;
+
+	/** Git-specific: Compare merge-base of base and HEAD against HEAD. */
+	against?: string;
+
+
 	/** Grep-specific: search query */
 	query?: string;
 

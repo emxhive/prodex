@@ -1119,6 +1119,64 @@ test("help rendering is dynamic and shows correct options per command", async ()
 	assert.doesNotMatch(migrateHelp.message, /--debug/);
 });
 
+test("git command help includes historical flags", async () => {
+	const gitHelp = await runProdexCommand(["node", "prodex", "git", "--help"], repoRoot);
+	assert.equal(gitHelp.ok, true);
+	assert.equal(gitHelp.exitCode, 0);
+	assert.match(gitHelp.message, /--commit/);
+	assert.match(gitHelp.message, /--range/);
+	assert.match(gitHelp.message, /--against/);
+});
+
+test("git historical modes mutual exclusivity and validation", async () => {
+	await usingTempProjectAsync(async (root) => {
+		writeJson(path.join(root, "prodex.json"), baseConfig());
+
+		// Group B exclusivity
+		const res1 = await runProdexCommand(["node", "prodex", "git", "--commit", "abc", "--range", "base..head"], root);
+		assert.equal(res1.ok, false);
+		assert.match(res1.errors.join("\n"), /--commit, --range, and --against are mutually exclusive/);
+
+		const res2 = await runProdexCommand(["node", "prodex", "git", "--commit", "abc", "--against", "main"], root);
+		assert.equal(res2.ok, false);
+		assert.match(res2.errors.join("\n"), /--commit, --range, and --against are mutually exclusive/);
+
+		const res3 = await runProdexCommand(["node", "prodex", "git", "--range", "base..head", "--against", "main"], root);
+		assert.equal(res3.ok, false);
+		assert.match(res3.errors.join("\n"), /--commit, --range, and --against are mutually exclusive/);
+
+		// Group A and Group B combination
+		const res4 = await runProdexCommand(["node", "prodex", "git", "--commit", "abc", "--changed"], root);
+		assert.equal(res4.ok, false);
+		assert.match(res4.errors.join("\n"), /cannot be combined with --changed/);
+
+		const res5 = await runProdexCommand(["node", "prodex", "git", "--range", "base..head", "--staged"], root);
+		assert.equal(res5.ok, false);
+		assert.match(res5.errors.join("\n"), /cannot be combined with --changed/);
+
+		// Empty or invalid inputs
+		const res6 = await runProdexCommand(["node", "prodex", "git", "--commit", "  "], root);
+		assert.equal(res6.ok, false);
+		assert.match(res6.errors.join("\n"), /--commit requires a non-empty revision/);
+
+		const res7 = await runProdexCommand(["node", "prodex", "git", "--against", "  "], root);
+		assert.equal(res7.ok, false);
+		assert.match(res7.errors.join("\n"), /--against requires a non-empty base branch/);
+
+		const res8 = await runProdexCommand(["node", "prodex", "git", "--range", "abc"], root);
+		assert.equal(res8.ok, false);
+		assert.match(res8.errors.join("\n"), /Invalid range format/);
+
+		const res9 = await runProdexCommand(["node", "prodex", "git", "--range", "base.."], root);
+		assert.equal(res9.ok, false);
+		assert.match(res9.errors.join("\n"), /Invalid range format/);
+
+		const res10 = await runProdexCommand(["node", "prodex", "git", "--range", "..head"], root);
+		assert.equal(res10.ok, false);
+		assert.match(res10.errors.join("\n"), /Invalid range format/);
+	});
+});
+
 function usingTempProject(fn) {
 	const root = fs.mkdtempSync(path.join(os.tmpdir(), "prodex-test-"));
 	try {
