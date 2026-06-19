@@ -4,6 +4,10 @@ export function isOutdatedConfig(config: any): boolean {
 	return typeof config?.version === "number" && config.version < REQUIRED_CONFIG_VERSION;
 }
 
+export function isFutureConfig(config: any): boolean {
+	return typeof config?.version === "number" && config.version > REQUIRED_CONFIG_VERSION;
+}
+
 export function requiresConfigMigration(config: any): boolean {
 	return isOutdatedConfig(config) || looksLikeLegacyConfig(config);
 }

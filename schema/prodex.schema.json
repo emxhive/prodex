@@ -12,7 +12,7 @@
                     "type": "number"
                 },
                 "output": {
-                    "$ref": "#/definitions/DeepPartial%3Cstructure-184175265-90-156-184175265-81-157-184175265-0-324-184175265-0-840%3E"
+                    "$ref": "#/definitions/ProdexConfigFileOutput"
                 },
                 "exclude": {
                     "type": "array",
@@ -45,7 +45,7 @@
             ],
             "additionalProperties": false
         },
-        "DeepPartial<structure-184175265-90-156-184175265-81-157-184175265-0-324-184175265-0-840>": {
+        "ProdexConfigFileOutput": {
             "type": "object",
             "properties": {
                 "dir": {

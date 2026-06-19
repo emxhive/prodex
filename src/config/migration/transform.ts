@@ -16,11 +16,12 @@ export function migrateConfig(input: any): MigrationPreview {
 	}
 
 	const changes: string[] = [];
+	const inputOutput = input.output ?? {};
 	const output = {
-		...DEFAULT_PRODEX_CONFIG.output,
-		...(input.output ?? {}),
+		dir: inputOutput.dir !== undefined ? String(inputOutput.dir) : DEFAULT_PRODEX_CONFIG.output.dir,
+		versioned: inputOutput.versioned !== undefined ? Boolean(inputOutput.versioned) : DEFAULT_PRODEX_CONFIG.output.versioned,
+		format: (inputOutput.format === "md" || inputOutput.format === "txt") ? inputOutput.format : DEFAULT_PRODEX_CONFIG.output.format,
 	};
-	delete (output as any).prefix;
 	if (input.output?.prefix !== undefined) {
 		changes.push("output.prefix removed; use scope.name when you need to override scope output names.");
 	}
