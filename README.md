@@ -72,7 +72,6 @@ Example v5 configuration file:
     "@": "resources/js"
   },
   "depth": 10,
-  "maxFiles": 200,
   "scopes": {
     "dashboard": {
       "name": "frontend-dashboard",
@@ -158,7 +157,6 @@ Generate a single merged context pack.
 | `--name` | `-n` | string | Output basename for this pack. |
 | `--format` | `-F` | `md`/`txt` | Output format. Markdown is the default. |
 | `--depth` |  | number | Maximum dependency traversal depth. |
-| `--max-files` |  | number | Maximum traced file count. |
 | `--dry-run` |  | boolean | Perform a dry-run without writing output files. |
 
 ### `trace` Command
@@ -172,7 +170,6 @@ Trace imports from an entrypoint.
 | `--name` | `-n` | string | Output basename for this trace. |
 | `--format` | `-F` | `md`/`txt` | Output format. Markdown is the default. |
 | `--depth` |  | number | Maximum dependency traversal depth. |
-| `--max-files` |  | number | Maximum traced file count. |
 | `--dry-run` |  | boolean | Perform a dry-run without writing output files. |
 
 ### `scope` Command
@@ -221,7 +218,6 @@ Prodex reads `prodex.json` from the project root.
     "@": "resources/js"
   },
   "depth": 10,
-  "maxFiles": 200,
   "scopes": {}
 }
 ```
