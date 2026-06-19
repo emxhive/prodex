@@ -365,3 +365,154 @@ test("Trace target glob rejection still works after target-resolver cleanup", as
 		assert.match(result.runs[0].errors.join("\n"), /does not accept glob targets/);
 	});
 });
+
+test("Line range stress regression test with marker-looking code block contents", async () => {
+	await usingTempProject(async (root) => {
+		writeJson(path.join(root, "prodex.json"), baseConfig());
+		writeFile(path.join(root, "src/file1.ts"), [
+			"export const x = 1;",
+			"// #### 2",
+			"// <a id=\"sec-1\"></a>",
+			"// <a id=\"cmd-1\"></a>",
+			"// <!-- PRODEx v2.0.0 | timestamp -->",
+			"// <!-- PRODEX_INDEX_LIST_END -->",
+			"```js",
+			"console.log('nested code fences tilde vs backtick');",
+			"```"
+		].join("\n"));
+		writeFile(path.join(root, "src/file2.ts"), "export const y = 2;");
+		writeFile(path.join(root, "src/file3.ts"), "export const z = 3;");
+
+		const result = await runProdexCommand([
+			"node", "prodex", "pack",
+			"-e", "src/file1.ts,src/file2.ts,src/file3.ts",
+			"--cmd", "node -e \"console.log('#### 3')\"",
+			"--format", "md"
+		], root);
+
+		assert.equal(result.ok, true);
+		const content = fs.readFileSync(result.runs[0].outputPath, "utf8");
+		const lines = content.split("\n");
+
+		// Extract index ranges from the TOC listing
+		const listStartIdx = lines.findIndex(l => l.trim() === "<!-- PRODEX_INDEX_LIST_START -->");
+		const listEndIdx = lines.findIndex(l => l.trim() === "<!-- PRODEX_INDEX_LIST_END -->");
+		assert.ok(listStartIdx >= 0 && listEndIdx > listStartIdx);
+
+		const indexLines = lines.slice(listStartIdx + 1, listEndIdx);
+		const ranges = [];
+		for (const line of indexLines) {
+			const m = line.match(/L(\d+)-L(\d+)/);
+			if (m) {
+				ranges.push({
+					label: line,
+					start: parseInt(m[1], 10),
+					end: parseInt(m[2], 10)
+				});
+			}
+		}
+
+		// Expecting 3 files + 1 command = 4 ranges in TOC
+		assert.equal(ranges.length, 4);
+
+		// Assert range properties
+		for (let i = 0; i < ranges.length; i++) {
+			const r = ranges[i];
+			assert.ok(r.start <= r.end, `Inverted range bounds detected: ${r.label} (start ${r.start} > end ${r.end})`);
+			if (i > 0) {
+				const prev = ranges[i - 1];
+				assert.ok(prev.end < r.start, `Overlapping ranges detected: Range ${i-1} (${prev.label}) overlaps with ${i} (${r.label})`);
+			}
+		}
+	});
+});
+
+test("Command output layout ordering policy is respected", async () => {
+	await usingTempProject(async (root) => {
+		writeJson(path.join(root, "prodex.json"), baseConfig());
+		writeFile(path.join(root, "src/index.ts"), "export const value = 1;\n");
+
+		// pack command -> files first, then commands
+		const resultPack = await runProdexCommand([
+			"node", "prodex", "pack",
+			"-e", "src/index.ts",
+			"--cmd", "node -e \"console.log('packcmd')\"",
+			"--format", "md"
+		], root);
+		assert.equal(resultPack.ok, true);
+		const packContent = fs.readFileSync(resultPack.runs[0].outputPath, "utf8");
+		const packFileIdx = packContent.indexOf("#### 1");
+		const packCmdIdx = packContent.indexOf("\n# Command Outputs\n");
+		assert.ok(packFileIdx < packCmdIdx, "Expected files before command outputs in pack command");
+	});
+});
+
+test("Renderer command output alignment consistency", async () => {
+	await usingTempProject(async (root) => {
+		writeJson(path.join(root, "prodex.json"), baseConfig());
+		writeFile(path.join(root, "src/index.ts"), "export const index = 1;");
+
+		const resultMd = await runProdexCommand([
+			"node", "prodex", "pack",
+			"-e", "src/index.ts",
+			"--cmd", "node -e \"process.exit(5)\"",
+			"--format", "md"
+		], root);
+		assert.equal(resultMd.ok, true);
+		const contentMd = fs.readFileSync(resultMd.runs[0].outputPath, "utf8");
+
+		const resultTxt = await runProdexCommand([
+			"node", "prodex", "pack",
+			"-e", "src/index.ts",
+			"--cmd", "node -e \"process.exit(5)\"",
+			"--format", "txt"
+		], root);
+		assert.equal(resultTxt.ok, true);
+		const contentTxt = fs.readFileSync(resultTxt.runs[0].outputPath, "utf8");
+
+		// Confirm exit code 5 is captured correctly in both
+		assert.match(contentMd, /Exit code: 5/);
+		assert.match(contentTxt, /Exit Code: 5/);
+
+		// Confirm failed status is captured semantically in both
+		assert.match(contentMd, /Status: failed/);
+		assert.match(contentTxt, /Status: failed/);
+	});
+});
+
+test("Git command layout ordering policy is respected", async () => {
+	await usingTempProject(async (root) => {
+		initGitRepo(root);
+		writeJson(path.join(root, "prodex.json"), baseConfig());
+		writeFile(path.join(root, "src/index.ts"), "export const value = 1;\n");
+
+		try {
+			execSync("git add .", { cwd: root, stdio: "ignore" });
+			execSync("git commit -m \"commit 1\"", { cwd: root, stdio: "ignore" });
+		} catch (e) {
+			// Skip or handle git init failures gracefully on host environments lacking git
+			return;
+		}
+
+		// Mutate file to generate staged/unstaged changes
+		writeFile(path.join(root, "src/index.ts"), "export const value = 2;\n");
+
+		const resultGit = await runProdexCommand([
+			"node", "prodex", "git",
+			"--changed",
+			"--format", "md"
+		], root);
+
+		assert.equal(resultGit.ok, true);
+		const gitContent = fs.readFileSync(resultGit.runs[0].outputPath, "utf8");
+
+		const secAnchorIdx = gitContent.indexOf("<a id=\"sec-1\"></a>");
+		const fileMarkerIdx = gitContent.indexOf("#### 1");
+
+		assert.ok(secAnchorIdx >= 0, "Expected a metadata section in git trace");
+		assert.ok(fileMarkerIdx >= 0, "Expected a file section in git trace");
+		assert.ok(secAnchorIdx < fileMarkerIdx, "Expected metadata sections before file sections in git command");
+	});
+});
+
+
