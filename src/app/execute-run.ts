@@ -93,12 +93,24 @@ export async function executeRun(plan: ExecutionPlan): Promise<RunResult> {
 
 	// 1. Snapshot resolved files
 	const filesSnapshots: FileSnapshot[] = [];
+	const snapshotsMap = new Map<string, FileSnapshot>();
+	if (collectResult.snapshots) {
+		for (const snap of collectResult.snapshots) {
+			snapshotsMap.set(snap.path, snap);
+		}
+	}
+
 	for (const file of collectResult.files) {
-		try {
-			const content = fs.readFileSync(file, "utf8");
-			filesSnapshots.push({ path: file, content });
-		} catch (err: any) {
-			filesSnapshots.push({ path: file, content: "", readError: err.message || String(err) });
+		const cachedSnap = snapshotsMap.get(file);
+		if (cachedSnap) {
+			filesSnapshots.push(cachedSnap);
+		} else {
+			try {
+				const content = fs.readFileSync(file, "utf8");
+				filesSnapshots.push({ path: file, content });
+			} catch (err: any) {
+				filesSnapshots.push({ path: file, content: "", readError: err.message || String(err) });
+			}
 		}
 	}
 

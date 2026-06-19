@@ -47,6 +47,10 @@ export const FLAGS: FlagSpec[] = [
 	{ long: "unstaged", type: "boolean" },
 	{ long: "untracked", type: "boolean" },
 	{ long: "includeDiff", type: "boolean" },
+	{ long: "commit", type: "string" },
+	{ long: "range", type: "string" },
+	{ long: "against", type: "string" },
+
 
 	// Deprecated / legacy flags (parsed to return guided errors)
 	{ long: "profile", short: "p", type: "list" },
