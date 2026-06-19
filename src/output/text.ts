@@ -1,5 +1,6 @@
 import { rel } from "../filesystem/read-file";
-import type { ArtifactPayload, CommandOutputResult, ArtifactSection } from "../types";
+import { getLayoutOrder, formatExitCode } from "./render-helpers";
+import type { ArtifactPayload, CommandOutputResult } from "../types";
 
 export function renderTxt(payload: ArtifactPayload): string {
 	const root = payload.root;
@@ -17,8 +18,8 @@ export function renderTxt(payload: ArtifactPayload): string {
 		);
 	}
 
-	const isGit = payload.metadata?.commandKind === "git";
-	const isFileFirst = !isGit;
+	const layoutOrder = getLayoutOrder(payload.metadata?.commandKind);
+	const isFileFirst = layoutOrder === "files-first";
 
 	const sectionToc = (payload.sections ?? []).map((sec) => "## - Section: " + sec.title);
 	const fileToc = sorted.map((file) => "## - File: " + rel(file.path, root));
@@ -60,7 +61,7 @@ function renderTxtCmdResults(cmdResults?: CommandOutputResult[], root = process.
 			`## - Command: ${res.command}`,
 			`## - Directory: ${rel(res.cwd, root) || "."}`,
 			`## - Status: ${statusStr}`,
-			`## - Exit Code: ${res.exitCode !== null ? res.exitCode : "N/A"}`,
+			`## - Exit Code: ${formatExitCode(res.exitCode)}`,
 			`## - Duration: ${res.durationMs}ms`,
 			`## - Timeout State: ${res.timedOut ? "Yes" : "No"}`,
 			`## - Output:`
