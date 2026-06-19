@@ -8,7 +8,7 @@ export const DEFAULT_PRODEX_CONFIG: ProdexConfigFile = {
 		versioned: true,
 		format: "md",
 	},
-	exclude: ["node_modules/**", "vendor/**", "dist/**", "@shadcn/**", "**/components/ui/**"],
+	exclude: ["node_modules/**", "vendor/**", "dist/**"],
 	aliases: {
 		"@": "resources/js",
 	},
