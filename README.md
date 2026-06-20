@@ -1,112 +1,8 @@
 # Prodex
 
-Focused code-context extraction for large, multi-file projects.
+Prodex packages the code an AI tool, reviewer, or teammate needs to see into readable Markdown or TXT.
 
-Prodex starts from real project entrypoints, follows supported dependencies, adds explicitly included files, and exports a clean Markdown trace. It helps you isolate the files that matter for a feature, review, debug session, documentation pass, handoff, or AI-assisted workflow without manually collecting every related file.
-
-Prodex is intentionally narrow: it creates readable, reproducible context bundles. It is not trying to be a full IDE indexer, static analysis platform, architecture rule engine, or graph visualizer.
-
-## Why Prodex
-
-Large projects make context gathering expensive. A feature can start in one route or component, then spread through shared utilities, types, controllers, services, bindings, and framework conventions. Copying those files by hand is slow, inconsistent, and easy to get wrong.
-
-Prodex gives that workflow a repeatable shape:
-
-1. Choose one or more entry files or globs.
-2. Trace the dependencies Prodex can resolve.
-3. Add any extra files you explicitly include.
-4. Exclude noisy paths such as generated output, vendor code, or UI primitives.
-5. Export a Markdown bundle with an index and file sections.
-
-The result is a focused project trace you can read, share, review, archive, or hand to another tool.
-
-## How It Works
-
-```bash
-prodex pack --entry src/index.ts
-```
-
-Prodex resolves the requested entrypoints from your project root, follows supported dependency references, applies include and exclude rules, then writes a versioned Markdown file to `./prodex/` by default.
-
-For example:
-
-```bash
-prodex pack --entry resources/js/pages/Dashboard.tsx --include "routes/web.php"
-```
-
-This traces the dashboard entrypoint and adds the matching route file to the exported context.
-
-## Scopes
-
-Scopes are reusable configured slices of your codebase stored in `prodex.json`.
-
-They are one of Prodex's most useful features: instead of rebuilding the same trace commands every time, teams can save important project areas as named scopes such as `dashboard`, `auth`, `billing`, `api`, `admin`, or `checkout`.
-
-* **scope key**: Lookup identity used in CLI selection (e.g. `dashboard` in `scopes.dashboard`).
-* **scope.name**: Configured output/display name used for output files (e.g., `frontend-dashboard`). If not provided, the scope key is used.
-
-CLI selection uses the scope key:
-
-```bash
-prodex scope -k dashboard
-prodex scope -k auth,billing
-prodex scope --all
-prodex scope --list
-```
-
-Use scopes when a project has recurring review surfaces or ownership areas. Run one scope, a comma-separated set of scopes, or all scopes with `--all` when you need a broader pass.
-
-Example v5 configuration file:
-
-```json
-{
-  "version": 5,
-  "$schema": "https://raw.githubusercontent.com/emxhive/prodex/main/schema/prodex.schema.json",
-  "output": {
-    "dir": "prodex",
-    "format": "md",
-    "versioned": true
-  },
-  "exclude": ["node_modules/**", "vendor/**", "dist/**"],
-  "aliases": {
-    "@": "resources/js"
-  },
-  "depth": 10,
-  "scopes": {
-    "dashboard": {
-      "name": "frontend-dashboard",
-      "entry": ["resources/js/pages/Dashboard.tsx"],
-      "include": ["routes/web.php"],
-      "exclude": ["resources/js/components/ui/**"]
-    }
-  }
-}
-```
-
-## Markdown Output
-
-Markdown is the primary Prodex output.
-
-Each generated trace includes:
-
-- A file index
-- A total file count marker
-- Links to each exported file section
-- Line ranges for the generated sections
-- Syntax-highlighted code fences where possible
-- The collected source content in one readable bundle
-
-Versioned filenames are enabled by default so repeated runs do not overwrite earlier traces.
-
-## Current Support
-
-Prodex's broader identity is controlled context extraction, not a single-framework tool.
-
-Include-only extraction is language-agnostic: any source or text file matched by `--include` or a scope `include` rule can be added to a trace.
-
-Dependency tracing is resolver-based. Today Prodex traces JavaScript, TypeScript, TSX, declaration files, and PHP entrypoints. Current tracing support includes JS/TS imports, dynamic imports, CommonJS `require`, re-exports, static PHP include/require statements, PHP namespace imports, PSR-4 resolution, and some Laravel binding awareness.
-
-Unsupported or dynamic relationships may need to be added with `--include` or scope `include` rules. That is expected: Prodex favors a focused, readable trace over pretending to understand every runtime edge in a project.
+Use it to snapshot Git changes, collect files by search, save repeatable scopes, attach command output, or gather explicit files — without copy-pasting half your repo into a chat window.
 
 ## Installation
 
@@ -114,10 +10,10 @@ Unsupported or dynamic relationships may need to be added with `--include` or sc
 npm install -g prodex
 ```
 
-Or run it ad hoc:
+Or run it ad hoc without installing:
 
 ```bash
-npx prodex pack --entry src/index.ts
+npx prodex git --against origin/main
 ```
 
 Create a starter config:
@@ -126,105 +22,264 @@ Create a starter config:
 prodex init
 ```
 
-## Common Commands
+## Quick Start
 
 ```bash
-prodex pack [root] -e src/index.ts -i README.md -n review
-prodex pack [root] --scope dashboard -n dashboard-review
-prodex trace [root] -t src/index.ts --depth 2
-prodex scope [root] -k dashboard
-prodex scope [root] --all
-prodex scope [root] --list
-prodex git [root] --changed
-prodex grep [root] --query "database"
-prodex migrate [root]
-prodex migrate [root] --check
-prodex migrate [root] --write
+# Package all files changed in your current branch vs. origin/main
+prodex git --against origin/main
+
+# Include the diff beside the changed files
+prodex git --changed --include-diff
+
+# Collect every file that references a term or symbol
+prodex grep --query "StripeWebhookHandler"
+
+# Run a saved context selection
+prodex scope -k billing
+
+# Attach test output beside the code
+prodex scope -k auth --cmd "npm test -- auth"
+
+# Collect explicit files without dependency tracing
+prodex pack -i src/config/database.ts,src/models/User.ts,docs/schema.md
+
+# Trace imports from an entry file (JS, TS, PHP)
+prodex trace -t src/api/router.ts
 ```
 
-## CLI Reference
+Each command writes a versioned Markdown file to `./prodex/` by default. The output includes a file index, line ranges, and the collected source content in a single readable document.
 
-### `pack` Command
+## Common Workflows
 
-Generate a single merged context pack.
-
-| Flag | Short | Type | Description |
-| --- | --- | --- | --- |
-| `--entry` | `-e` | list | Entry file or glob to trace. Repeatable and comma-aware. |
-| `--include` | `-i` | list | Extra file or glob to add without dependency tracing. Repeatable and comma-aware. |
-| `--exclude` | `-x` | list | File or glob to skip. Repeatable and comma-aware. |
-| `--scope` | `-s` | list | Merge a configured scope's files by scope key. Comma-aware and repeatable. |
-| `--name` | `-n` | string | Output basename for this pack. |
-| `--format` | `-F` | `md`/`txt` | Output format. Markdown is the default. |
-| `--depth` |  | number | Maximum dependency traversal depth. |
-| `--dry-run` |  | boolean | Perform a dry-run without writing output files. |
-
-### `trace` Command
-
-Trace imports from an entrypoint.
-
-| Flag | Short | Type | Description |
-| --- | --- | --- | --- |
-| `--target` | `-t` | list | Target file/module to resolve and trace from. Repeatable and comma-aware. |
-| `--exclude` | `-x` | list | File or glob to skip during traversal. Repeatable and comma-aware. |
-| `--name` | `-n` | string | Output basename for this trace. |
-| `--format` | `-F` | `md`/`txt` | Output format. Markdown is the default. |
-| `--depth` |  | number | Maximum dependency traversal depth. |
-| `--dry-run` |  | boolean | Perform a dry-run without writing output files. |
-
-### `scope` Command
-
-Run configured scopes separately.
-
-| Flag | Short | Type | Description |
-| --- | --- | --- | --- |
-| `--key` | `-k` | list | Scope key to execute. Repeatable and comma-aware. |
-| `--all` | `-a` | boolean | Run every configured scope. |
-| `--list` |  | boolean | List configured scope keys. |
-| `--format` | `-F` | `md`/`txt` | Output format. Markdown is the default. |
-| `--dry-run` |  | boolean | Perform a dry-run without writing output files. |
-
-### `git` Command
-
-Run git-based extractions.
+### Review your current branch against origin/main
 
 ```bash
-prodex git [root] --changed
-prodex git [root] --commit <rev>
-prodex git [root] --range <base..head>
-prodex git [root] --range <base...head>
-prodex git [root] --against <base>
+prodex git --against origin/main
 ```
 
-#### Working-tree Selector
-* `--changed` / `--staged` / `--unstaged` / `--untracked` (default: `--changed`): Reviews files from the current working tree and snapshots their content from disk.
+Snapshots every file changed between your current HEAD and the merge-base with `origin/main`. Good for pre-PR review or sending a branch summary to an AI assistant.
 
-#### Historical Git Modes
-Historical modes snapshot file contents from Git history at the specified revisions, rather than reading them from the current working tree on disk.
-* `--commit <rev>`: Reviews files changed by one commit and snapshots contents from that commit.
-* `--range <base..head>`: Reviews files changed between `base` and `head` and snapshots contents from `head`.
-* `--range <base...head>`: Reviews files changed between `merge-base(base, head)` and `head` and snapshots contents from `head`.
-* `--against <base>`: Reviews current HEAD against `merge-base(base, HEAD)`, useful for branch/PR-style review, snapshotting contents from HEAD.
-
-### `grep` Command
-
-Run text-search extractions. Use command-specific help for details on all available options:
-* `prodex grep [root] --help`
-
-
-### Global Help and Version
+### Include the diff beside changed files
 
 ```bash
-prodex --version
-prodex pack --help
-prodex trace --help
-prodex scope --help
-prodex migrate --help
+prodex git --changed --include-diff
 ```
+
+Adds the raw diff output after each file section. Useful when the reviewer or AI needs to see both the code and what changed.
+
+### Collect files by search
+
+```bash
+prodex grep --query "legacyPaymentClient"
+prodex grep --any "AuthService,SessionManager"
+prodex grep --regex "use.*Repository"
+```
+
+Finds files containing the term or pattern and packages them into one document. Use this when the files you need are spread across the codebase and defined by what they reference, not where they live.
+
+### Run a saved scope
+
+```bash
+prodex scope -k billing
+prodex scope -k auth,billing
+prodex scope --all
+```
+
+Runs a named context selection you configured in `prodex.json`. Scopes are the repeatable version of an ad hoc command — same files, every time, no manual reassembly.
+
+### Attach command output beside the code
+
+```bash
+prodex scope -k auth --cmd "npm test -- auth"
+prodex git --against origin/main --cmd "npm run lint"
+```
+
+Runs the command after collecting files and embeds its output in the document. The AI sees the failing test or lint result right next to the source that produced it.
+
+### Collect explicit files
+
+```bash
+prodex pack -i src/config/database.ts,src/models/User.ts,docs/schema.md
+prodex pack -i "app/Http/Controllers/**"
+```
+
+Adds files directly by path or glob without dependency tracing. Use this when you know exactly which files you want and do not need imports followed automatically.
+
+### Trace imports from an entry file
+
+```bash
+prodex trace -t src/api/router.ts
+prodex pack -e app/Http/Controllers/CheckoutController.php
+```
+
+Follows import and require statements from the entry file to collect the files it depends on. Supported for JavaScript, TypeScript, TSX, declaration files, and PHP. See [Dependency Tracing](#dependency-tracing) for current language support details.
+
+## How Prodex Collects Context
+
+Prodex has five collection modes. Most runs use one mode at a time.
+
+### Git
+
+`prodex git` reads your repository's Git history or working tree and snapshots the files involved.
+
+Working-tree modes read file contents from disk:
+- `--changed` (default): staged, unstaged, and untracked files
+- `--staged`: staged files only
+- `--unstaged`: unstaged files only
+- `--untracked`: untracked files only
+
+Historical modes snapshot file contents from Git at the specified revision:
+- `--commit <rev>`: files changed by one commit
+- `--range <base..head>` or `<base...head>`: files changed between two refs
+- `--against <base>`: files changed between the merge-base of `<base>` and HEAD — the standard PR-style comparison
+
+Add `--include-diff` to any git run to include the raw diff output alongside the file contents.
+
+### Search
+
+`prodex grep` searches your project for files containing a term or pattern and packages the matching files.
+
+Search modes:
+- `--query <text>`: files containing a fixed string
+- `--any <list>`: files containing any of the terms (OR)
+- `--all <list>`: files containing all of the terms (AND)
+- `--regex <pattern>`: files matching a regular expression
+
+Narrow the search with `--within <path>` or exclude paths with `--skip <path>`. Exclude files whose names contain a term using `--not <text>`.
+
+### Scopes
+
+Saved named selections in `prodex.json`. See [Saved Scopes](#saved-scopes).
+
+### Pack
+
+`prodex pack` combines explicit file selection and dependency tracing in one run. It accepts `--include` for direct file collection, `--entry` for traced files, or both together.
+
+### Command Output
+
+`--cmd` runs a shell command after files are collected and embeds the output in the document. See [Command Attachments](#command-attachments).
+
+## Saved Scopes
+
+Scopes are named, reusable context selections you configure once in `prodex.json` and run any time.
+
+A scope can collect files in two ways:
+
+- **By path**: select files and folders you know by name.
+- **By search**: select files by what they contain.
+
+```bash
+prodex scope -k dashboard        # run one scope
+prodex scope -k auth,billing     # run multiple
+prodex scope --all               # run all configured scopes
+prodex scope --list              # show available scope keys
+```
+
+### File scope example
+
+Selects files by path, with optional dependency tracing from `entry` files:
+
+```json
+{
+  "version": 5,
+  "scopes": {
+    "dashboard": {
+      "entry": ["resources/js/pages/Dashboard.tsx"],
+      "include": ["routes/web.php"],
+      "exclude": ["resources/js/components/ui"]
+    }
+  }
+}
+```
+
+`entry` traces imports. `include` adds files directly. Both are optional — a scope can use either or both.
+
+### Search scope example
+
+Selects files by what they contain:
+
+```json
+{
+  "version": 5,
+  "scopes": {
+    "payments": {
+      "grep": {
+        "query": "StripeWebhookHandler",
+        "within": ["app", "tests"],
+        "skip": ["vendor"]
+      }
+    }
+  }
+}
+```
+
+Search scope options under `grep`:
+- `query`: fixed-string match
+- `any`: list — files containing any term
+- `all`: list — files containing all terms
+- `regex`: regular expression
+- `not`: exclude files whose names contain this term
+- `within`: search only these paths
+- `skip`: skip these paths
+
+A scope uses one of `entry`, `include`, or `grep`. A `grep` scope cannot define `entry`.
+
+### Scope keys and names
+
+The scope key is the identifier used in CLI selection. The optional `name` field sets the output filename:
+
+```json
+"scopes": {
+  "dashboard": {
+    "name": "frontend-dashboard",
+    "entry": ["resources/js/pages/Dashboard.tsx"]
+  }
+}
+```
+
+```bash
+prodex scope -k dashboard   # output filename: frontend-dashboard
+```
+
+If `name` is omitted, the scope key is used as the output filename.
+
+## Command Attachments
+
+Add `--cmd` to any run to capture shell command output and embed it in the document alongside the collected files.
+
+```bash
+prodex scope -k auth --cmd "npm test -- auth"
+prodex git --against origin/main --cmd "npm run lint"
+prodex pack -e src/index.ts --cmd "npm run build"
+```
+
+`--cmd` is repeatable. Commands run sequentially after files are collected, and each output is included as a separate section.
+
+By default, a failed command adds a warning but still produces the output file. Use `--fail-on-cmd-error` to exit with an error instead.
+
+Use `--dry-run` to preview which commands would run without executing them.
+
+## Dependency Tracing
+
+`prodex pack --entry` and `prodex trace` follow import statements from an entry file to collect the files it depends on.
+
+**Currently supported:**
+
+- JavaScript and TypeScript: ES module imports, dynamic imports, CommonJS `require`, re-exports
+- TSX and declaration files (`.d.ts`)
+- PHP: static `include`/`require` statements, namespace imports, PSR-4 resolution, some Laravel service binding awareness
+
+**Limitations:**
+
+- Dynamic imports that are computed at runtime may not be followed
+- Framework-injected dependencies (e.g., auto-resolved services, IoC containers) may not be resolved automatically
+- Languages other than JS, TS, TSX, and PHP are not traced — use `--include` or a file scope to add those files directly
+
+When tracing does not follow a relationship, add the file manually with `--include` or in the scope's `include` list. Prodex does not attempt to guess at runtime behaviour.
 
 ## Configuration
 
-Prodex reads `prodex.json` from the project root.
+Prodex reads `prodex.json` from the project root. All fields are optional — Prodex works without a config file.
 
 ```json
 {
@@ -235,55 +290,168 @@ Prodex reads `prodex.json` from the project root.
     "format": "md",
     "versioned": true
   },
-  "exclude": ["node_modules/**", "vendor/**", "dist/**"],
+  "exclude": ["node_modules", "vendor", "dist"],
   "aliases": {
     "@": "resources/js"
   },
-  "depth": 10,
+  "depth": 2,
   "scopes": {}
 }
 ```
 
-Naming precedence:
+`exclude`, `include`, and similar path fields accept file paths, folder names, or glob patterns.
 
-1. `--name`
-2. `scope.name`
+**Naming precedence** (highest to lowest):
+
+1. `--name` flag
+2. `scope.name` in config
 3. Scope key, when running a configured scope
-4. Automatic name from entries
+4. Automatic name derived from entries
 5. Internal fallback: `combined`
 
-CLI flags override config values for a run. Excludes are additive (root excludes + scope excludes + CLI excludes).
+CLI flags override config values for a run. Excludes are additive: root excludes, scope excludes, and CLI excludes are all applied together.
+
+## CLI Reference
+
+### `git` — Snapshot Git changes
+
+```bash
+prodex git [root] --against <base>
+prodex git [root] --changed
+prodex git [root] --staged
+prodex git [root] --unstaged
+prodex git [root] --untracked
+prodex git [root] --commit <rev>
+prodex git [root] --range <base..head>
+prodex git [root] --range <base...head>
+```
+
+| Flag | Type | Description |
+|---|---|---|
+| `--changed` | boolean | Staged, unstaged, and untracked files (default) |
+| `--staged` | boolean | Staged files only |
+| `--unstaged` | boolean | Unstaged files only |
+| `--untracked` | boolean | Untracked files only |
+| `--commit <rev>` | string | Files changed by one commit; contents from that commit |
+| `--range <spec>` | string | Files changed between two refs; contents from head |
+| `--against <base>` | string | Files changed between merge-base and HEAD |
+| `--include-diff` | boolean | Include full diff output in the document |
+| `--include` / `-i` | list | Extra files to add |
+| `--exclude` / `-x` | list | Files or paths to skip |
+| `--name` / `-n` | string | Output filename |
+| `--format` / `-F` | `md`/`txt` | Output format |
+| `--cmd` | list | Command to run and embed. Repeatable. |
+| `--fail-on-cmd-error` | boolean | Exit nonzero if an attached command fails |
+| `--dry-run` | boolean | Preview without writing output |
+
+### `grep` — Collect files by search
+
+```bash
+prodex grep [root] --query <text>
+prodex grep [root] --any <term,term,...>
+prodex grep [root] --all <term,term,...>
+prodex grep [root] --regex <pattern>
+```
+
+| Flag | Short | Type | Description |
+|---|---|---|---|
+| `--query` | `-q` | string | Fixed-string search |
+| `--any` | | list | Files containing any of the terms (OR) |
+| `--all` | | list | Files containing all of the terms (AND) |
+| `--regex` | `-r` | string | Regular expression search |
+| `--not` | | list | Exclude files whose names contain this term |
+| `--within` | | list | Search only inside these paths |
+| `--skip` | | list | Skip these paths during search |
+| `--include` | `-i` | list | Add extra files |
+| `--exclude` | `-x` | list | Skip these files |
+| `--name` | `-n` | string | Output filename |
+| `--format` | `-F` | `md`/`txt` | Output format |
+| `--cmd` | | list | Command to run and embed. Repeatable. |
+| `--fail-on-cmd-error` | | boolean | Exit nonzero if an attached command fails |
+| `--dry-run` | | boolean | Preview without writing output |
+
+### `scope` — Run saved scopes
+
+```bash
+prodex scope [root] -k <key>
+prodex scope [root] -k <key,key,...>
+prodex scope [root] --all
+prodex scope [root] --list
+```
+
+| Flag | Short | Type | Description |
+|---|---|---|---|
+| `--key` | `-k` | list | Scope key to run. Comma-aware and repeatable. |
+| `--all` | `-a` | boolean | Run all configured scopes |
+| `--list` | | boolean | List configured scope keys |
+| `--exclude` | `-x` | list | Additional paths to skip |
+| `--format` | `-F` | `md`/`txt` | Output format |
+| `--cmd` | | list | Command to run and embed. Repeatable. |
+| `--fail-on-cmd-error` | | boolean | Exit nonzero if an attached command fails |
+| `--dry-run` | | boolean | Preview without writing output |
+
+### `pack` — Collect explicit files or combine sources
+
+```bash
+prodex pack [root] -i <glob>
+prodex pack [root] -e <entry> -i <glob>
+```
+
+| Flag | Short | Type | Description |
+|---|---|---|---|
+| `--entry` | `-e` | list | Entry file to trace imports from. Repeatable and comma-aware. |
+| `--include` | `-i` | list | File or glob to add without tracing. Repeatable and comma-aware. |
+| `--exclude` | `-x` | list | File or path to skip. |
+| `--scope` | `-s` | list | Merge a configured scope's files into this pack. |
+| `--name` | `-n` | string | Output filename |
+| `--format` | `-F` | `md`/`txt` | Output format |
+| `--depth` | | number | Maximum tracing depth |
+| `--cmd` | | list | Command to run and embed. Repeatable. |
+| `--fail-on-cmd-error` | | boolean | Exit nonzero if an attached command fails |
+| `--dry-run` | | boolean | Preview without writing output |
+
+### `trace` — Trace imports from an entry file
+
+```bash
+prodex trace [root] -t <file>
+```
+
+| Flag | Short | Type | Description |
+|---|---|---|---|
+| `--target` | `-t` | list | Entry file to trace from. Repeatable and comma-aware. |
+| `--include` | `-i` | list | Extra files to add |
+| `--exclude` | `-x` | list | Files or paths to skip |
+| `--name` | `-n` | string | Output filename |
+| `--format` | `-F` | `md`/`txt` | Output format |
+| `--depth` | | number | Maximum tracing depth |
+| `--cmd` | | list | Command to run and embed. Repeatable. |
+| `--fail-on-cmd-error` | | boolean | Exit nonzero if an attached command fails |
+| `--dry-run` | | boolean | Preview without writing output |
+
+### Global flags
+
+```bash
+prodex --version
+prodex --help
+prodex <command> --help
+```
 
 ## Migrating Configs
 
-Prodex requires config version 5. If a project has an older `prodex.json`, Prodex CLI will fail and prompt to migrate.
-
-Preview a migration:
+Prodex requires config version 5. If your project has an older `prodex.json`, Prodex will fail with a prompt to migrate.
 
 ```bash
-prodex migrate
+prodex migrate           # preview the migration
+prodex migrate --check   # exit nonzero if migration is needed
+prodex migrate --write   # apply the migration (creates a backup first)
 ```
-
-Check whether migration is needed:
-
-```bash
-prodex migrate --check
-```
-
-Write the migration:
-
-```bash
-prodex migrate --write
-```
-
-`--write` creates a backup before replacing `prodex.json`.
 
 ## Requirements
 
 - Node.js 22+
-- A project with JS, TS, TSX, declaration-file, or PHP entrypoints for dependency tracing
-- Any file type can be added through include-only extraction
-- Optional `prodex.json` for saved defaults and scopes
+- `prodex.json` is optional; Prodex works without one
+- Dependency tracing requires JS, TS, TSX, or PHP entrypoints
+- Any file type can be collected with `--include` or a file scope
 
 ## License
 
