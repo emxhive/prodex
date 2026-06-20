@@ -47,7 +47,7 @@ prodex pack -i src/config/database.ts,src/models/User.ts,docs/schema.md
 prodex trace -t src/api/router.ts
 ```
 
-Each command writes a versioned Markdown file to `./prodex/` by default. The output includes a file index, line ranges, and the collected source content in a single readable document.
+By default, commands write a versioned Markdown file to `./prodex/`. You can switch to TXT with `--format txt`. Output filenames include a `-trace` suffix and a timestamp when versioning is enabled (e.g. `billing-trace_260620-0430.md`). The output includes a file index, line ranges, and the collected source content in a single readable document.
 
 ## Common Workflows
 
@@ -65,7 +65,7 @@ Snapshots every file changed between your current HEAD and the merge-base with `
 prodex git --changed --include-diff
 ```
 
-Adds the raw diff output after each file section. Useful when the reviewer or AI needs to see both the code and what changed.
+Includes the raw Git diff in the output alongside the collected files. In working-tree mode, two diff sections are added: one for unstaged changes and one for staged changes.
 
 ### Collect files by search
 
@@ -114,9 +114,11 @@ prodex pack -e app/Http/Controllers/CheckoutController.php
 
 Follows import and require statements from the entry file to collect the files it depends on. Supported for JavaScript, TypeScript, TSX, declaration files, and PHP. See [Dependency Tracing](#dependency-tracing) for current language support details.
 
+`prodex trace` resolves targets by exact path, extensionless name, or bare module name — it does not accept glob patterns. Use `prodex pack --entry <glob>` to collect files by glob.
+
 ## How Prodex Collects Context
 
-Prodex has five collection modes. Most runs use one mode at a time.
+Prodex can collect context from Git changes, search results, saved scopes, explicit files, or traced entrypoints. Command output can be attached to any run.
 
 ### Git
 
@@ -133,7 +135,7 @@ Historical modes snapshot file contents from Git at the specified revision:
 - `--range <base..head>` or `<base...head>`: files changed between two refs
 - `--against <base>`: files changed between the merge-base of `<base>` and HEAD — the standard PR-style comparison
 
-Add `--include-diff` to any git run to include the raw diff output alongside the file contents.
+Add `--include-diff` to any git run to include the raw diff output alongside the file contents. In working-tree mode this adds two sections — one for unstaged changes (`Full Diff`) and one for staged changes (`Cached Full Diff`).
 
 ### Search
 
@@ -145,7 +147,7 @@ Search modes:
 - `--all <list>`: files containing all of the terms (AND)
 - `--regex <pattern>`: files matching a regular expression
 
-Narrow the search with `--within <path>` or exclude paths with `--skip <path>`. Exclude files whose names contain a term using `--not <text>`.
+Narrow the search with `--within <path>` or exclude paths with `--skip <path>`. Filter out files whose contents contain a term using `--not <text>`.
 
 ### Scopes
 
@@ -153,7 +155,7 @@ Saved named selections in `prodex.json`. See [Saved Scopes](#saved-scopes).
 
 ### Pack
 
-`prodex pack` combines explicit file selection and dependency tracing in one run. It accepts `--include` for direct file collection, `--entry` for traced files, or both together.
+`prodex pack` accepts `--include` for direct file collection, `--entry` to trace imports from an entry file, or both together. It is the same tracing engine as `prodex trace` with the option to mix in explicit files in the same run.
 
 ### Command Output
 
@@ -218,11 +220,11 @@ Search scope options under `grep`:
 - `any`: list — files containing any term
 - `all`: list — files containing all terms
 - `regex`: regular expression
-- `not`: exclude files whose names contain this term
+- `not`: filter out files whose contents contain these terms
 - `within`: search only these paths
 - `skip`: skip these paths
 
-A scope uses one of `entry`, `include`, or `grep`. A `grep` scope cannot define `entry`.
+A scope can collect by path using `entry` and/or `include`, or by search using `grep`. A search scope may also use `include` for extra files, but it cannot define `entry`.
 
 ### Scope keys and names
 
@@ -359,7 +361,7 @@ prodex grep [root] --regex <pattern>
 | `--any` | | list | Files containing any of the terms (OR) |
 | `--all` | | list | Files containing all of the terms (AND) |
 | `--regex` | `-r` | string | Regular expression search |
-| `--not` | | list | Exclude files whose names contain this term |
+| `--not` | | list | Filter out files whose contents contain these terms |
 | `--within` | | list | Search only inside these paths |
 | `--skip` | | list | Skip these paths during search |
 | `--include` | `-i` | list | Add extra files |
@@ -418,7 +420,7 @@ prodex trace [root] -t <file>
 
 | Flag | Short | Type | Description |
 |---|---|---|---|
-| `--target` | `-t` | list | Entry file to trace from. Repeatable and comma-aware. |
+| `--target` | `-t` | list | File or module name to trace from. Accepts exact paths, extensionless names, or bare module names — not globs. Repeatable and comma-aware. |
 | `--include` | `-i` | list | Extra files to add |
 | `--exclude` | `-x` | list | Files or paths to skip |
 | `--name` | `-n` | string | Output filename |
@@ -452,6 +454,7 @@ prodex migrate --write   # apply the migration (creates a backup first)
 - `prodex.json` is optional; Prodex works without one
 - Dependency tracing requires JS, TS, TSX, or PHP entrypoints
 - Any file type can be collected with `--include` or a file scope
+- `prodex grep` and search scopes require [ripgrep](https://github.com/BurntSushi/ripgrep) (`rg`) to be installed and available on your PATH
 
 ## License
 
