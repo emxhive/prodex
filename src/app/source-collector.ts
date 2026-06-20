@@ -12,7 +12,11 @@ export async function collectSources(plan: ExecutionPlan): Promise<SourceCollect
 	switch (plan.command) {
 		case "pack":
 		case "trace":
+			return collectDependencySources(plan);
 		case "scope":
+			if (plan.grepOptions !== undefined) {
+				return collectGrepSources(plan);
+			}
 			return collectDependencySources(plan);
 		case "git":
 			return collectGitSources(plan);

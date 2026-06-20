@@ -19,7 +19,7 @@ function baseConfig(overrides = {}) {
 		version: 5,
 		$schema: "https://raw.githubusercontent.com/emxhive/prodex/main/schema/prodex.schema.json",
 		output: { dir: "prodex", versioned: true, format: "md" },
-		exclude: ["node_modules/**"],
+		exclude: ["node_modules/**", "prodex.json"],
 		aliases: {},
 		depth: 10,
 		maxFiles: 200,
@@ -391,5 +391,400 @@ test("Artifact layout policy and navigation flow for file-first vs git commands"
 		const txtTocSec = txtContent.indexOf("## - Section: ");
 		assert.ok(txtTocHeader > -1 && txtTocFile > -1 && txtTocSec > -1);
 		assert.ok(txtTocFile < txtTocSec, "TXT TOC: File should be before Section");
+	});
+});
+
+test("grep scope with query", async () => {
+	await usingTempProject(async (root) => {
+		writeJson(path.join(root, "prodex.json"), baseConfig({
+			scopes: {
+				tenant: {
+					name: "tenant-context",
+					grep: {
+						query: "tenant_id",
+						within: ["src"],
+					}
+				}
+			}
+		}));
+		writeFile(path.join(root, "src/foo.txt"), "hello tenant_id");
+		writeFile(path.join(root, "src/bar.txt"), "no match");
+
+		const res = await runProdexCommand(["node", "prodex", "scope", "-k", "tenant", "--format", "txt"], root);
+		assert.equal(res.ok, true);
+		assert.equal(res.runs.length, 1);
+		assert.equal(res.runs[0].mode, "grep");
+		assert.equal(res.runs[0].outputName, "tenant-context");
+		assert.equal(res.runs[0].files.length, 1);
+		assert.match(res.runs[0].files[0], /foo\.txt$/);
+	});
+});
+
+test("grep scope with any", async () => {
+	await usingTempProject(async (root) => {
+		writeJson(path.join(root, "prodex.json"), baseConfig({
+			scopes: {
+				tenant: {
+					grep: {
+						any: ["billing", "invoice"]
+					}
+				}
+			}
+		}));
+		writeFile(path.join(root, "src/foo.txt"), "contains billing");
+		writeFile(path.join(root, "src/bar.txt"), "contains invoice");
+		writeFile(path.join(root, "src/baz.txt"), "no match");
+
+		const res = await runProdexCommand(["node", "prodex", "scope", "-k", "tenant", "--format", "txt"], root);
+		assert.equal(res.ok, true);
+		assert.equal(res.runs[0].files.length, 2);
+		const baseNames = res.runs[0].files.map(f => path.basename(f)).sort();
+		assert.deepEqual(baseNames, ["bar.txt", "foo.txt"]);
+	});
+});
+
+test("grep scope with all", async () => {
+	await usingTempProject(async (root) => {
+		writeJson(path.join(root, "prodex.json"), baseConfig({
+			scopes: {
+				tenant: {
+					grep: {
+						all: ["auth", "user"]
+					}
+				}
+			}
+		}));
+		writeFile(path.join(root, "src/foo.txt"), "contains both auth and user");
+		writeFile(path.join(root, "src/bar.txt"), "contains auth only");
+
+		const res = await runProdexCommand(["node", "prodex", "scope", "-k", "tenant", "--format", "txt"], root);
+		assert.equal(res.ok, true);
+		assert.equal(res.runs[0].files.length, 1);
+		assert.match(res.runs[0].files[0], /foo\.txt$/);
+	});
+});
+
+test("grep scope with regex", async () => {
+	await usingTempProject(async (root) => {
+		writeJson(path.join(root, "prodex.json"), baseConfig({
+			scopes: {
+				tenant: {
+					grep: {
+						regex: "class .*Controller"
+					}
+				}
+			}
+		}));
+		writeFile(path.join(root, "src/foo.txt"), "class UserController {}");
+		writeFile(path.join(root, "src/bar.txt"), "class User {}");
+
+		const res = await runProdexCommand(["node", "prodex", "scope", "-k", "tenant", "--format", "txt"], root);
+		assert.equal(res.ok, true);
+		assert.equal(res.runs[0].files.length, 1);
+		assert.match(res.runs[0].files[0], /foo\.txt$/);
+	});
+});
+
+test("grep scope with within, skip, and not", async () => {
+	await usingTempProject(async (root) => {
+		writeJson(path.join(root, "prodex.json"), baseConfig({
+			scopes: {
+				tenant: {
+					grep: {
+						query: "tenant_id",
+						not: ["test"],
+						within: ["src"],
+						skip: ["src/generated"]
+					}
+				}
+			}
+		}));
+		writeFile(path.join(root, "src/foo.txt"), "tenant_id here");
+		writeFile(path.join(root, "src/generated/bar.txt"), "tenant_id inside skip");
+		writeFile(path.join(root, "src/baz.txt"), "tenant_id test inside negative filter");
+		writeFile(path.join(root, "outside.txt"), "tenant_id outside within");
+
+		const res = await runProdexCommand(["node", "prodex", "scope", "-k", "tenant", "--format", "txt"], root);
+		assert.equal(res.ok, true);
+		assert.equal(res.runs[0].files.length, 1);
+		assert.match(res.runs[0].files[0], /foo\.txt$/);
+	});
+});
+
+test("grep scope with include", async () => {
+	await usingTempProject(async (root) => {
+		writeJson(path.join(root, "prodex.json"), baseConfig({
+			scopes: {
+				tenant: {
+					grep: {
+						query: "tenant_id"
+					},
+					include: ["docs/tenancy.md"]
+				}
+			}
+		}));
+		writeFile(path.join(root, "src/foo.txt"), "tenant_id match");
+		writeFile(path.join(root, "docs/tenancy.md"), "documentation content");
+
+		const res = await runProdexCommand(["node", "prodex", "scope", "-k", "tenant", "--format", "txt"], root);
+		assert.equal(res.ok, true);
+		assert.equal(res.runs[0].files.length, 2);
+		const baseNames = res.runs[0].files.map(f => path.basename(f)).sort();
+		assert.deepEqual(baseNames, ["foo.txt", "tenancy.md"]);
+	});
+});
+
+test("grep scope with exclude", async () => {
+	await usingTempProject(async (root) => {
+		writeJson(path.join(root, "prodex.json"), baseConfig({
+			scopes: {
+				tenant: {
+					grep: {
+						query: "tenant_id"
+					},
+					include: ["docs/tenancy.md"],
+					exclude: ["src/exclude-me.txt"]
+				}
+			}
+		}));
+		writeFile(path.join(root, "src/foo.txt"), "tenant_id match");
+		writeFile(path.join(root, "src/exclude-me.txt"), "tenant_id inside excluded file");
+		writeFile(path.join(root, "docs/tenancy.md"), "documentation content");
+
+		const res = await runProdexCommand(["node", "prodex", "scope", "-k", "tenant", "--format", "txt"], root);
+		assert.equal(res.ok, true);
+		const baseNames = res.runs[0].files.map(f => path.basename(f)).sort();
+		assert.deepEqual(baseNames, ["foo.txt", "tenancy.md"]);
+	});
+});
+
+test("invalid scope with both entry and grep", async () => {
+	await usingTempProject(async (root) => {
+		writeJson(path.join(root, "prodex.json"), baseConfig({
+			scopes: {
+				tenant: {
+					entry: ["src/index.ts"],
+					grep: {
+						query: "tenant_id"
+					}
+				}
+			}
+		}));
+
+		const res = await runProdexCommand(["node", "prodex", "scope", "-k", "tenant"], root);
+		assert.equal(res.ok, false);
+		assert.match(res.errors.join("\n"), /Scope "tenant" cannot define both "entry" and "grep"/);
+	});
+});
+
+test("invalid grep scope with no grep mode", async () => {
+	await usingTempProject(async (root) => {
+		writeJson(path.join(root, "prodex.json"), baseConfig({
+			scopes: {
+				tenant: {
+					grep: {}
+				}
+			}
+		}));
+
+		const res = await runProdexCommand(["node", "prodex", "scope", "-k", "tenant"], root);
+		assert.equal(res.ok, false);
+		assert.match(res.errors.join("\n"), /Scope "tenant" grep config must define exactly one/);
+	});
+});
+
+test("invalid grep scope with only grep.not filter", async () => {
+	await usingTempProject(async (root) => {
+		writeJson(path.join(root, "prodex.json"), baseConfig({
+			scopes: {
+				bad: {
+					grep: {
+						not: ["test"]
+					}
+				}
+			}
+		}));
+
+		const res = await runProdexCommand(["node", "prodex", "scope", "-k", "bad"], root);
+		assert.equal(res.ok, false);
+		assert.match(res.errors.join("\n"), /Scope "bad" grep config must define exactly one of "query", "any", "all", or "regex"/);
+	});
+});
+
+test("invalid grep scope with multiple grep modes", async () => {
+	await usingTempProject(async (root) => {
+		writeJson(path.join(root, "prodex.json"), baseConfig({
+			scopes: {
+				tenant: {
+					grep: {
+						query: "tenant_id",
+						regex: "class .*Controller"
+					}
+				}
+			}
+		}));
+
+		const res = await runProdexCommand(["node", "prodex", "scope", "-k", "tenant"], root);
+		assert.equal(res.ok, false);
+		assert.match(res.errors.join("\n"), /Scope "tenant" grep config must define exactly one/);
+	});
+});
+
+test("scope --all runs file-based and grep-backed scopes", async () => {
+	await usingTempProject(async (root) => {
+		writeJson(path.join(root, "prodex.json"), baseConfig({
+			scopes: {
+				fileScope: {
+					entry: ["src/file.txt"]
+				},
+				grepScope: {
+					grep: {
+						query: "tenant_id"
+					}
+				}
+			}
+		}));
+		writeFile(path.join(root, "src/file.txt"), "hello file scope");
+		writeFile(path.join(root, "src/grep.txt"), "hello tenant_id");
+
+		const res = await runProdexCommand(["node", "prodex", "scope", "--all", "--format", "txt"], root);
+		assert.equal(res.ok, true);
+		assert.equal(res.runs.length, 2);
+
+		const run1 = res.runs[0];
+		const run2 = res.runs[1];
+		assert.ok(run1.ok);
+		assert.ok(run2.ok);
+
+		const runModes = [run1.mode, run2.mode].sort();
+		assert.deepEqual(runModes, ["grep", "trace"]);
+	});
+});
+
+test("grep scope with no grep matches but valid include still succeeds", async () => {
+	await usingTempProject(async (root) => {
+		writeJson(path.join(root, "prodex.json"), baseConfig({
+			scopes: {
+				tenant: {
+					name: "tenant-context",
+					grep: {
+						query: "tenant_id"
+					},
+					include: ["docs/tenancy.md"]
+				}
+			}
+		}));
+		writeFile(path.join(root, "docs/tenancy.md"), "documentation content");
+
+		const res = await runProdexCommand(["node", "prodex", "scope", "-k", "tenant", "--format", "txt"], root);
+		assert.equal(res.ok, true);
+		assert.equal(res.runs.length, 1);
+		assert.equal(res.runs[0].files.length, 1);
+		assert.match(res.runs[0].files[0], /tenancy\.md$/);
+	});
+});
+
+test("CLI --exclude filters grep scope results", async () => {
+	await usingTempProject(async (root) => {
+		writeJson(path.join(root, "prodex.json"), baseConfig({
+			scopes: {
+				tenant: {
+					grep: {
+						query: "tenant_id"
+					}
+				}
+			}
+		}));
+		writeFile(path.join(root, "src/foo.txt"), "hello tenant_id");
+		writeFile(path.join(root, "src/generated/bar.txt"), "hello tenant_id");
+
+		const res = await runProdexCommand(["node", "prodex", "scope", "-k", "tenant", "--exclude", "src/generated", "--format", "txt"], root);
+		assert.equal(res.ok, true);
+		assert.equal(res.runs[0].files.length, 1);
+		assert.match(res.runs[0].files[0], /foo\.txt$/);
+	});
+});
+
+test("grep scope validation rejects blank query", async () => {
+	await usingTempProject(async (root) => {
+		writeJson(path.join(root, "prodex.json"), baseConfig({
+			scopes: {
+				bad: {
+					grep: {
+						query: "   "
+					}
+				}
+			}
+		}));
+		const res = await runProdexCommand(["node", "prodex", "scope", "-k", "bad"], root);
+		assert.equal(res.ok, false);
+		assert.match(res.errors.join("\n"), /Config 'scopes\.bad\.grep\.query' cannot be blank/);
+	});
+});
+
+test("grep scope validation rejects blank regex", async () => {
+	await usingTempProject(async (root) => {
+		writeJson(path.join(root, "prodex.json"), baseConfig({
+			scopes: {
+				bad: {
+					grep: {
+						regex: "   "
+					}
+				}
+			}
+		}));
+		const res = await runProdexCommand(["node", "prodex", "scope", "-k", "bad"], root);
+		assert.equal(res.ok, false);
+		assert.match(res.errors.join("\n"), /Config 'scopes\.bad\.grep\.regex' cannot be blank/);
+	});
+});
+
+test("grep scope validation rejects empty all array or blank entries in any", async () => {
+	await usingTempProject(async (root) => {
+		writeJson(path.join(root, "prodex.json"), baseConfig({
+			scopes: {
+				badAny: {
+					grep: {
+						any: ["billing", ""]
+					}
+				},
+				badAll: {
+					grep: {
+						all: []
+					}
+				}
+			}
+		}));
+
+		const resAny = await runProdexCommand(["node", "prodex", "scope", "-k", "badAny"], root);
+		assert.equal(resAny.ok, false);
+		assert.match(resAny.errors.join("\n"), /Config 'scopes\.badAny\.grep\.any\[1\]' cannot be blank/);
+
+		const resAll = await runProdexCommand(["node", "prodex", "scope", "-k", "badAll"], root);
+		assert.equal(resAll.ok, false);
+		assert.match(resAll.errors.join("\n"), /Config 'scopes\.badAll\.grep\.all' must contain at least one item/);
+	});
+});
+
+test("grep scope validation rejects blank entries in optional filters", async () => {
+	await usingTempProject(async (root) => {
+		writeJson(path.join(root, "prodex.json"), baseConfig({
+			scopes: {
+				badFilter: {
+					grep: {
+						query: "tenant_id",
+						not: [""],
+						within: [" "],
+						skip: [""]
+					}
+				}
+			}
+		}));
+
+		const res = await runProdexCommand(["node", "prodex", "scope", "-k", "badFilter"], root);
+		assert.equal(res.ok, false);
+		assert.match(res.errors.join("\n"), /Config 'scopes\.badFilter\.grep\.not\[0\]' cannot be blank/);
+		assert.match(res.errors.join("\n"), /Config 'scopes\.badFilter\.grep\.within\[0\]' cannot be blank/);
+		assert.match(res.errors.join("\n"), /Config 'scopes\.badFilter\.grep\.skip\[0\]' cannot be blank/);
 	});
 });

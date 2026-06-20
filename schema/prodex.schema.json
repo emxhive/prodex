@@ -87,6 +87,51 @@
                     "items": {
                         "type": "string"
                     }
+                },
+                "grep": {
+                    "$ref": "#/definitions/ProdexGrepScopeConfig"
+                }
+            },
+            "additionalProperties": false
+        },
+        "ProdexGrepScopeConfig": {
+            "type": "object",
+            "properties": {
+                "query": {
+                    "type": "string"
+                },
+                "any": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "all": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "regex": {
+                    "type": "string"
+                },
+                "not": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "within": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "skip": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
                 }
             },
             "additionalProperties": false

@@ -26,13 +26,12 @@ export function buildScopePlan(params: {
 	if (
 		flags.entry !== undefined ||
 		flags.include !== undefined ||
-		flags.exclude !== undefined ||
 		flags.scope !== undefined ||
 		flags.name !== undefined ||
 		flags.depth !== undefined ||
 		flags.maxFiles !== undefined
 	) {
-		errors.push('Command "scope" does not accept "--entry", "--include", "--exclude", "--scope", "--name", "--depth", or "--max-files".');
+		errors.push('Command "scope" does not accept "--entry", "--include", "--scope", "--name", "--depth", or "--max-files".');
 		return { plans: [] };
 	}
 
@@ -89,29 +88,79 @@ export function buildScopePlan(params: {
 	const plans: ExecutionPlan[] = [];
 	for (const key of targetKeys) {
 		const scope = userConfig.scopes![key];
-		const scopeEntries = (scope.entry ?? []).map((item) => normalizePathOrGlob(item, root, { role: "entry" }));
 		const scopeIncludes = (scope.include ?? []).map((item) => normalizePathOrGlob(item, root, { role: "include" }));
-		const scopeExcludes = [...(userConfig.exclude ?? []), ...(scope.exclude ?? [])].map((item) => normalizePathOrGlob(item, root, { role: "exclude" }));
+		const scopeExcludes = [...(userConfig.exclude ?? []), ...(scope.exclude ?? []), ...(flags.exclude ?? [])].map((item) => normalizePathOrGlob(item, root, { role: "exclude" }));
 
-		plans.push({
-			root,
-			command: "scope",
-			outputName: scope.name ?? key,
-			entry: scopeEntries,
-			include: scopeIncludes,
-			exclude: uniqueTrimmed(scopeExcludes),
-			depth,
-			maxFiles,
-			aliases,
-			output: {
-				dir: defaultOutput.dir,
-				versioned: defaultOutput.versioned,
-				format: flags.format ?? defaultOutput.format,
-			},
-			dryRun: !!flags.dryRun,
-			scopeKey: key,
-			attachmentOptions,
-		});
+		if (scope.grep) {
+			let grepMode: "query" | "any" | "all" | "regex" = "query";
+			let grepTerms: string[] = [];
+			if (scope.grep.query !== undefined) {
+				grepMode = "query";
+				grepTerms = [scope.grep.query];
+			} else if (scope.grep.any !== undefined) {
+				grepMode = "any";
+				grepTerms = scope.grep.any;
+			} else if (scope.grep.all !== undefined) {
+				grepMode = "all";
+				grepTerms = scope.grep.all;
+			} else if (scope.grep.regex !== undefined) {
+				grepMode = "regex";
+				grepTerms = [scope.grep.regex];
+			}
+
+			const negativeTerms = scope.grep.not ?? [];
+			const mergedWithin = (scope.grep.within ?? []).map((item) => normalizePathOrGlob(item, root, { role: "within" }));
+			const mergedSkip = (scope.grep.skip ?? []).map((item) => normalizePathOrGlob(item, root, { role: "skip" }));
+
+			plans.push({
+				root,
+				command: "scope",
+				outputName: scope.name ?? key,
+				entry: [],
+				include: scopeIncludes,
+				exclude: uniqueTrimmed(scopeExcludes),
+				depth,
+				maxFiles,
+				aliases,
+				output: {
+					dir: defaultOutput.dir,
+					versioned: defaultOutput.versioned,
+					format: flags.format ?? defaultOutput.format,
+				},
+				dryRun: !!flags.dryRun,
+				scopeKey: key,
+				attachmentOptions,
+				grepOptions: {
+					mode: grepMode,
+					terms: grepTerms,
+					negativeTerms: uniqueTrimmed(negativeTerms),
+					within: uniqueTrimmed(mergedWithin),
+					skip: uniqueTrimmed(mergedSkip),
+				},
+			});
+		} else {
+			const scopeEntries = (scope.entry ?? []).map((item) => normalizePathOrGlob(item, root, { role: "entry" }));
+
+			plans.push({
+				root,
+				command: "scope",
+				outputName: scope.name ?? key,
+				entry: scopeEntries,
+				include: scopeIncludes,
+				exclude: uniqueTrimmed(scopeExcludes),
+				depth,
+				maxFiles,
+				aliases,
+				output: {
+					dir: defaultOutput.dir,
+					versioned: defaultOutput.versioned,
+					format: flags.format ?? defaultOutput.format,
+				},
+				dryRun: !!flags.dryRun,
+				scopeKey: key,
+				attachmentOptions,
+			});
+		}
 	}
 
 	return { plans };

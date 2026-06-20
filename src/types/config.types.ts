@@ -41,10 +41,21 @@ export type DeepPartial<T> = {
 			: T[K];
 };
 
+export interface ProdexGrepScopeConfig {
+	query?: string;
+	any?: string[];
+	all?: string[];
+	regex?: string;
+	not?: string[];
+	within?: string[];
+	skip?: string[];
+}
+
 export type ProdexScope = {
 	name?: string;
 	entry?: string[];
 	include?: string[];
 	exclude?: string[];
+	grep?: ProdexGrepScopeConfig;
 };
 
