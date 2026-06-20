@@ -85,6 +85,7 @@ export const COMMAND_HELP_FLAGS = {
 		"key",
 		"all",
 		"list",
+		"exclude",
 		"format",
 		"dryRun",
 		"cmd",

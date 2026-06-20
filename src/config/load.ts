@@ -104,7 +104,7 @@ export function validateConfig(config: any): string[] {
 				if (typeof scope !== "object" || scope === null || Array.isArray(scope)) {
 					errors.push(`Config 'scopes.${scopeKey}' must be an object.`);
 				} else {
-					const allowedScopeKeys = new Set(["name", "entry", "include", "exclude"]);
+					const allowedScopeKeys = new Set(["name", "entry", "include", "exclude", "grep"]);
 					for (const key of Object.keys(scope)) {
 						if (!allowedScopeKeys.has(key)) {
 							errors.push(`Config 'scopes.${scopeKey}' contains unknown key '${key}'.`);
@@ -142,6 +142,110 @@ export function validateConfig(config: any): string[] {
 							for (let i = 0; i < scope.exclude.length; i++) {
 								if (typeof scope.exclude[i] !== "string") {
 									errors.push(`Config 'scopes.${scopeKey}.exclude[${i}]' must be a string.`);
+								}
+							}
+						}
+					}
+					if (scope.grep !== undefined) {
+						if (typeof scope.grep !== "object" || scope.grep === null || Array.isArray(scope.grep)) {
+							errors.push(`Config 'scopes.${scopeKey}.grep' must be an object.`);
+						} else {
+							const allowedGrepKeys = new Set(["query", "any", "all", "regex", "not", "within", "skip"]);
+							for (const key of Object.keys(scope.grep)) {
+								if (!allowedGrepKeys.has(key)) {
+									errors.push(`Config 'scopes.${scopeKey}.grep' contains unknown key '${key}'.`);
+								}
+							}
+							if (scope.entry !== undefined) {
+								errors.push(`Scope "${scopeKey}" cannot define both "entry" and "grep".`);
+							}
+							const searchModes = ["query", "any", "all", "regex"];
+							const definedModes = searchModes.filter(m => scope.grep[m] !== undefined);
+							if (definedModes.length !== 1) {
+								errors.push(`Scope "${scopeKey}" grep config must define exactly one of "query", "any", "all", or "regex".`);
+							}
+
+							if (scope.grep.query !== undefined) {
+								if (typeof scope.grep.query !== "string") {
+									errors.push(`Config 'scopes.${scopeKey}.grep.query' must be a string.`);
+								} else if (!scope.grep.query.trim()) {
+									errors.push(`Config 'scopes.${scopeKey}.grep.query' cannot be blank.`);
+								}
+							}
+							if (scope.grep.regex !== undefined) {
+								if (typeof scope.grep.regex !== "string") {
+									errors.push(`Config 'scopes.${scopeKey}.grep.regex' must be a string.`);
+								} else if (!scope.grep.regex.trim()) {
+									errors.push(`Config 'scopes.${scopeKey}.grep.regex' cannot be blank.`);
+								}
+							}
+							if (scope.grep.any !== undefined) {
+								if (!Array.isArray(scope.grep.any)) {
+									errors.push(`Config 'scopes.${scopeKey}.grep.any' must be an array.`);
+								} else if (scope.grep.any.length === 0) {
+									errors.push(`Config 'scopes.${scopeKey}.grep.any' must contain at least one item.`);
+								} else {
+									for (let i = 0; i < scope.grep.any.length; i++) {
+										if (typeof scope.grep.any[i] !== "string") {
+											errors.push(`Config 'scopes.${scopeKey}.grep.any[${i}]' must be a string.`);
+										} else if (!scope.grep.any[i].trim()) {
+											errors.push(`Config 'scopes.${scopeKey}.grep.any[${i}]' cannot be blank.`);
+										}
+									}
+								}
+							}
+							if (scope.grep.all !== undefined) {
+								if (!Array.isArray(scope.grep.all)) {
+									errors.push(`Config 'scopes.${scopeKey}.grep.all' must be an array.`);
+								} else if (scope.grep.all.length === 0) {
+									errors.push(`Config 'scopes.${scopeKey}.grep.all' must contain at least one item.`);
+								} else {
+									for (let i = 0; i < scope.grep.all.length; i++) {
+										if (typeof scope.grep.all[i] !== "string") {
+											errors.push(`Config 'scopes.${scopeKey}.grep.all[${i}]' must be a string.`);
+										} else if (!scope.grep.all[i].trim()) {
+											errors.push(`Config 'scopes.${scopeKey}.grep.all[${i}]' cannot be blank.`);
+										}
+									}
+								}
+							}
+							if (scope.grep.not !== undefined) {
+								if (!Array.isArray(scope.grep.not)) {
+									errors.push(`Config 'scopes.${scopeKey}.grep.not' must be an array.`);
+								} else {
+									for (let i = 0; i < scope.grep.not.length; i++) {
+										if (typeof scope.grep.not[i] !== "string") {
+											errors.push(`Config 'scopes.${scopeKey}.grep.not[${i}]' must be a string.`);
+										} else if (!scope.grep.not[i].trim()) {
+											errors.push(`Config 'scopes.${scopeKey}.grep.not[${i}]' cannot be blank.`);
+										}
+									}
+								}
+							}
+							if (scope.grep.within !== undefined) {
+								if (!Array.isArray(scope.grep.within)) {
+									errors.push(`Config 'scopes.${scopeKey}.grep.within' must be an array.`);
+								} else {
+									for (let i = 0; i < scope.grep.within.length; i++) {
+										if (typeof scope.grep.within[i] !== "string") {
+											errors.push(`Config 'scopes.${scopeKey}.grep.within[${i}]' must be a string.`);
+										} else if (!scope.grep.within[i].trim()) {
+											errors.push(`Config 'scopes.${scopeKey}.grep.within[${i}]' cannot be blank.`);
+										}
+									}
+								}
+							}
+							if (scope.grep.skip !== undefined) {
+								if (!Array.isArray(scope.grep.skip)) {
+									errors.push(`Config 'scopes.${scopeKey}.grep.skip' must be an array.`);
+								} else {
+									for (let i = 0; i < scope.grep.skip.length; i++) {
+										if (typeof scope.grep.skip[i] !== "string") {
+											errors.push(`Config 'scopes.${scopeKey}.grep.skip[${i}]' must be a string.`);
+										} else if (!scope.grep.skip[i].trim()) {
+											errors.push(`Config 'scopes.${scopeKey}.grep.skip[${i}]' cannot be blank.`);
+										}
+									}
 								}
 							}
 						}
