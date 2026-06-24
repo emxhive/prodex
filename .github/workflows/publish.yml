@@ -41,6 +41,9 @@ jobs:
             exit 1
           fi
 
+      - name: Install ripgrep
+        run: sudo apt-get update && sudo apt-get install -y ripgrep
+
       - run: npm test
       - run: npm run pack:check
       - run: npm publish
