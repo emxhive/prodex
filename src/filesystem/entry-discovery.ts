@@ -33,9 +33,96 @@ export function expandPathLike(pattern: string, root: string): string[] {
 }
 
 /**
- * Searches the workspace for files that match the bare name stem exactly.
+ * Searches for files matching the suffix-path target.
+ * target is path-like, e.g. "src/target.tsx" or "src/target".
  */
-export async function discoverBareName(bareName: string, root: string, caseSensitive = false): Promise<string[]> {
+export async function discoverBySuffixPath(
+	target: string,
+	root: string,
+	caseSensitive: boolean,
+	hasExt: boolean
+): Promise<string[]> {
+	// Normalize target separators to '/'
+	const normalizedTarget = target.replaceAll("\\", "/");
+
+	const suffixes: string[] = [];
+	if (hasExt) {
+		suffixes.push(normalizedTarget);
+	} else {
+		suffixes.push(normalizedTarget);
+		for (const ext of ENTRY_RESOLVE_EXTS) {
+			suffixes.push(normalizedTarget + ext);
+			suffixes.push(normalizedTarget + "/index" + ext);
+		}
+	}
+
+	const globPatterns = suffixes.map((s) => `**/${s}`);
+
+	const { files } = await globScan(globPatterns, {
+		cwd: root,
+		caseSensitiveMatch: caseSensitive,
+	});
+
+	const resolvedMatches = new Set<string>();
+
+	for (const file of files) {
+		const absFile = path.resolve(root, file);
+		const relFile = path.relative(root, absFile).replaceAll("\\", "/");
+
+		for (const suffix of suffixes) {
+			const relFileToCompare = caseSensitive ? relFile : relFile.toLowerCase();
+			const suffixToCompare = caseSensitive ? suffix : suffix.toLowerCase();
+
+			if (relFileToCompare === suffixToCompare || relFileToCompare.endsWith("/" + suffixToCompare)) {
+				resolvedMatches.add(absFile);
+				break;
+			}
+		}
+	}
+
+	return Array.from(resolvedMatches);
+}
+
+/**
+ * Searches for files matching the full basename target (bare, extension-bearing, e.g. "target.tsx").
+ */
+export async function discoverByFullBasename(
+	target: string,
+	root: string,
+	caseSensitive: boolean
+): Promise<string[]> {
+	// target is a bare name like "target.tsx"
+	const searchPattern = `**/${target}`;
+
+	const { files } = await globScan([searchPattern], {
+		cwd: root,
+		caseSensitiveMatch: caseSensitive,
+	});
+
+	const resolvedMatches = new Set<string>();
+	const targetBasename = caseSensitive ? target : target.toLowerCase();
+
+	for (const file of files) {
+		const absFile = path.resolve(root, file);
+		const base = path.basename(absFile);
+		const baseToCompare = caseSensitive ? base : base.toLowerCase();
+
+		if (baseToCompare === targetBasename) {
+			resolvedMatches.add(absFile);
+		}
+	}
+
+	return Array.from(resolvedMatches);
+}
+
+/**
+ * Searches the workspace for files that match the bare name stem exactly (stem/index discovery).
+ */
+export async function discoverBareName(
+	bareName: string,
+	root: string,
+	caseSensitive: boolean
+): Promise<string[]> {
 	const searchPatterns = [
 		`**/${bareName}`,
 		...ENTRY_RESOLVE_EXTS.map((ext) => `**/${bareName}${ext}`),
@@ -51,7 +138,7 @@ export async function discoverBareName(bareName: string, root: string, caseSensi
 	const targetStem = caseSensitive ? bareName : bareName.toLowerCase();
 
 	for (const file of files) {
-		const absFile = path.resolve(file);
+		const absFile = path.resolve(root, file);
 		const ext = path.extname(absFile);
 		const extLower = ext.toLowerCase();
 
