@@ -130,10 +130,10 @@ Working-tree modes read file contents from disk:
 - `--unstaged`: unstaged files only
 - `--untracked`: untracked files only
 
-Historical modes snapshot file contents from Git at the specified revision:
-- `--commit <rev>`: files changed by one commit
-- `--range <base..head>` or `<base...head>`: files changed between two refs
-- `--against <base>`: files changed between the merge-base of `<base>` and HEAD — the standard PR-style comparison
+Historical modes read file contents from Git instead of the working tree:
+- `--commit <rev>`: files changed by one commit; contents from that commit
+- `--range <base..head>` or `<base...head>`: files changed between two refs; contents from `head`
+- `--against <base>`: files changed between the merge-base of `<base>` and `HEAD`; contents from `HEAD`
 
 Add `--include-diff` to any git run to include the raw diff output alongside the file contents. In working-tree mode this adds two sections — one for unstaged changes (`Full Diff`) and one for staged changes (`Cached Full Diff`).
 
@@ -453,7 +453,7 @@ prodex migrate --write   # apply the migration (creates a backup first)
 - Node.js 22+
 - `prodex.json` is optional; Prodex works without one
 - Dependency tracing requires JS, TS, TSX, or PHP entrypoints
-- Any file type can be collected with `--include` or a file scope
+- Any file type can be collected with `--include`, `prodex grep`, or a saved scope
 - `prodex grep` and search scopes require [ripgrep](https://github.com/BurntSushi/ripgrep) (`rg`) to be installed and available on your PATH
 
 ## License
