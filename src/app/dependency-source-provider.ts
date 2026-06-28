@@ -2,11 +2,21 @@ import { resolveEntries } from "./entry-resolver";
 import { resolveTargets } from "./target-resolver";
 import { collectTraceSources } from "../tracing/collect-trace";
 import type { ExecutionPlan, SourceCollectionResult } from "../types";
+import { ProgressReporter, NoopProgressReporter } from "./progress";
 
-
-export async function collectDependencySources(plan: ExecutionPlan): Promise<SourceCollectionResult> {
+export async function collectDependencySources(
+	plan: ExecutionPlan,
+	progress: ProgressReporter = new NoopProgressReporter()
+): Promise<SourceCollectionResult> {
 	const warnings: string[] = [];
 	const errors: string[] = [];
+
+	if (plan.command === "trace") {
+		const targetName = plan.target && plan.target.length > 0 ? plan.target.join(", ") : undefined;
+		progress.update("resolving target", targetName);
+	} else {
+		progress.update("collecting files");
+	}
 
 	const resolveResult = plan.command === "trace"
 		? await resolveTargets(plan)
@@ -31,6 +41,10 @@ export async function collectDependencySources(plan: ExecutionPlan): Promise<Sou
 			warnings,
 			errors: ["No entry files found and no include patterns were configured."],
 		};
+	}
+
+	if (plan.command === "trace") {
+		progress.update("collecting dependency graph");
 	}
 
 	const traceResult = await collectTraceSources({

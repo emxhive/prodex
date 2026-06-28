@@ -1,4 +1,5 @@
 import fs from "fs";
+import path from "path";
 import { CacheManager } from "../cache/cache-manager";
 import { setLoggerOptions } from "../diagnostics/logger";
 import { smartNaming } from "../output/naming";
@@ -7,6 +8,7 @@ import { produceOutput } from "../output/produce-output";
 import { collectSources } from "./source-collector";
 import pkg from "../../package.json";
 import type { ExecutionPlan, RunResult, FileSnapshot, CommandOutputResult, ArtifactPayload, ArtifactSection } from "../types";
+import { ProgressReporter, NoopProgressReporter } from "./progress";
 
 function hasMeaningfulSectionContent(section: ArtifactSection): boolean {
 	const content = section.content.trim();
@@ -20,14 +22,17 @@ function hasMeaningfulSectionContent(section: ArtifactSection): boolean {
 	].includes(normalized);
 }
 
-export async function executeRun(plan: ExecutionPlan): Promise<RunResult> {
+export async function executeRun(
+	plan: ExecutionPlan,
+	progress: ProgressReporter = new NoopProgressReporter()
+): Promise<RunResult> {
 	CacheManager.clear();
 	setLoggerOptions(plan as any);
 
 	const warnings: string[] = [];
 	const errors: string[] = [];
 
-	const collectResult = await collectSources(plan);
+	const collectResult = await collectSources(plan, progress);
 	warnings.push(...collectResult.warnings);
 	errors.push(...collectResult.errors);
 
@@ -92,6 +97,7 @@ export async function executeRun(plan: ExecutionPlan): Promise<RunResult> {
 	}
 
 	// 1. Snapshot resolved files
+	progress.update("snapshotting files");
 	const filesSnapshots: FileSnapshot[] = [];
 	const snapshotsMap = new Map<string, FileSnapshot>();
 	if (collectResult.snapshots) {
@@ -117,6 +123,7 @@ export async function executeRun(plan: ExecutionPlan): Promise<RunResult> {
 	// 2. Spawn attached commands sequentially
 	const commandOutputs: CommandOutputResult[] = [];
 	if (plan.attachmentOptions && plan.attachmentOptions.commands.length > 0) {
+		progress.update("running attached commands");
 		for (const command of plan.attachmentOptions.commands) {
 			const cmdRes = await executeAttachedCommand(
 				command,
@@ -137,6 +144,7 @@ export async function executeRun(plan: ExecutionPlan): Promise<RunResult> {
 	}
 
 	// 3. Construct payload and write output
+	progress.update("rendering artifact");
 	const payload: ArtifactPayload = {
 		root: plan.root,
 		sections: filteredSections,
@@ -158,6 +166,7 @@ export async function executeRun(plan: ExecutionPlan): Promise<RunResult> {
 
 	let produceResult: { outputPath: string; outputSizeBytes: number } | undefined;
 	try {
+		progress.update("writing output");
 		produceResult = await produceOutput({
 			name: resolvedOutputName,
 			payload,
@@ -170,6 +179,11 @@ export async function executeRun(plan: ExecutionPlan): Promise<RunResult> {
 	}
 
 	const ok = errors.length === 0 && produceResult !== undefined;
+
+	if (ok && produceResult) {
+		const relativePath = path.relative(process.cwd(), produceResult.outputPath).replace(/\\/g, "/");
+		progress.complete("wrote", relativePath);
+	}
 
 	return {
 		ok,
