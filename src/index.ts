@@ -9,15 +9,31 @@ import { parseCliInput } from "./cli/cli-input";
 import { renderHelp, renderVersion, reportCommandResult } from "./cli/reporter";
 import type { CommandResult } from "./types";
 import type { PlannerCommandResult } from "./commands/shared-runner";
+import { ProgressReporter, ConsoleProgressReporter, NoopProgressReporter } from "./app/progress";
 
 export default async function startProdex(args = process.argv): Promise<CommandResult> {
-	const result = await runProdexCommand(args, process.cwd());
-	reportCommandResult(result);
-	process.exitCode = result.exitCode;
-	return result;
+	const parsed = parseCliInput(args);
+	const isSilent = parsed.command && parsed.command.kind !== "help" && parsed.command.kind !== "version" && (parsed.command as any).flags?.silent;
+	const progress = isSilent ? new NoopProgressReporter() : new ConsoleProgressReporter();
+
+	let result: CommandResult | undefined;
+	try {
+		result = await runProdexCommand(args, process.cwd(), progress);
+		return result;
+	} finally {
+		progress.finish();
+		if (result) {
+			reportCommandResult(result);
+			process.exitCode = result.exitCode;
+		}
+	}
 }
 
-export async function runProdexCommand(args = process.argv, cwd = process.cwd()): Promise<CommandResult> {
+export async function runProdexCommand(
+	args = process.argv,
+	cwd = process.cwd(),
+	progress?: ProgressReporter
+): Promise<CommandResult> {
 	const parsed = parseCliInput(args);
 	const warnings = [...parsed.warnings];
 	const errors = [...parsed.errors];
@@ -66,7 +82,7 @@ export async function runProdexCommand(args = process.argv, cwd = process.cwd())
 	const kind = parsed.command.kind;
 	if (kind === "pack" || kind === "trace" || kind === "scope" || kind === "git" || kind === "grep") {
 		let cmdRes: PlannerCommandResult;
-		const params = { rootArg: parsed.command.rootArg, flags: parsed.command.flags, cwd };
+		const params = { rootArg: parsed.command.rootArg, flags: parsed.command.flags, cwd, progress };
 
 		if (kind === "pack") {
 			cmdRes = await packCommand(params);

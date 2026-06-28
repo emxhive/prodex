@@ -6,6 +6,7 @@ import { buildFinalFileSet } from "../filesystem/file-set";
 import { normalizePath } from "../filesystem/path";
 import { isExcluded } from "../tracing/exclude";
 import type { ExecutionPlan, SourceCollectionResult, ArtifactSection, FileSnapshot } from "../types";
+import { ProgressReporter, NoopProgressReporter } from "./progress";
 
 
 export function runGit(args: string[], cwd: string, warnings: string[], errors: string[], maxBuffer = 10 * 1024 * 1024): string {
@@ -404,7 +405,11 @@ async function collectHistoricalSources(
 	};
 }
 
-export async function collectGitSources(plan: ExecutionPlan): Promise<SourceCollectionResult> {
+export async function collectGitSources(
+	plan: ExecutionPlan,
+	progress: ProgressReporter = new NoopProgressReporter()
+): Promise<SourceCollectionResult> {
+	progress.update("collecting files");
 	const warnings: string[] = [];
 	const errors: string[] = [];
 

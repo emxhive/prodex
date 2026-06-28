@@ -4,8 +4,13 @@ import path from "path";
 import { buildFinalFileSet } from "../filesystem/file-set";
 import { normalizePath } from "../filesystem/path";
 import type { ExecutionPlan, SourceCollectionResult, ArtifactSection } from "../types";
+import { ProgressReporter, NoopProgressReporter } from "./progress";
 
-export async function collectGrepSources(plan: ExecutionPlan): Promise<SourceCollectionResult> {
+export async function collectGrepSources(
+	plan: ExecutionPlan,
+	progress: ProgressReporter = new NoopProgressReporter()
+): Promise<SourceCollectionResult> {
+	progress.update("collecting files");
 	const warnings: string[] = [];
 	const errors: string[] = [];
 
