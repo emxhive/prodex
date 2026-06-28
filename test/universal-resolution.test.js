@@ -302,36 +302,196 @@ const testCases = [
 		expectedStrategy: "unresolved-dynamic"
 	},
 
-	// --- Planned / Roadmap Cases (Registered as Todo) ---
+	// --- L3.5: Source-Equivalent Sibling Remap (Active) ---
 	{
-		name: "L4: caller-priority extension resolution (planned)",
-		fixture: "polyglot-basic",
-		specifier: "./shared/logger",
+		name: "L3.5: resolve unique source-equivalent sibling main.ts when main.js is absent",
+		fixture: "local-path-completion",
+		specifier: "../js-to-ts/main.js",
 		intent: "dependency-edge",
-		origin: "src/main.ts",
-		state: "planned",
+		origin: "src/main.tsx",
+		sourceLanguage: "typescript",
+		syntaxKind: "esm-import",
+		sourceFile: "src/main.tsx",
+		state: "active",
 		expectedStatus: "resolved",
-		expectedLevel: "L4"
+		expectedLevel: "L3.5",
+		expectedStrategy: "source-equiv-sibling",
+		expectedFile: "js-to-ts/main.ts"
 	},
 	{
-		name: "L5: extension-registry expansion (planned)",
-		fixture: "polyglot-basic",
-		specifier: "./shared/logger.js",
+		name: "L3.5: exact path wins over source-equiv sibling when the exact file exists",
+		fixture: "local-path-completion",
+		specifier: "../lib/main.js",
 		intent: "dependency-edge",
-		origin: "src/main.ts",
-		state: "planned",
+		origin: "src/main.tsx",
+		sourceLanguage: "typescript",
+		syntaxKind: "esm-import",
+		sourceFile: "src/main.tsx",
+		state: "active",
 		expectedStatus: "resolved",
-		expectedLevel: "L5"
+		expectedLevel: "L3",
+		expectedStrategy: "exact-path",
+		expectedFile: "lib/main.js"
 	},
 	{
-		name: "L6: directory entry resolution (planned)",
-		fixture: "polyglot-basic",
-		specifier: "./shared",
+		name: "L3.5: returns ambiguous when multiple equivalent candidates exist",
+		fixture: "local-path-completion",
+		specifier: "../multi-equiv/mod.js",
 		intent: "dependency-edge",
-		origin: "src/main.ts",
-		state: "planned",
+		origin: "src/main.tsx",
+		sourceLanguage: "typescript",
+		syntaxKind: "esm-import",
+		sourceFile: "src/main.tsx",
+		state: "active",
+		expectedStatus: "ambiguous",
+		expectedLevel: "L3.5",
+		expectedStrategy: "source-equiv-sibling",
+		expectedCandidates: ["multi-equiv/mod.ts", "multi-equiv/mod.tsx"]
+	},
+	{
+		name: "L3.5: declaration-only file .d.ts is ignored as candidate",
+		fixture: "local-path-completion",
+		specifier: "../dts-only/types.js",
+		intent: "dependency-edge",
+		origin: "src/main.tsx",
+		sourceLanguage: "typescript",
+		syntaxKind: "esm-import",
+		sourceFile: "src/main.tsx",
+		state: "active",
+		expectedStatus: "unresolved",
+		expectedLevel: "LX",
+		expectedStrategy: "unresolved-fallback"
+	},
+
+	// --- L4: Caller-Priority Extension Completion (Active) ---
+	{
+		name: "L4: TSX caller resolves extensionless path to highest priority group button.tsx",
+		fixture: "local-path-completion",
+		specifier: "./button",
+		intent: "dependency-edge",
+		origin: "src/main.tsx",
+		sourceLanguage: "typescript",
+		syntaxKind: "esm-import",
+		sourceFile: "src/main.tsx",
+		state: "active",
 		expectedStatus: "resolved",
-		expectedLevel: "L6"
+		expectedLevel: "L4",
+		expectedStrategy: "caller-priority-ext",
+		expectedFile: "src/button.tsx"
+	},
+	{
+		name: "L4: TSX caller with sourceLanguage 'typescript' and sourceFile 'src/main.tsx' resolving './button' must resolve src/button.tsx at L4 (proves file extension is preferred over generic typescript language)",
+		fixture: "local-path-completion",
+		specifier: "./button",
+		intent: "dependency-edge",
+		origin: "src/main.tsx",
+		sourceLanguage: "typescript",
+		syntaxKind: "esm-import",
+		sourceFile: "src/main.tsx",
+		state: "active",
+		expectedStatus: "resolved",
+		expectedLevel: "L4",
+		expectedStrategy: "caller-priority-ext",
+		expectedFile: "src/button.tsx"
+	},
+	{
+		name: "L4: unknown context has no priority groups and falls through to L5",
+		fixture: "local-path-completion",
+		specifier: "./src/button",
+		intent: "dependency-edge",
+		state: "active",
+		expectedStatus: "ambiguous",
+		expectedLevel: "L5",
+		expectedStrategy: "workspace-ext-fallback",
+		expectedCandidates: ["src/button.ts", "src/button.tsx"]
+	},
+
+	// --- L5: Workspace-Extension Fallback (Active) ---
+	{
+		name: "L5: resolves using workspace extensions when caller context is omitted",
+		fixture: "local-path-completion",
+		specifier: "./shared/utils",
+		intent: "dependency-edge",
+		state: "active",
+		expectedStatus: "resolved",
+		expectedLevel: "L5",
+		expectedStrategy: "workspace-ext-fallback",
+		expectedFile: "shared/utils.ts"
+	},
+	{
+		name: "L5: returns ambiguous when multiple workspace extension candidates exist",
+		fixture: "local-path-completion",
+		specifier: "./shared-ambiguous/data",
+		intent: "dependency-edge",
+		state: "active",
+		expectedStatus: "ambiguous",
+		expectedLevel: "L5",
+		expectedStrategy: "workspace-ext-fallback",
+		expectedCandidates: ["shared-ambiguous/data.ts", "shared-ambiguous/data.php"]
+	},
+
+	// --- L6: Directory Entry Resolution (Active) ---
+	{
+		name: "L6: directory import resolves index file with high confidence under TSX caller context",
+		fixture: "local-path-completion",
+		specifier: "./routes",
+		intent: "dependency-edge",
+		origin: "src/main.tsx",
+		sourceLanguage: "typescript",
+		syntaxKind: "esm-import",
+		sourceFile: "src/main.tsx",
+		state: "active",
+		expectedStatus: "resolved",
+		expectedLevel: "L6",
+		expectedStrategy: "directory-entry",
+		expectedFile: "src/routes/index.ts"
+	},
+	{
+		name: "L6: TSX caller with sourceLanguage 'typescript' and sourceFile 'src/main.tsx' resolving './routes-priority' must resolve src/routes-priority/index.tsx at L6 (proves file extension is preferred over generic typescript language)",
+		fixture: "local-path-completion",
+		specifier: "./routes-priority",
+		intent: "dependency-edge",
+		origin: "src/main.tsx",
+		sourceLanguage: "typescript",
+		syntaxKind: "esm-import",
+		sourceFile: "src/main.tsx",
+		state: "active",
+		expectedStatus: "resolved",
+		expectedLevel: "L6",
+		expectedStrategy: "directory-entry",
+		expectedFile: "src/routes-priority/index.tsx"
+	},
+	{
+		name: "L6: directory import fallback to workspace-present extensions with low confidence when caller context is omitted",
+		fixture: "local-path-completion",
+		specifier: "./src/routes",
+		intent: "dependency-edge",
+		state: "active",
+		expectedStatus: "resolved",
+		expectedLevel: "L6",
+		expectedStrategy: "directory-entry",
+		expectedFile: "src/routes/index.ts"
+	},
+	{
+		name: "L6: directory import returns ambiguous in workspace fallback when multiple index files exist",
+		fixture: "local-path-completion",
+		specifier: "./src/routes-multi",
+		intent: "dependency-edge",
+		state: "active",
+		expectedStatus: "ambiguous",
+		expectedLevel: "L6",
+		expectedStrategy: "directory-entry",
+		expectedCandidates: ["src/routes-multi/index.ts", "src/routes-multi/index.php"]
+	},
+	{
+		name: "L6: directory import returns no-decision when directory has no entry files",
+		fixture: "local-path-completion",
+		specifier: "./src",
+		intent: "dependency-edge",
+		state: "active",
+		expectedStatus: "unresolved",
+		expectedLevel: "LX",
+		expectedStrategy: "unresolved-fallback"
 	},
 	{
 		name: "L8: TS path alias rewrite (planned)",

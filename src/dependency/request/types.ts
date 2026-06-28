@@ -12,6 +12,7 @@ export type StrategyLevel =
 	| 'L1'
 	| 'L2'
 	| 'L3'
+	| 'L3.5'
 	| 'L4'
 	| 'L5'
 	| 'L6'
