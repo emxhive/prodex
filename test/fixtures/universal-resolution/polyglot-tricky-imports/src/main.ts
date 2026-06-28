@@ -1,0 +1,1 @@
+import './some/nested/file';
