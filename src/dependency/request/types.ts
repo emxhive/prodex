@@ -1,3 +1,5 @@
+import { LanguageProfile } from "../capture/detect/types";
+
 export type ResolutionIntent = 'seed-target' | 'seed-entry' | 'dependency-edge';
 
 export type ResolutionStatus =
@@ -37,6 +39,7 @@ export interface ResolutionRequest {
 	sourceFile?: string;
 	sourceLanguage?: string;
 	syntaxKind?: string;
+	profile?: LanguageProfile;
 }
 
 export interface ResolutionResult {

@@ -5,6 +5,7 @@ export interface CapturePattern {
 
 export interface CaptureQuery {
 	languageId: string;
+	adapterId: string;
 	patterns: CapturePattern[];
 	rawQuery?: string;    // Raw query format (e.g. tree-sitter query S-expression)
 }

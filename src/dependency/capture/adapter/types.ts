@@ -6,6 +6,7 @@ export interface ParsedDocument<TTree = unknown> {
 	sourceFile: string;
 	sourceLanguage: string;
 	source: string;
+	hasErrors: boolean;
 }
 
 export interface CapturedNode<TNode = unknown> {

@@ -40,7 +40,7 @@ export function resolveSourceEquivSibling(
 	const stem = path.basename(resolvedPath, ext);
 
 	const lowExt = ext.toLowerCase();
-	const equivCandidates = SOURCE_EQUIV_MAP[lowExt];
+	const equivCandidates = request.profile?.sourceEquivMap?.[lowExt] ?? SOURCE_EQUIV_MAP[lowExt];
 	if (!equivCandidates) {
 		return { type: 'no-decision', reason: `No source equivalence mapped for extension: ${ext}` };
 	}

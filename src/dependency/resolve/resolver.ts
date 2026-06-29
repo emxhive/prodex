@@ -27,7 +27,7 @@ export class UniversalResolver {
 			syntaxKind: request.syntaxKind
 		}, `Started resolution for: ${request.specifier}`);
 
-		const classification = classifySpecifier(request);
+		const classification = classifySpecifier(request, this.debugCollector);
 		this.debugCollector?.emit('resolve:classify', {
 			specifier: request.specifier,
 			intent: request.intent,
