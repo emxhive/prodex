@@ -1,12 +1,12 @@
 import path from "path";
 import { BASE_EXTS, DTS_EXT, REAL_EXTS } from "../resolver-constants";
-import { CACHE_KEYS } from "../../cache/cache-keys";
-import { safeStatCached } from "../../filesystem/stat-cache";
-import { logger } from "../../diagnostics/logger";
-import { CacheManager } from "../../cache/cache-manager";
-import { readFileSafe } from "../../filesystem/read-file";
+import { CACHE_KEYS } from "../../../cache/cache-keys";
+import { safeStatCached } from "../../../filesystem/stat-cache";
+import { logger } from "../../../diagnostics/logger";
+import { CacheManager } from "../../../cache/cache-manager";
+import { readFileSafe } from "../../../filesystem/read-file";
 import { emptyResolverResult, newResolverStats, resolverSetDiff, uniqueResolvedFiles } from "../resolver-result";
-import type { ResolverParams, ResolverResult } from "../../types";
+import type { ResolverParams, ResolverResult } from "../../../types";
 import { extractImports } from "./extract-imports";
 import { resolveAliasPath } from "./resolve-alias";
 

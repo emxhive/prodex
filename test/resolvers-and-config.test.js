@@ -6,10 +6,10 @@ const test = require("node:test");
 
 const { globScan } = require("../dist/filesystem/glob-scan.js");
 const { DEFAULT_PRODEX_CONFIG } = require("../dist/config/default-config.js");
-const { resolveAliasPath } = require("../dist/resolvers/js/resolve-alias.js");
-const { resolvePsr4 } = require("../dist/resolvers/php/psr4.js");
-const { resolvePhpImports } = require("../dist/resolvers/php/php-resolver.js");
-const { loadLaravelBindings } = require("../dist/resolvers/php/bindings.js");
+const { resolveAliasPath } = require("../dist/legacy/resolvers/js/resolve-alias.js");
+const { resolvePsr4 } = require("../dist/legacy/resolvers/php/psr4.js");
+const { resolvePhpImports } = require("../dist/legacy/resolvers/php/php-resolver.js");
+const { loadLaravelBindings } = require("../dist/legacy/resolvers/php/bindings.js");
 const { loadConfig, validateConfig } = require("../dist/config/load.js");
 const { migrateConfig } = require("../dist/config/migration/transform.js");
 
@@ -118,7 +118,7 @@ test("PHP resolver supports composer PSR-4 arrays of directories", async () => {
 		};
 
 		// Test resolving files under different directories in same namespace
-		const resolver = require("../dist/resolvers/php/php-resolver.js");
+		const resolver = require("../dist/legacy/resolvers/php/php-resolver.js");
 		
 		// Setup index.php to import User and Payment
 		writeFile(path.join(root, "src/index.php"), `<?php

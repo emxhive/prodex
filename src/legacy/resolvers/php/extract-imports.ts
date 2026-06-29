@@ -1,4 +1,4 @@
-import type { PhpResolverCtx } from "../../types";
+import type { PhpResolverCtx } from "../../../types";
 
 /**
  * Extracts PHP use statements and builds an alias/ShortName to FQCN mapping.
