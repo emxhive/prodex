@@ -9,6 +9,7 @@ import { resolveSourceEquivSibling } from "./strategies/source-equiv-sibling";
 import { resolveCallerPriorityExt } from "./strategies/caller-priority-ext";
 import { resolveWorkspaceExtFallback } from "./strategies/workspace-ext-fallback";
 import { resolveDirectoryEntry } from "./strategies/directory-entry";
+import { resolvePhpNamespace } from "./strategies/php-namespace";
 import { resolveGlobalSeed } from "./strategies/global-seed";
 import { resolveUnresolved } from "./strategies/unresolved";
 
@@ -91,6 +92,14 @@ export class UniversalResolver {
 		if (l6Outcome.type === 'final') {
 			this.debugCollector?.emit('resolve:complete', { request, result: l6Outcome.result }, `Resolution complete with L6`);
 			return l6Outcome.result;
+		}
+
+		// L10: PHP namespace resolution strategy
+		this.debugCollector?.emit('resolve:strategy:start', { level: 'L10' });
+		const l10Outcome = resolvePhpNamespace(request, classification, this.index, this.debugCollector);
+		if (l10Outcome.type === 'final') {
+			this.debugCollector?.emit('resolve:complete', { request, result: l10Outcome.result }, `Resolution complete with L10`);
+			return l10Outcome.result;
 		}
 
 		// L7: Global stem/basename seed target resolution
