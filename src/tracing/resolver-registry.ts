@@ -1,6 +1,6 @@
-import { CODE_EXTS } from "../resolvers/resolver-constants";
-import { resolveJsImports } from "../resolvers/js/js-resolver";
-import { resolvePhpImports } from "../resolvers/php/php-resolver";
+import { CODE_EXTS } from "../legacy/resolvers/resolver-constants";
+import { resolveJsImports } from "../legacy/resolvers/js/js-resolver";
+import { resolvePhpImports } from "../legacy/resolvers/php/php-resolver";
 import type { ResolverParams, ResolverResult } from "../types";
 
 type Resolver = (params: ResolverParams) => Promise<ResolverResult>;

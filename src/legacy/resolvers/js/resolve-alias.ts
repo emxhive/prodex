@@ -1,5 +1,5 @@
 import path from "path";
-import type { ProdexConfig } from "../../types";
+import type { ProdexConfig } from "../../../types";
 
 export async function resolveAliasPath(specifier: string, root: string, cfg: ProdexConfig): Promise<string | null> {
 	const knownAliases = cfg.aliases || {};

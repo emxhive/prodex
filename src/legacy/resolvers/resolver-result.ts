@@ -1,4 +1,4 @@
-import type { ResolverResult } from "../types";
+import type { ResolverResult } from "../../types";
 
 export function newResolverStats(): ResolverResult["stats"] {
 	return { expected: new Set(), resolved: new Set() };

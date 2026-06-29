@@ -1,9 +1,9 @@
 import fs from "fs";
 import path from "path";
-import { CacheManager } from "../../cache/cache-manager";
-import { CACHE_KEYS } from "../../cache/cache-keys";
+import { CacheManager } from "../../../cache/cache-manager";
+import { CACHE_KEYS } from "../../../cache/cache-keys";
 import { extractPhpImports, expandGroupedUses } from "./extract-imports";
-import { logger } from "../../diagnostics/logger";
+import { logger } from "../../../diagnostics/logger";
 
 /**
  * Scans app/Providers/*.php for $this->app->bind() / singleton() calls

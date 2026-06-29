@@ -1,7 +1,7 @@
 import fs from "fs";
 import path from "path";
-import { CacheManager } from "../../cache/cache-manager";
-import { CACHE_KEYS } from "../../cache/cache-keys";
+import { CacheManager } from "../../../cache/cache-manager";
+import { CACHE_KEYS } from "../../../cache/cache-keys";
 
 /**
  * Builds a PSR-4 namespace to directory map from composer.json.
