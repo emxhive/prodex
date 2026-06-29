@@ -2,13 +2,7 @@ import { CapturedNode } from "./adapter/types";
 import { CapturePattern } from "./query/types";
 import { DependencyEdge, EdgeKind } from "./types";
 
-export interface CaptureNormalizationRule {
-	kind: EdgeKind;
-	syntaxKind: string;
-	isDynamic: boolean;
-}
-
-export type NormalizationTable = Record<string, CaptureNormalizationRule>;
+import { NormalizationTable } from "./normalization/types";
 
 export function normalizeCaptures(
 	nodes: CapturedNode[],
