@@ -4,6 +4,8 @@ const test = require("node:test");
 const { indexWorkspace } = require("../dist/dependency/workspace/index.js");
 const { UniversalResolver } = require("../dist/dependency/resolve/resolver.js");
 const { DebugCollector } = require("../dist/dependency/debug/collector.js");
+const { PHP_PROFILE } = require("../dist/dependency/capture/profiles/php.js");
+const { JAVASCRIPT_PROFILE } = require("../dist/dependency/capture/profiles/javascript.js");
 
 // Resolve root path for fixtures
 const FIXTURES_DIR = path.resolve(__dirname, "fixtures/universal-resolution");
@@ -519,9 +521,9 @@ const testCases = [
 		specifier: "App\\Services\\AlertService",
 		intent: "dependency-edge",
 		origin: "app/Services/AlertService.php",
-		state: "planned",
 		expectedStatus: "resolved",
-		expectedLevel: "L10"
+		expectedLevel: "L10",
+		expectedFile: "app/Services/AlertService.php"
 	},
 	{
 		name: "L10: Python module path rewrite (planned)",
@@ -607,13 +609,21 @@ for (const tc of testCases) {
 
 			const originPath = tc.origin ? getFixtureFile(tc.fixture, tc.origin) : undefined;
 
+			let profile = tc.profile;
+			if (!profile && originPath && originPath.endsWith(".php")) {
+				profile = PHP_PROFILE;
+			} else if (!profile && originPath && (originPath.endsWith(".js") || originPath.endsWith(".mjs") || originPath.endsWith(".cjs"))) {
+				profile = JAVASCRIPT_PROFILE;
+			}
+
 			const request = {
 				specifier: tc.specifier,
 				intent: tc.intent || "dependency-edge",
 				origin: originPath ? { path: originPath } : undefined,
 				sourceFile: tc.sourceFile,
-				sourceLanguage: tc.sourceLanguage,
-				syntaxKind: tc.syntaxKind
+				sourceLanguage: tc.sourceLanguage || (originPath && originPath.endsWith(".php") ? "php" : undefined),
+				syntaxKind: tc.syntaxKind,
+				profile
 			};
 
 			const result = resolver.resolve(request);

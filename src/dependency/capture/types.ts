@@ -32,4 +32,5 @@ export interface CaptureResult {
 	sourceLanguage: string;
 	edges: DependencyEdge[];
 	parseError?: string;  // present only if the parser failed; edges may be partial
+	namespaceContext?: string;
 }

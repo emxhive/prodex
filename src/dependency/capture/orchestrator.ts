@@ -107,6 +107,13 @@ export class UniversalCaptureOrchestrator {
 			edges
 		};
 
+		if (languageId === "php") {
+			const nsNode = capturedNodes.find(n => n.patternName === "namespace.declaration");
+			if (nsNode) {
+				result.namespaceContext = nsNode.text;
+			}
+		}
+
 		if (doc.hasErrors) {
 			result.parseError = "Document contains syntax errors";
 		}

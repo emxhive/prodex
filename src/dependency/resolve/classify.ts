@@ -30,6 +30,31 @@ export function classifySpecifier(request: ResolutionRequest, debugCollector?: D
 		return { type: 'dynamic', specifier };
 	}
 
+	// 2.5 Special PHP require/include literal path handling
+	const isPhpRequireInclude =
+		request.sourceLanguage === 'php' &&
+		(request.syntaxKind === 'require-literal' ||
+		 request.syntaxKind === 'require-once-literal' ||
+		 request.syntaxKind === 'include-literal' ||
+		 request.syntaxKind === 'include-once-literal');
+
+	if (isPhpRequireInclude) {
+		const looksLikeFilePath = specifier.includes('/') || specifier.includes('\\') || specifier.endsWith('.php');
+		if (looksLikeFilePath) {
+			let normalizedSpec = specifier;
+			if (
+				!specifier.startsWith('./') &&
+				!specifier.startsWith('../') &&
+				!specifier.startsWith('/') &&
+				!specifier.startsWith('\\') &&
+				!/^[a-zA-Z]:[\\\/]/.test(specifier)
+			) {
+				normalizedSpec = './' + specifier;
+			}
+			return { type: 'path', specifier: normalizedSpec };
+		}
+	}
+
 	// 3. Path specifiers (relative or absolute)
 	const isPath =
 		specifier.startsWith('./') ||
@@ -89,7 +114,7 @@ export function classifySpecifier(request: ResolutionRequest, debugCollector?: D
 				debugCollector?.emit('resolve:classify:no-profile', {
 					specifier,
 					sourceLanguage: request.sourceLanguage
-				}, `Missing profile for language ${request.sourceLanguage}, falling back to legacy classification`);
+				}, `Missing profile for language ${request.sourceLanguage}, using compatibility bare-specifier classification`);
 			}
 			return { type: 'external', specifier };
 		}
@@ -98,7 +123,7 @@ export function classifySpecifier(request: ResolutionRequest, debugCollector?: D
 			debugCollector?.emit('resolve:classify:no-profile', {
 				specifier,
 				sourceLanguage: request.sourceLanguage
-			}, `Missing profile for language ${request.sourceLanguage}, falling back to legacy classification`);
+			}, `Missing profile for language ${request.sourceLanguage}, using compatibility bare-specifier classification`);
 		}
 
 		// If no context is provided or context doesn't match standard package rules, do not guess

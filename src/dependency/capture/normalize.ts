@@ -3,6 +3,7 @@ import { CapturePattern } from "./query/types";
 import { DependencyEdge, EdgeKind } from "./types";
 
 import { NormalizationTable } from "./normalization/types";
+import { normalizePhpCaptures } from "./normalization/php";
 
 export function normalizeCaptures(
 	nodes: CapturedNode[],
@@ -11,6 +12,10 @@ export function normalizeCaptures(
 	table: NormalizationTable,
 	patterns: CapturePattern[] = []
 ): DependencyEdge[] {
+	if (sourceLanguage === "php") {
+		return normalizePhpCaptures(nodes, sourceFile, table, patterns).edges;
+	}
+
 	const edges: DependencyEdge[] = [];
 
 	const roleMap = new Map<string, string>();
