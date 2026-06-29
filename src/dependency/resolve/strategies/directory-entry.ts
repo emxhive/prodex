@@ -38,7 +38,9 @@ export function resolveDirectoryEntry(
 	const sourceContext = request.sourceFile
 		? path.extname(request.sourceFile)
 		: request.sourceLanguage;
-	const groups = getExtensionPriorityGroups(sourceContext);
+	const groups = request.profile?.extensionPriorityGroups && request.profile.extensionPriorityGroups.length > 0
+		? request.profile.extensionPriorityGroups
+		: getExtensionPriorityGroups(sourceContext);
 	const entryNames = ["index"];
 	const attempted: string[] = [];
 

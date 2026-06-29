@@ -27,7 +27,9 @@ export function resolveCallerPriorityExt(
 	const sourceContext = request.sourceFile
 		? path.extname(request.sourceFile)
 		: request.sourceLanguage;
-	const groups = getExtensionPriorityGroups(sourceContext);
+	const groups = request.profile?.extensionPriorityGroups && request.profile.extensionPriorityGroups.length > 0
+		? request.profile.extensionPriorityGroups
+		: getExtensionPriorityGroups(sourceContext);
 	if (groups.length === 0) {
 		return { type: 'no-decision', reason: `No priority extension groups found for context: ${sourceContext}` };
 	}

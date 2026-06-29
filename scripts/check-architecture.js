@@ -37,6 +37,13 @@ for (const file of tsFiles(srcRoot)) {
 		}
 	}
 
+	if (relPath.startsWith("src/dependency/")) {
+		const legacyImport = /from\s+["'][^"']*legacy(?:\/|["'])/;
+		if (legacyImport.test(source)) {
+			errors.push(`${relPath} imports legacy code from the dependency layer.`);
+		}
+	}
+
 	if (relPath.startsWith("src/legacy/resolvers/") && importsFrom(source, "../../../tracing", "../../tracing", "../tracing")) {
 		errors.push(`${relPath} imports tracing internals from the resolver layer.`);
 	}

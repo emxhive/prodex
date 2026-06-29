@@ -3,6 +3,9 @@ export interface LanguageProfile {
 	extensions: string[];            // e.g. ['.ts', '.tsx']
 	syntaxKinds: string[];           // the syntaxKind values this language can emit
 	preferredAdapterId: string;      // maps to a registered ParserAdapter
+	bareBehavior?: 'external' | 'unresolvable';
+	extensionPriorityGroups?: string[][];
+	sourceEquivMap?: Record<string, string[]>;
 }
 
 export interface DetectionResult {
