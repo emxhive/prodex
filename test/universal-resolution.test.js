@@ -504,8 +504,8 @@ const testCases = [
 		expectedLevel: "L8"
 	},
 	{
-		name: "L9: TypeScript NodeNext .js -> .ts mapping (planned)",
-		fixture: "nodenext-runtime-specifiers",
+		name: "L9: runtime/source profile remap extensions (planned)",
+		fixture: "profile-remap-extensions",
 		specifier: "./helper.js",
 		intent: "dependency-edge",
 		origin: "src/main.ts",
