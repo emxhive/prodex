@@ -14,7 +14,8 @@ export async function resolveUniversalImports(params: ResolverParams): Promise<R
 	const depResult = await provider.resolve({
 		root: params.cfg.root,
 		filePath: params.filePath,
-		exclude: params.cfg.exclude
+		exclude: params.cfg.exclude,
+		aliases: params.cfg.aliases
 	});
 
 	const expected = new Set<string>();

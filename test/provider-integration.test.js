@@ -88,3 +88,41 @@ test("Provider Integration: Traces TypeScript-family dependencies through univer
 	assert.ok(relFiles.includes("src/dep.ts"));
 	assert.ok(relFiles.includes("src/nav-component.tsx"));
 });
+
+test("Provider Integration: Traces dependencies through tsconfig paths and prodex.json aliases", async () => {
+	resetProviderBridge();
+
+	const prDir = path.resolve(__dirname, "fixtures/universal-resolution/profile-rewrites");
+	const entryFile = path.join(prDir, "src/main.ts").replace(/\\/g, "/");
+
+	const result = await collectTraceSources({
+		cfg: {
+			root: prDir,
+			exclude: ["node_modules/**"],
+			depth: 5,
+			maxFiles: 100,
+			output: {
+				dir: "dist",
+				versioned: false,
+				format: "txt"
+			},
+			entry: [entryFile],
+			include: [],
+			aliases: {
+				"@non-tsconfig-alias/*": "src/*"
+			},
+			scopes: {}
+		},
+		opts: {
+			entries: [entryFile]
+		}
+	});
+
+	const relFiles = result.files.map(f => path.relative(prDir, f).replace(/\\/g, "/")).sort();
+
+	// Verify both TSConfig path and prodex.json alias resolved successfully
+	assert.ok(relFiles.includes("src/main.ts"));
+	assert.ok(relFiles.includes("src/helper.ts"));
+	assert.ok(relFiles.includes("src/other-helper.ts"));
+});
+

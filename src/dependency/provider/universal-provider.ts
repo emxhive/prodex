@@ -22,6 +22,7 @@ export interface UniversalDependencyRequest {
 	root: string;
 	filePath: string;
 	exclude?: string[];
+	aliases?: Record<string, string>;
 }
 
 export interface UniversalDependencyResult {
@@ -145,7 +146,10 @@ export class UniversalDependencyProvider {
 
 		// 4. Resolve specifier requests
 		const resolver = new UniversalResolver(index);
-		const requests = edgesToRequests(captureResult.edges, { profile: detection.profile });
+		const requests = edgesToRequests(captureResult.edges, {
+			profile: detection.profile,
+			aliases: req.aliases
+		});
 
 		for (const request of requests) {
 			const res = resolver.resolve(request);
@@ -157,11 +161,12 @@ export class UniversalDependencyProvider {
 			} else if (res.status === "unresolved") {
 				const classification = classifySpecifier(request);
 				
-				// Keep path-like unresolved dependencies and matched PSR-4 namespace mismatches
+				// Keep path-like unresolved dependencies, matched PSR-4 namespace mismatches, and matched L8 path aliases
 				const isPath = classification.type === "path";
 				const isMatchedPhpNamespace = request.sourceLanguage === "php" && res.strategy === "php-namespace";
+				const isMatchedAlias = res.level === "L8" && (res.strategy === "tsconfig-paths" || res.strategy === "prodex-alias");
 
-				if (isPath || isMatchedPhpNamespace) {
+				if (isPath || isMatchedPhpNamespace || isMatchedAlias) {
 					result.unresolved.push({
 						specifier: request.specifier,
 						reason: res.reason

@@ -5,6 +5,7 @@ import { LanguageProfile } from "./detect/types";
 export interface EdgesToRequestsOptions {
 	intent?: ResolutionIntent;
 	profile?: LanguageProfile;
+	aliases?: Record<string, string>;
 }
 
 export function edgesToRequests(
@@ -13,12 +14,14 @@ export function edgesToRequests(
 ): ResolutionRequest[] {
 	let intent: ResolutionIntent = "dependency-edge";
 	let profile: LanguageProfile | undefined = undefined;
+	let aliases: Record<string, string> | undefined = undefined;
 
 	if (typeof intentOrOptions === "string") {
 		intent = intentOrOptions;
 	} else if (intentOrOptions && typeof intentOrOptions === "object") {
 		if (intentOrOptions.intent) intent = intentOrOptions.intent;
 		if (intentOrOptions.profile) profile = intentOrOptions.profile;
+		if (intentOrOptions.aliases) aliases = intentOrOptions.aliases;
 	}
 
 	return edges.map(edge => {
@@ -32,6 +35,10 @@ export function edgesToRequests(
 
 		if (profile) {
 			req.profile = profile;
+		}
+
+		if (aliases) {
+			req.aliases = aliases;
 		}
 
 		if (edge.position) {

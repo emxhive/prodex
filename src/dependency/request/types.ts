@@ -40,6 +40,7 @@ export interface ResolutionRequest {
 	sourceLanguage?: string;
 	syntaxKind?: string;
 	profile?: LanguageProfile;
+	aliases?: Record<string, string>;
 }
 
 export interface ResolutionResult {
