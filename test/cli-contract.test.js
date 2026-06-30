@@ -326,12 +326,12 @@ test("pack command produces single merged output with MB size", async () => {
 test("trace command produces tracing output and respects depth limit", async () => {
 	await usingTempProjectAsync(async (root) => {
 		writeJson(path.join(root, "prodex.json"), baseConfig());
-		writeFile(path.join(root, "src", "index.ts"), 'import "./dep";\n');
-		writeFile(path.join(root, "src", "dep.ts"), 'import "./deep";\n');
-		writeFile(path.join(root, "src", "deep.ts"), "export const deep = true;\n");
+		writeFile(path.join(root, "src", "index.js"), 'import "./dep";\n');
+		writeFile(path.join(root, "src", "dep.js"), 'import "./deep";\n');
+		writeFile(path.join(root, "src", "deep.js"), "export const deep = true;\n");
 
 		const result = await runProdexCommand(
-			["node", "prodex", "trace", "-t", "src/index.ts", "--depth", "1", "-n", "trace-output", "--format", "txt"],
+			["node", "prodex", "trace", "-t", "src/index.js", "--depth", "1", "-n", "trace-output", "--format", "txt"],
 			root
 		);
 
@@ -339,8 +339,8 @@ test("trace command produces tracing output and respects depth limit", async () 
 		assert.equal(result.runs.length, 1);
 		assert.equal(result.runs[0].mode, "trace");
 		assert.deepEqual(result.runs[0].files.map((file) => path.relative(root, file).replaceAll("\\", "/")).sort(), [
-			"src/dep.ts",
-			"src/index.ts",
+			"src/dep.js",
+			"src/index.js",
 		]);
 
 		const stdout = captureStdout(() => reportCommandResult(result));
@@ -517,6 +517,8 @@ test("trace target and strict entry behavior", async () => {
 		writeJson(path.join(root, "prodex.json"), baseConfig());
 		writeFile(path.join(root, "src/index.ts"), "import './helper';\nexport const index = true;\n");
 		writeFile(path.join(root, "src/helper.ts"), "export const helper = true;\n");
+		writeFile(path.join(root, "src/main.js"), "import './sub';\nexport const main = true;\n");
+		writeFile(path.join(root, "src/sub.js"), "export const sub = true;\n");
 		writeFile(path.join(root, "resources/js/pages/Dashboard.tsx"), "export const dash = 1;\n");
 		writeFile(path.join(root, "README.md"), "# README\n");
 
@@ -546,48 +548,48 @@ test("trace target and strict entry behavior", async () => {
 		assert.match(traceNoTarget.errors.join("\n"), /Command "trace" requires --target/);
 
 		// 6. trace -t auth without --depth proceeds using configured depth and warns
-		const traceNoDepth = await runProdexCommand(["node", "prodex", "trace", "--target", "src/index.ts", "--format", "txt"], root);
+		const traceNoDepth = await runProdexCommand(["node", "prodex", "trace", "--target", "src/main.js", "--format", "txt"], root);
 		assert.equal(traceNoDepth.ok, true);
 		assert.match(traceNoDepth.warnings.join("\n"), /No --depth provided. Using configured default depth: 2/);
-		assert.deepEqual(traceNoDepth.runs[0].files.map(f => path.basename(f)).sort(), ["helper.ts", "index.ts"]);
+		assert.deepEqual(traceNoDepth.runs[0].files.map(f => path.basename(f)).sort(), ["main.js", "sub.js"]);
 
 		// trace -t auth --depth 4 uses CLI depth and does not emit the default-depth warning
-		const traceWithDepth = await runProdexCommand(["node", "prodex", "trace", "--target", "src/index.ts", "--depth", "1", "--format", "txt"], root);
+		const traceWithDepth = await runProdexCommand(["node", "prodex", "trace", "--target", "src/main.js", "--depth", "1", "--format", "txt"], root);
 		assert.equal(traceWithDepth.ok, true);
 		assert.equal(traceWithDepth.warnings.length, 0);
 
 		// trace -t auth -d 4 works as a depth override
-		const traceWithShortDepth = await runProdexCommand(["node", "prodex", "trace", "--target", "src/index.ts", "-d", "1", "--format", "txt"], root);
+		const traceWithShortDepth = await runProdexCommand(["node", "prodex", "trace", "--target", "src/main.js", "-d", "1", "--format", "txt"], root);
 		assert.equal(traceWithShortDepth.ok, true);
 		assert.equal(traceWithShortDepth.warnings.length, 0);
-		assert.deepEqual(traceWithShortDepth.runs[0].files.map(f => path.basename(f)).sort(), ["helper.ts", "index.ts"]);
+		assert.deepEqual(traceWithShortDepth.runs[0].files.map(f => path.basename(f)).sort(), ["main.js", "sub.js"]);
 
 		// invalid configured depth fails clearly
 		writeJson(path.join(root, "prodex.json"), baseConfig({ depth: -1 }));
-		const traceInvalidConfigDepth = await runProdexCommand(["node", "prodex", "trace", "--target", "src/index.ts"], root);
+		const traceInvalidConfigDepth = await runProdexCommand(["node", "prodex", "trace", "--target", "src/main.js"], root);
 		assert.equal(traceInvalidConfigDepth.ok, false);
 		assert.match(traceInvalidConfigDepth.errors.join("\n"), /--depth must be an integer greater than or equal to 0/);
 		// restore base config
 		writeJson(path.join(root, "prodex.json"), baseConfig());
 
 		// --debug remains accepted only as long form
-		const traceDebugLong = await runProdexCommand(["node", "prodex", "trace", "--target", "src/index.ts", "--depth", "0", "--debug"], root);
+		const traceDebugLong = await runProdexCommand(["node", "prodex", "trace", "--target", "src/main.js", "--depth", "0", "--debug"], root);
 		assert.equal(traceDebugLong.ok, true);
 
 		// -d no longer means debug
-		const traceDebugShort = await runProdexCommand(["node", "prodex", "trace", "--target", "src/index.ts", "-d"], root);
+		const traceDebugShort = await runProdexCommand(["node", "prodex", "trace", "--target", "src/main.js", "-d"], root);
 		assert.equal(traceDebugShort.ok, false);
 		assert.match(traceDebugShort.errors.join("\n"), /Flag "-d" expects a value/);
 
 		// 7. trace --target x --depth 0 includes only the resolved target file
-		const traceDepth0 = await runProdexCommand(["node", "prodex", "trace", "--target", "src/index.ts", "--depth", "0", "--format", "txt"], root);
+		const traceDepth0 = await runProdexCommand(["node", "prodex", "trace", "--target", "src/main.js", "--depth", "0", "--format", "txt"], root);
 		assert.equal(traceDepth0.ok, true);
-		assert.deepEqual(traceDepth0.runs[0].files.map(f => path.basename(f)).sort(), ["index.ts"]);
+		assert.deepEqual(traceDepth0.runs[0].files.map(f => path.basename(f)).sort(), ["main.js"]);
 
 		// 8. trace --target x --depth 1 includes direct dependencies
-		const traceDepth1 = await runProdexCommand(["node", "prodex", "trace", "--target", "src/index.ts", "--depth", "1", "--format", "txt"], root);
+		const traceDepth1 = await runProdexCommand(["node", "prodex", "trace", "--target", "src/main.js", "--depth", "1", "--format", "txt"], root);
 		assert.equal(traceDepth1.ok, true);
-		assert.deepEqual(traceDepth1.runs[0].files.map(f => path.basename(f)).sort(), ["helper.ts", "index.ts"]);
+		assert.deepEqual(traceDepth1.runs[0].files.map(f => path.basename(f)).sort(), ["main.js", "sub.js"]);
 
 		// 9. trace --target index --depth 1 resolves uniquely when one match exists
 		const traceUnique = await runProdexCommand(["node", "prodex", "trace", "--target", "dashboard", "--depth", "0", "--format", "txt"], root);

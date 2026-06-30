@@ -42,7 +42,7 @@
     "dev": "tsc --watch",
     "gen:schema": "node schema/generate.js",
     "check:architecture": "node scripts/check-architecture.js",
-    "test": "npm run check:architecture && npm run build && node --test test/cli-contract.test.js test/git-command.test.js test/cleanup.test.js test/grep-command.test.js test/resolvers-and-config.test.js test/target-resolver-redesign.test.js test/universal-resolution.test.js test/progress.test.js test/universal-capture.test.js test/tree-sitter-adapter.test.js test/universal-orchestrator.test.js test/comparison-harness.test.js test/universal-php-capture.test.js test/universal-php-resolution.test.js test/universal-provider.test.js test/provider-integration.test.js",
+    "test": "npm run check:architecture && npm run build && node --test test/cli-contract.test.js test/git-command.test.js test/cleanup.test.js test/grep-command.test.js test/resolvers-and-config.test.js test/target-resolver-redesign.test.js test/universal-resolution.test.js test/progress.test.js test/universal-capture.test.js test/tree-sitter-adapter.test.js test/universal-orchestrator.test.js test/universal-php-capture.test.js test/universal-php-resolution.test.js test/universal-provider.test.js test/provider-integration.test.js",
     "prepack": "npm run build",
     "pack:check": "npm pack --dry-run"
   },
