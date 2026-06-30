@@ -1,4 +1,4 @@
-import { isExcluded } from "../tracing/exclude";
+import { isExcluded } from "../filesystem/exclude";
 import { scanGlob } from "../filesystem/entry-discovery";
 import type { ExecutionPlan } from "../types";
 

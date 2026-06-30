@@ -1,6 +1,6 @@
 import path from "path";
 import { logger } from "../diagnostics/logger";
-import { isExcluded } from "./exclude";
+import { isExcluded } from "../filesystem/exclude";
 import { mergeStats, newStats, unique } from "./trace-stats";
 import type { ProdexConfig, ResolverParams, ResolverResult } from "../types";
 import { getResolver, hasResolver } from "./resolver-registry";

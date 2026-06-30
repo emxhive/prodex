@@ -1,7 +1,7 @@
 import fs from "fs/promises";
 import path from "path";
 import { normalizePath } from "../../filesystem/path";
-import { isExcluded } from "../../tracing/exclude";
+import { isExcluded } from "../../filesystem/exclude";
 import { ResolutionDebugEvent } from "../debug/types";
 
 export interface FileInfo {

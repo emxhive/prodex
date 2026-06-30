@@ -1,7 +1,6 @@
 import micromatch from "micromatch";
 import path from "path";
-import { normalizePath } from "../filesystem/path";
-
+import { normalizePath } from "./path";
 
 export function isExcluded(p: string, patterns: string[] = [], root: string = process.cwd()): boolean {
 	if (!patterns?.length) return false;

@@ -2,7 +2,7 @@ import fs from "fs";
 import path from "path";
 import { globScan } from "./glob-scan";
 import { normalizePath } from "./path";
-import { isExcluded } from "../tracing/exclude";
+import { isExcluded } from "./exclude";
 
 export interface BuildFinalFileSetParams {
 	root: string;
