@@ -102,7 +102,7 @@ const testCases = [
 	{
 		name: "L1 fallback: TS alias-like specifiers are not external",
 		fixture: "profile-rewrites",
-		specifier: "@/helper",
+		specifier: "~/helper",
 		intent: "dependency-edge",
 		sourceLanguage: "typescript",
 		syntaxKind: "esm-import",
@@ -498,14 +498,16 @@ const testCases = [
 		expectedStrategy: "unresolved-fallback"
 	},
 	{
-		name: "L8: TS path alias rewrite (planned)",
+		name: "L8: TS path alias rewrite",
 		fixture: "profile-rewrites",
 		specifier: "@/helper",
 		intent: "dependency-edge",
 		origin: "src/main.ts",
-		state: "planned",
+		state: "active",
 		expectedStatus: "resolved",
-		expectedLevel: "L8"
+		expectedLevel: "L8",
+		expectedStrategy: "tsconfig-paths",
+		expectedFile: "src/helper.ts"
 	},
 	{
 		name: "L9: runtime/source profile remap extensions (planned)",
@@ -727,3 +729,318 @@ for (const tc of testCases) {
 		});
 	}
 }
+
+// --- Unit & Corner Case Tests for Phase 4J-A ---
+
+const fs = require("node:fs");
+const os = require("node:os");
+const { stripJsonComments, parseTsConfig } = require("../dist/dependency/resolve/config-parser.js");
+const { findNearestConfig } = require("../dist/dependency/resolve/strategies/tsconfig-paths.js");
+
+test("4J-A Unit: stripJsonComments strips line and block comments and trailing commas", () => {
+	const jsonc = `
+	{
+		// This is a line comment
+		"compilerOptions": {
+			"baseUrl": ".", /* block comment */
+			"paths": {
+				"@/*": ["src/*"], // trailing comma inside arrays/objects
+			},
+		}
+	}
+	`;
+	const stripped = stripJsonComments(jsonc);
+	const parsed = JSON.parse(stripped);
+	assert.equal(parsed.compilerOptions.baseUrl, ".");
+	assert.deepEqual(parsed.compilerOptions.paths["@/*"], ["src/*"]);
+
+	const jsoncWeird = `{
+  "compilerOptions": {
+    "paths": {
+      "@/*": ["src/*"],
+      "weird": ["literal,]", "literal,}"]
+    }
+  }
+}`;
+	const strippedWeird = stripJsonComments(jsoncWeird);
+	const parsedWeird = JSON.parse(strippedWeird);
+	assert.deepEqual(parsedWeird.compilerOptions.paths.weird, ["literal,]", "literal,}"]);
+});
+
+test("4J-A Unit: parseTsConfig correctly handles relative extends and overrides", () => {
+	const root = fs.mkdtempSync(path.join(os.tmpdir(), "prodex-tsconfig-"));
+	try {
+		const parentPath = path.join(root, "tsconfig.base.json");
+		const childPath = path.join(root, "tsconfig.json");
+
+		fs.writeFileSync(parentPath, JSON.stringify({
+			compilerOptions: {
+				baseUrl: "./base",
+				paths: {
+					"@/*": ["src/*"],
+					"parent-only/*": ["parent/*"]
+				}
+			}
+		}));
+
+		fs.writeFileSync(childPath, JSON.stringify({
+			extends: "./tsconfig.base.json",
+			compilerOptions: {
+				paths: {
+					"@/*": ["child-src/*"]
+				}
+			}
+		}));
+
+		const parsed = parseTsConfig(childPath);
+		// paths merged: child wins on @/*, parent inherited on parent-only/*
+		assert.ok(parsed.paths["@/*"][0].includes("child-src"));
+		assert.ok(parsed.paths["parent-only/*"][0].includes("parent"));
+		// baseUrl inherited
+		assert.ok(parsed.baseUrl.endsWith("base"));
+	} finally {
+		fs.rmSync(root, { recursive: true, force: true });
+	}
+});
+
+test("4J-A Unit: parseTsConfig detects cycle in extends without crashing", () => {
+	const root = fs.mkdtempSync(path.join(os.tmpdir(), "prodex-tsconfig-cycle-"));
+	try {
+		const pathA = path.join(root, "tsconfig.a.json");
+		const pathB = path.join(root, "tsconfig.b.json");
+
+		fs.writeFileSync(pathA, JSON.stringify({ extends: "./tsconfig.b.json" }));
+		fs.writeFileSync(pathB, JSON.stringify({ extends: "./tsconfig.a.json" }));
+
+		assert.throws(() => {
+			parseTsConfig(pathA);
+		}, /Circular dependency/);
+	} finally {
+		fs.rmSync(root, { recursive: true, force: true });
+	}
+});
+
+test("4J-A Unit: findNearestConfig stops at index root and does not traverse higher", async () => {
+	const root = fs.mkdtempSync(path.join(os.tmpdir(), "prodex-nearest-"));
+	try {
+		const srcDir = path.join(root, "src");
+		fs.mkdirSync(srcDir, { recursive: true });
+
+		// Put a tsconfig at the project root
+		const projectConfig = path.join(root, "tsconfig.json");
+		fs.writeFileSync(projectConfig, "{}");
+
+		const index = await indexWorkspace(root);
+		const nearest = findNearestConfig(path.join(srcDir, "main.ts").replace(/\\/g, "/"), index, "tsconfig.json");
+		
+		assert.equal(nearest, projectConfig.replace(/\\/g, "/"));
+	} finally {
+		fs.rmSync(root, { recursive: true, force: true });
+	}
+});
+
+test("4J-A Unit: prodex.json aliases take precedence, resolve target, or report unresolved", async () => {
+	const root = fs.mkdtempSync(path.join(os.tmpdir(), "prodex-aliases-precedence-"));
+	try {
+		const tsconfigPath = path.join(root, "tsconfig.json");
+		const srcDir = path.join(root, "src");
+		fs.mkdirSync(srcDir, { recursive: true });
+
+		fs.writeFileSync(tsconfigPath, JSON.stringify({
+			compilerOptions: {
+				baseUrl: ".",
+				paths: {
+					"@/*": ["src/tsconfig-target/*"]
+				}
+			}
+		}));
+
+		fs.writeFileSync(path.join(srcDir, "helper.ts"), "export const a = 1;");
+
+		const index = await indexWorkspace(root);
+		const resolver = new UniversalResolver(index);
+
+		// Resolve with prodex alias mapping @/* to src/*
+		const requestWithProdex = {
+			specifier: "@/helper",
+			intent: "dependency-edge",
+			origin: { path: path.join(srcDir, "main.ts").replace(/\\/g, "/") },
+			aliases: {
+				"@/*": "src/*"
+			}
+		};
+
+		const res = resolver.resolve(requestWithProdex);
+		// Since prodex.json takes precedence and resolves to src/helper.ts, it wins over tsconfig!
+		assert.equal(res.status, "resolved");
+		assert.equal(res.level, "L8");
+		assert.equal(res.strategy, "prodex-alias");
+		assert.equal(res.file, path.join(srcDir, "helper.ts").replace(/\\/g, "/"));
+
+		// Resolve with non-existent prodex alias target -> reports unresolved directly at L8
+		const requestUnresolved = {
+			specifier: "@/non-existent",
+			intent: "dependency-edge",
+			origin: { path: path.join(srcDir, "main.ts").replace(/\\/g, "/") },
+			aliases: {
+				"@/*": "src/non-existent-dir/*"
+			}
+		};
+
+		const resUnres = resolver.resolve(requestUnresolved);
+		assert.equal(resUnres.status, "unresolved");
+		assert.equal(resUnres.level, "L8");
+		assert.equal(resUnres.strategy, "prodex-alias");
+	} finally {
+		fs.rmSync(root, { recursive: true, force: true });
+	}
+});
+
+test("4J-A Unit: most-specific path mapping wins in tsconfig", async () => {
+	const root = fs.mkdtempSync(path.join(os.tmpdir(), "prodex-specific-"));
+	try {
+		const tsconfigPath = path.join(root, "tsconfig.json");
+		const srcDir = path.join(root, "src");
+		fs.mkdirSync(srcDir, { recursive: true });
+
+		fs.writeFileSync(tsconfigPath, JSON.stringify({
+			compilerOptions: {
+				baseUrl: ".",
+				paths: {
+					"@/*": ["src/fallback/*"],
+					"@components/*": ["src/components/*"]
+				}
+			}
+		}));
+
+		fs.mkdirSync(path.join(srcDir, "components"), { recursive: true });
+		fs.writeFileSync(path.join(srcDir, "components/button.ts"), "export const b = 1;");
+
+		const index = await indexWorkspace(root);
+		const resolver = new UniversalResolver(index);
+
+		const request = {
+			specifier: "@components/button",
+			intent: "dependency-edge",
+			origin: { path: path.join(srcDir, "main.ts").replace(/\\/g, "/") }
+		};
+
+		const res = resolver.resolve(request);
+		// Longest prefix match @components/* wins over @/* and resolves button.ts
+		assert.equal(res.status, "resolved");
+		assert.equal(res.level, "L8");
+		assert.equal(res.strategy, "tsconfig-paths");
+		assert.equal(res.file, path.join(srcDir, "components/button.ts").replace(/\\/g, "/"));
+	} finally {
+		fs.rmSync(root, { recursive: true, force: true });
+	}
+});
+
+test("4J-A Unit: wildcard mapping tries targets in order", async () => {
+	const root = fs.mkdtempSync(path.join(os.tmpdir(), "prodex-in-order-"));
+	try {
+		const tsconfigPath = path.join(root, "tsconfig.json");
+		const srcDir = path.join(root, "src");
+		fs.mkdirSync(srcDir, { recursive: true });
+
+		fs.writeFileSync(tsconfigPath, JSON.stringify({
+			compilerOptions: {
+				baseUrl: ".",
+				paths: {
+					"@/*": ["src/first-dir/*", "src/second-dir/*"]
+				}
+			}
+		}));
+
+		// Place button.ts in second-dir only
+		const secondDir = path.join(srcDir, "second-dir");
+		fs.mkdirSync(secondDir, { recursive: true });
+		fs.writeFileSync(path.join(secondDir, "button.ts"), "export const b = 1;");
+
+		const index = await indexWorkspace(root);
+		const resolver = new UniversalResolver(index);
+
+		const request = {
+			specifier: "@/button",
+			intent: "dependency-edge",
+			origin: { path: path.join(srcDir, "main.ts").replace(/\\/g, "/") }
+		};
+
+		const res = resolver.resolve(request);
+		// Falls back to second-dir/* successfully and resolves
+		assert.equal(res.status, "resolved");
+		assert.equal(res.file, path.join(secondDir, "button.ts").replace(/\\/g, "/"));
+	} finally {
+		fs.rmSync(root, { recursive: true, force: true });
+	}
+});
+
+test("4J-A Unit: jsconfig.json paths support JS projects", async () => {
+	const root = fs.mkdtempSync(path.join(os.tmpdir(), "prodex-jsconfig-"));
+	try {
+		const jsconfigPath = path.join(root, "jsconfig.json");
+		const srcDir = path.join(root, "src");
+		fs.mkdirSync(srcDir, { recursive: true });
+
+		fs.writeFileSync(jsconfigPath, JSON.stringify({
+			compilerOptions: {
+				baseUrl: ".",
+				paths: {
+					"@/*": ["src/*"]
+				}
+			}
+		}));
+
+		fs.writeFileSync(path.join(srcDir, "utils.js"), "module.exports = {};");
+
+		const index = await indexWorkspace(root);
+		const resolver = new UniversalResolver(index);
+
+		const request = {
+			specifier: "@/utils",
+			intent: "dependency-edge",
+			origin: { path: path.join(srcDir, "main.js").replace(/\\/g, "/") }
+		};
+
+		const res = resolver.resolve(request);
+		assert.equal(res.status, "resolved");
+		assert.equal(res.file, path.join(srcDir, "utils.js").replace(/\\/g, "/"));
+	} finally {
+		fs.rmSync(root, { recursive: true, force: true });
+	}
+});
+
+test("4J-A Unit: alias target outside root is blocked", async () => {
+	const root = fs.mkdtempSync(path.join(os.tmpdir(), "prodex-boundary-alias-"));
+	try {
+		const tsconfigPath = path.join(root, "tsconfig.json");
+		const srcDir = path.join(root, "src");
+		fs.mkdirSync(srcDir, { recursive: true });
+
+		fs.writeFileSync(tsconfigPath, JSON.stringify({
+			compilerOptions: {
+				baseUrl: ".",
+				paths: {
+					"@/*": ["../outside-root/*"]
+				}
+			}
+		}));
+
+		const index = await indexWorkspace(root);
+		const resolver = new UniversalResolver(index);
+
+		const request = {
+			specifier: "@/helper",
+			intent: "dependency-edge",
+			origin: { path: path.join(srcDir, "main.ts").replace(/\\/g, "/") }
+		};
+
+		const res = resolver.resolve(request);
+		// Mapped outside workspace root boundary -> blocked
+		assert.equal(res.status, "blocked");
+		assert.equal(res.level, "L8");
+	} finally {
+		fs.rmSync(root, { recursive: true, force: true });
+	}
+});
+

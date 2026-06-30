@@ -12,8 +12,12 @@ import { resolveDirectoryEntry } from "./strategies/directory-entry";
 import { resolvePhpNamespace } from "./strategies/php-namespace";
 import { resolveGlobalSeed } from "./strategies/global-seed";
 import { resolveUnresolved } from "./strategies/unresolved";
+import { ConfigCache } from "./config-cache";
+import { resolveTsConfigPaths } from "./strategies/tsconfig-paths";
 
 export class UniversalResolver {
+	private configCache = new ConfigCache();
+
 	constructor(
 		private index: WorkspaceIndex,
 		private debugCollector?: DebugCollector
@@ -37,6 +41,14 @@ export class UniversalResolver {
 			syntaxKind: request.syntaxKind,
 			classification
 		}, `Classified specifier: ${classification.type}`);
+
+		// L8: TSConfig / JSConfig paths / baseUrl & prodex.json aliases
+		this.debugCollector?.emit('resolve:strategy:start', { level: 'L8' });
+		const l8Outcome = resolveTsConfigPaths(request, classification, this.index, this.configCache, this.debugCollector);
+		if (l8Outcome.type === 'final') {
+			this.debugCollector?.emit('resolve:complete', { request, result: l8Outcome.result }, `Resolution complete with L8`);
+			return l8Outcome.result;
+		}
 
 		// L1: External/system/url filter
 		this.debugCollector?.emit('resolve:strategy:start', { level: 'L1' });
