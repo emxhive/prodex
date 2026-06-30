@@ -4,7 +4,7 @@ import path from "path";
 import { isBinaryFile, isBinaryBuffer } from "../filesystem/binary";
 import { buildFinalFileSet } from "../filesystem/file-set";
 import { normalizePath } from "../filesystem/path";
-import { isExcluded } from "../tracing/exclude";
+import { isExcluded } from "../filesystem/exclude";
 import type { ExecutionPlan, SourceCollectionResult, ArtifactSection, FileSnapshot } from "../types";
 import { ProgressReporter, NoopProgressReporter } from "./progress";
 
