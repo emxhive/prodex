@@ -8,6 +8,9 @@ const RESOLVERS: Record<string, Resolver> = {
 	".js": resolveUniversalImports,
 	".mjs": resolveUniversalImports,
 	".cjs": resolveUniversalImports,
+	".ts": resolveUniversalImports,
+	".tsx": resolveUniversalImports,
+	".d.ts": resolveUniversalImports,
 };
 
 export function hasResolver(extension: string): boolean {

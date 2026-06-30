@@ -6,6 +6,8 @@ const { UniversalResolver } = require("../dist/dependency/resolve/resolver.js");
 const { DebugCollector } = require("../dist/dependency/debug/collector.js");
 const { PHP_PROFILE } = require("../dist/dependency/capture/profiles/php.js");
 const { JAVASCRIPT_PROFILE } = require("../dist/dependency/capture/profiles/javascript.js");
+const { TYPESCRIPT_PROFILE } = require("../dist/dependency/capture/profiles/typescript.js");
+const { TSX_PROFILE } = require("../dist/dependency/capture/profiles/tsx.js");
 
 // Resolve root path for fixtures
 const FIXTURES_DIR = path.resolve(__dirname, "fixtures/universal-resolution");
@@ -554,6 +556,61 @@ const testCases = [
 		state: "planned",
 		expectedStatus: "resolved",
 		expectedLevel: "L10"
+	},
+	// --- TypeScript-Family Resolution ---
+	{
+		name: "TS: extensionless import from .ts prefers .ts before .js",
+		fixture: "typescript-basic",
+		specifier: "./helper",
+		intent: "dependency-edge",
+		origin: "src/main.ts",
+		profile: TYPESCRIPT_PROFILE,
+		expectedStatus: "resolved",
+		expectedLevel: "L4",
+		expectedFile: "src/helper.ts"
+	},
+	{
+		name: "TSX: extensionless import from .tsx prefers .tsx before .ts/.js",
+		fixture: "typescript-basic",
+		specifier: "./component",
+		intent: "dependency-edge",
+		origin: "src/component.tsx",
+		profile: TSX_PROFILE,
+		expectedStatus: "resolved",
+		expectedLevel: "L4",
+		expectedFile: "src/component.tsx"
+	},
+	{
+		name: "TS: import written as ./dep.js resolves to dep.ts when dep.js is absent",
+		fixture: "typescript-basic",
+		specifier: "./dep.js",
+		intent: "dependency-edge",
+		origin: "src/main.ts",
+		profile: TYPESCRIPT_PROFILE,
+		expectedStatus: "resolved",
+		expectedLevel: "L3.5",
+		expectedFile: "src/dep.ts"
+	},
+	{
+		name: "TS: import written as ./nav-component.jsx resolves to nav-component.tsx when jsx is absent",
+		fixture: "typescript-basic",
+		specifier: "./nav-component.jsx",
+		intent: "dependency-edge",
+		origin: "src/main.ts",
+		profile: TYPESCRIPT_PROFILE,
+		expectedStatus: "resolved",
+		expectedLevel: "L3.5",
+		expectedFile: "src/nav-component.tsx"
+	},
+	{
+		name: "TS: declaration file .d.ts should not resolve via source-equivalent sibling for ordinary imports",
+		fixture: "typescript-basic",
+		specifier: "./other",
+		intent: "dependency-edge",
+		origin: "src/main.ts",
+		profile: TYPESCRIPT_PROFILE,
+		expectedStatus: "unresolved",
+		expectedLevel: "LX"
 	}
 ];
 
@@ -614,6 +671,10 @@ for (const tc of testCases) {
 				profile = PHP_PROFILE;
 			} else if (!profile && originPath && (originPath.endsWith(".js") || originPath.endsWith(".mjs") || originPath.endsWith(".cjs"))) {
 				profile = JAVASCRIPT_PROFILE;
+			} else if (!profile && originPath && (originPath.endsWith(".ts") || originPath.endsWith(".d.ts"))) {
+				profile = TYPESCRIPT_PROFILE;
+			} else if (!profile && originPath && originPath.endsWith(".tsx")) {
+				profile = TSX_PROFILE;
 			}
 
 			const request = {

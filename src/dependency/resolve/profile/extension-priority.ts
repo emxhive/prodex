@@ -3,12 +3,10 @@ import path from "path";
 export const SOURCE_EQUIV_MAP: Record<string, string[]> = {
 	".js": [".ts", ".tsx", ".jsx"],
 	".jsx": [".tsx"],
-	".mjs": [".mts"],
-	".cjs": [".cts"],
 };
 
 export function isDeclarationOnlyPath(filePath: string): boolean {
-	return /\.d\.(ts|mts|cts)$/.test(filePath);
+	return /\.d\.ts$/.test(filePath);
 }
 
 export function getExtensionPriorityGroups(sourceExtOrLanguage: string | undefined): string[][] {
