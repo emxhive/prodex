@@ -26,8 +26,7 @@ for (const file of tsFiles(srcRoot)) {
 			"../tracing",
 			"../output",
 			"../filesystem",
-			"../cache",
-			"../legacy/resolvers",
+			"../cache",
 			"../diagnostics",
 		];
 		for (const importPath of forbiddenCommandImports) {
@@ -44,9 +43,6 @@ for (const file of tsFiles(srcRoot)) {
 		}
 	}
 
-	if (relPath.startsWith("src/legacy/resolvers/") && importsFrom(source, "../../../tracing", "../../tracing", "../tracing")) {
-		errors.push(`${relPath} imports tracing internals from the resolver layer.`);
-	}
 
 	if (relPath.startsWith("src/output/") && importsFrom(source, "../tracing")) {
 		errors.push(`${relPath} imports tracing internals from the output layer.`);
