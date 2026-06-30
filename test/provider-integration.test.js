@@ -53,16 +53,15 @@ test("Provider Integration: Traces transitive PHP class dependencies cleanly", a
 	assert.ok(resolved.includes(getResolveFile("src/Models/User.php")));
 });
 
-test("Provider Integration: Traces mixed JS and PHP files cleanly in polyglot fixture", async () => {
+test("Provider Integration: Traces TypeScript-family dependencies through universal provider", async () => {
 	resetProviderBridge();
 
-	// We use the polyglot-basic fixture which has AlertService.php and main.ts
-	const polyglotDir = path.resolve(__dirname, "fixtures/universal-resolution/polyglot-basic");
-	const entryFile = path.join(polyglotDir, "src/main.ts").replace(/\\/g, "/");
+	const tsDir = path.resolve(__dirname, "fixtures/universal-resolution/typescript-basic");
+	const entryFile = path.join(tsDir, "src/main.ts").replace(/\\/g, "/");
 
 	const result = await collectTraceSources({
 		cfg: {
-			root: polyglotDir,
+			root: tsDir,
 			exclude: ["node_modules/**"],
 			depth: 5,
 			maxFiles: 100,
@@ -81,6 +80,11 @@ test("Provider Integration: Traces mixed JS and PHP files cleanly in polyglot fi
 		}
 	});
 
-	// main.ts is TS so it resolves using legacy resolver (still works)
-	assert.ok(result.files.includes(entryFile));
+	const relFiles = result.files.map(f => path.relative(tsDir, f).replace(/\\/g, "/")).sort();
+
+	assert.ok(relFiles.includes("src/main.ts"));
+	assert.ok(relFiles.includes("src/helper.ts"));
+	assert.ok(relFiles.includes("src/component.ts"));
+	assert.ok(relFiles.includes("src/dep.ts"));
+	assert.ok(relFiles.includes("src/nav-component.tsx"));
 });

@@ -3,9 +3,13 @@ import { UniversalCaptureOrchestrator } from "../capture/orchestrator";
 import { TreeSitterParserAdapter } from "../capture/adapter/tree-sitter";
 import { JAVASCRIPT_CAPTURE_QUERY } from "../capture/adapter/tree-sitter/queries/javascript";
 import { PHP_CAPTURE_QUERY } from "../capture/adapter/tree-sitter/queries/php";
+import { TYPESCRIPT_CAPTURE_QUERY } from "../capture/adapter/tree-sitter/queries/typescript";
+import { TSX_CAPTURE_QUERY } from "../capture/adapter/tree-sitter/queries/tsx";
 import { FileExtensionDetector } from "../capture/detect/detector";
 import { JAVASCRIPT_PROFILE } from "../capture/profiles/javascript";
 import { PHP_PROFILE } from "../capture/profiles/php";
+import { TYPESCRIPT_PROFILE } from "../capture/profiles/typescript";
+import { TSX_PROFILE } from "../capture/profiles/tsx";
 import { DefaultParserRegistry } from "../capture/registry/registry";
 import { DefaultCaptureQueryRegistry } from "../capture/query/registry";
 import { edgesToRequests } from "../capture/bridge";
@@ -31,6 +35,8 @@ export interface UniversalDependencyProviderOptions {
 	wasmPaths?: {
 		javascript?: string;
 		php?: string;
+		typescript?: string;
+		tsx?: string;
 	};
 }
 
@@ -51,14 +57,26 @@ export class UniversalDependencyProvider {
 			process.env.PRODEX_PHP_WASM ||
 			path.resolve(__dirname, "../../../assets/tree-sitter/tree-sitter-php.wasm");
 
+		const typescriptWasm = options.wasmPaths?.typescript ||
+			process.env.PRODEX_TYPESCRIPT_WASM ||
+			path.resolve(__dirname, "../../../assets/tree-sitter/tree-sitter-typescript.wasm");
+
+		const tsxWasm = options.wasmPaths?.tsx ||
+			process.env.PRODEX_TSX_WASM ||
+			path.resolve(__dirname, "../../../assets/tree-sitter/tree-sitter-tsx.wasm");
+
 		const tsAdapter = await TreeSitterParserAdapter.create({
 			javascript: javascriptWasm,
-			php: phpWasm
+			php: phpWasm,
+			typescript: typescriptWasm,
+			tsx: tsxWasm
 		});
 
 		const detector = new FileExtensionDetector();
 		detector.registerProfile(JAVASCRIPT_PROFILE);
 		detector.registerProfile(PHP_PROFILE);
+		detector.registerProfile(TYPESCRIPT_PROFILE);
+		detector.registerProfile(TSX_PROFILE);
 
 		const parserRegistry = new DefaultParserRegistry();
 		parserRegistry.register(tsAdapter);
@@ -66,6 +84,8 @@ export class UniversalDependencyProvider {
 		const queryRegistry = new DefaultCaptureQueryRegistry();
 		queryRegistry.register(JAVASCRIPT_CAPTURE_QUERY);
 		queryRegistry.register(PHP_CAPTURE_QUERY);
+		queryRegistry.register(TYPESCRIPT_CAPTURE_QUERY);
+		queryRegistry.register(TSX_CAPTURE_QUERY);
 
 		const orchestrator = new UniversalCaptureOrchestrator(detector, parserRegistry, queryRegistry);
 		return new UniversalDependencyProvider(orchestrator);

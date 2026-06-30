@@ -4,7 +4,7 @@ import { CaptureQuery } from "../../query/types";
 
 export class TreeSitterParserAdapter implements ParserAdapter<unknown, unknown> {
 	readonly adapterId = "tree-sitter";
-	readonly supportedLanguages = ["javascript", "php"];
+	readonly supportedLanguages = ["javascript", "php", "typescript", "tsx"];
 
 	private parser: Parser;
 	private languages = new Map<string, Language>();
