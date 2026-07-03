@@ -60,6 +60,8 @@ export interface RunResult {
 	errors: string[];
 	scopeKey?: string;
 	plannedCommands?: string[];
+	copied?: boolean;
+	copyWarning?: string;
 }
 
 export interface CommandResult {

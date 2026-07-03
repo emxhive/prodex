@@ -315,6 +315,9 @@ CLI flags override config values for a run. Excludes are additive: root excludes
 
 ## CLI Reference
 
+> [!NOTE]
+> `--copy` currently supports Windows only. On macOS and Linux, Prodex writes the artifact normally and emits a warning because file clipboard support is deferred.
+
 ### `git` — Snapshot Git changes
 
 ```bash
@@ -345,6 +348,7 @@ prodex git [root] --range <base...head>
 | `--cmd` | list | Command to run and embed. Repeatable. |
 | `--fail-on-cmd-error` | boolean | Exit nonzero if an attached command fails |
 | `--dry-run` | boolean | Preview without writing output |
+| `--copy` | boolean | Copy generated artifact file to clipboard for pasting as an attachment |
 
 ### `grep` — Collect files by search
 
@@ -371,6 +375,7 @@ prodex grep [root] --regex <pattern>
 | `--cmd` | | list | Command to run and embed. Repeatable. |
 | `--fail-on-cmd-error` | | boolean | Exit nonzero if an attached command fails |
 | `--dry-run` | | boolean | Preview without writing output |
+| `--copy` | | boolean | Copy generated artifact file to clipboard for pasting as an attachment |
 
 ### `scope` — Run saved scopes
 
@@ -391,6 +396,7 @@ prodex scope [root] --list
 | `--cmd` | | list | Command to run and embed. Repeatable. |
 | `--fail-on-cmd-error` | | boolean | Exit nonzero if an attached command fails |
 | `--dry-run` | | boolean | Preview without writing output |
+| `--copy` | | boolean | Copy generated artifact file to clipboard for pasting as an attachment |
 
 ### `pack` — Collect explicit files or combine sources
 
@@ -411,6 +417,7 @@ prodex pack [root] -e <entry> -i <glob>
 | `--cmd` | | list | Command to run and embed. Repeatable. |
 | `--fail-on-cmd-error` | | boolean | Exit nonzero if an attached command fails |
 | `--dry-run` | | boolean | Preview without writing output |
+| `--copy` | | boolean | Copy generated artifact file to clipboard for pasting as an attachment |
 
 ### `trace` — Trace imports from an entry file
 
@@ -429,6 +436,7 @@ prodex trace [root] -t <file>
 | `--cmd` | | list | Command to run and embed. Repeatable. |
 | `--fail-on-cmd-error` | | boolean | Exit nonzero if an attached command fails |
 | `--dry-run` | | boolean | Preview without writing output |
+| `--copy` | | boolean | Copy generated artifact file to clipboard for pasting as an attachment |
 
 ### Global flags
 

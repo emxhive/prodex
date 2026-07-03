@@ -41,6 +41,9 @@ export interface ProdexFlags {
 	/** Perform a dry-run execution. */
 	dryRun?: boolean;
 
+	/** Copy generated artifact file to clipboard for pasting as an attachment. */
+	copy?: boolean;
+
 	/** Sequential attached shell commands to execute. */
 	cmd?: string[];
 

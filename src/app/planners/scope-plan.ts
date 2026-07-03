@@ -128,6 +128,7 @@ export function buildScopePlan(params: {
 					format: flags.format ?? defaultOutput.format,
 				},
 				dryRun: !!flags.dryRun,
+				copy: !!flags.copy,
 				scopeKey: key,
 				attachmentOptions,
 				grepOptions: {
@@ -157,6 +158,7 @@ export function buildScopePlan(params: {
 					format: flags.format ?? defaultOutput.format,
 				},
 				dryRun: !!flags.dryRun,
+				copy: !!flags.copy,
 				scopeKey: key,
 				attachmentOptions,
 			});

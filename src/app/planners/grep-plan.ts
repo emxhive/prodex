@@ -114,6 +114,7 @@ export function buildGrepPlan(params: {
 			format: flags.format ?? defaultOutput.format,
 		},
 		dryRun: !!flags.dryRun,
+		copy: !!flags.copy,
 		attachmentOptions,
 		grepOptions: {
 			mode,

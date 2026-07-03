@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.1.2] (Unreleased)
+
+### Added
+
+- `--copy` flag: copies the generated artifact file to the system clipboard after successful generation (suitable for pasting as an attachment). Supported across `pack`, `trace`, `scope`, `git`, and `grep`. Supported on Windows (using `powershell Set-Clipboard -LiteralPath`), and deferred on macOS and Linux. On macOS and Linux, Prodex writes the artifact normally and emits a warning because file clipboard support is deferred.
+- Multi-plan validation: `--copy` is validated and rejected before execution if the run would generate more than one artifact (e.g. `scope --all` or `scope -k scope1,scope2`).
+
 ## [2.1.0](https://github.com/emxhive/prodex/compare/v2.0.1...v2.1.0) (2026-06-24)
 
 > **⚠ Migration required:** This release includes breaking CLI and config changes. After installing v2.1.0, run `prodex migrate --write` before normal use to update `prodex.json` to config version 5, and update any scripts using `prodex run`, `prodex profiles`, `--profile`, `--all-profiles`, `--max-depth`, or `prodex trace --entry`.

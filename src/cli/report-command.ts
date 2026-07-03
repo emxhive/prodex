@@ -36,6 +36,8 @@ function reportRuns(runs: RunResult[]): void {
 			files: `${run.files.length} files`,
 			size: `${sizeMb} MB`,
 			output: run.outputPath ? formatPath(run.outputPath, run.root) : "dry-run",
+			copied: run.copied,
+			copyWarning: run.copyWarning,
 		};
 	});
 	const labelWidth = maxWidth(rows.map((row) => row.label));
@@ -44,7 +46,11 @@ function reportRuns(runs: RunResult[]): void {
 	const sizeWidth = maxWidth(rows.map((row) => row.size));
 
 	for (const row of rows) {
-		console.log(`${row.icon} ${row.label.padEnd(labelWidth)}  ${row.mode.padEnd(modeWidth)}  ${row.files.padStart(filesWidth)}  ${row.size.padStart(sizeWidth)}  ${row.output}`);
+		const copiedText = row.copied ? "  [copied]" : "";
+		console.log(`${row.icon} ${row.label.padEnd(labelWidth)}  ${row.mode.padEnd(modeWidth)}  ${row.files.padStart(filesWidth)}  ${row.size.padStart(sizeWidth)}  ${row.output}${copiedText}`);
+		if (row.copyWarning) {
+			console.warn(`Warning: --copy: ${row.copyWarning}. Artifact written to ${row.output}.`);
+		}
 	}
 }
 

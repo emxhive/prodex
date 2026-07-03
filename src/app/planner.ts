@@ -35,8 +35,11 @@ export function createExecutionPlans(params: {
 	const flags = intent.flags ?? {};
 	const attachmentOptions = parseCommandAttachmentOptions(flags, errors);
 
+	let plans: ExecutionPlan[] = [];
+	let listScopes: string[] | undefined;
+
 	if (intent.kind === "pack") {
-		const plans = buildPackPlan({
+		plans = buildPackPlan({
 			intent,
 			userConfig,
 			root,
@@ -48,11 +51,8 @@ export function createExecutionPlans(params: {
 			warnings,
 			errors,
 		});
-		return { plans, warnings, errors };
-	}
-
-	if (intent.kind === "trace") {
-		const plans = buildTracePlan({
+	} else if (intent.kind === "trace") {
+		plans = buildTracePlan({
 			intent,
 			userConfig,
 			root,
@@ -64,10 +64,7 @@ export function createExecutionPlans(params: {
 			warnings,
 			errors,
 		});
-		return { plans, warnings, errors };
-	}
-
-	if (intent.kind === "scope") {
+	} else if (intent.kind === "scope") {
 		const scopeResult = buildScopePlan({
 			intent,
 			userConfig,
@@ -80,16 +77,10 @@ export function createExecutionPlans(params: {
 			warnings,
 			errors,
 		});
-		return {
-			plans: scopeResult.plans,
-			warnings,
-			errors,
-			listScopes: scopeResult.listScopes,
-		};
-	}
-
-	if (intent.kind === "git") {
-		const plans = buildGitPlan({
+		plans = scopeResult.plans;
+		listScopes = scopeResult.listScopes;
+	} else if (intent.kind === "git") {
+		plans = buildGitPlan({
 			intent,
 			userConfig,
 			root,
@@ -101,11 +92,8 @@ export function createExecutionPlans(params: {
 			warnings,
 			errors,
 		});
-		return { plans, warnings, errors };
-	}
-
-	if (intent.kind === "grep") {
-		const plans = buildGrepPlan({
+	} else if (intent.kind === "grep") {
+		plans = buildGrepPlan({
 			intent,
 			userConfig,
 			root,
@@ -117,8 +105,19 @@ export function createExecutionPlans(params: {
 			warnings,
 			errors,
 		});
-		return { plans, warnings, errors };
 	}
 
-	return { plans: [], warnings, errors };
+	if (errors.length) {
+		return { plans: [], warnings, errors };
+	}
+
+	if (flags.copy && plans.length > 1) {
+		errors.push(
+			"--copy can only be used when exactly one artifact is generated.\n" +
+			"Run a single scope or command target, or open the generated files from the output directory."
+		);
+		return { plans: [], warnings, errors };
+	}
+
+	return { plans, warnings, errors, listScopes };
 }

@@ -151,6 +151,7 @@ export function buildGitPlan(params: {
 			format: flags.format ?? defaultOutput.format,
 		},
 		dryRun: !!flags.dryRun,
+		copy: !!flags.copy,
 		attachmentOptions,
 		gitOptions,
 	};

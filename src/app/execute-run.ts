@@ -9,6 +9,7 @@ import { collectSources } from "./source-collector";
 import pkg from "../../package.json";
 import type { ExecutionPlan, RunResult, FileSnapshot, CommandOutputResult, ArtifactPayload, ArtifactSection } from "../types";
 import { ProgressReporter, NoopProgressReporter } from "./progress";
+import { copyFileToClipboard } from "../clipboard/clipboard";
 
 function hasMeaningfulSectionContent(section: ArtifactSection): boolean {
 	const content = section.content.trim();
@@ -185,6 +186,22 @@ export async function executeRun(
 		progress.complete("wrote", relativePath);
 	}
 
+	let copied: boolean | undefined;
+	let copyWarning: string | undefined;
+
+	if (plan.copy && !plan.dryRun && produceResult) {
+		try {
+			const clipResult = await copyFileToClipboard(produceResult.outputPath);
+			if (clipResult.ok) {
+				copied = true;
+			} else if ("warning" in clipResult) {
+				copyWarning = clipResult.warning;
+			}
+		} catch (err: any) {
+			copyWarning = `failed to copy file to clipboard: ${err.message || String(err)}`;
+		}
+	}
+
 	return {
 		ok,
 		root: plan.root,
@@ -199,5 +216,7 @@ export async function executeRun(
 		warnings,
 		errors,
 		scopeKey: plan.scopeKey,
+		copied,
+		copyWarning,
 	};
 }

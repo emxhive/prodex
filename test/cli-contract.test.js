@@ -1179,6 +1179,76 @@ test("git historical modes mutual exclusivity and validation", async () => {
 	});
 });
 
+test("clipboard --copy CLI flag contract tests", async () => {
+	await usingTempProjectAsync(async (root) => {
+		writeJson(path.join(root, "prodex.json"), baseConfig({
+			scopes: {
+				dashboard: {
+					name: "frontend-dashboard",
+					entry: ["src/dashboard.ts"]
+				},
+				auth: {
+					entry: ["src/auth.ts"]
+				}
+			}
+		}));
+		writeFile(path.join(root, "src", "dashboard.ts"), "export const db = 1;\n");
+		writeFile(path.join(root, "src", "auth.ts"), "export const au = 1;\n");
+
+		// 1. --copy parser support across generating commands (pack, scope)
+		const parseRes1 = await runProdexCommand(
+			["node", "prodex", "pack", "--entry", "src/dashboard.ts", "--copy", "--dry-run"],
+			root
+		);
+		assert.equal(parseRes1.ok, true);
+
+		const parseRes2 = await runProdexCommand(
+			["node", "prodex", "scope", "-k", "dashboard", "--copy", "--dry-run"],
+			root
+		);
+		assert.equal(parseRes2.ok, true);
+
+		// 2. --copy rejection on non-generating commands (migrate)
+		const parseRes3 = await runProdexCommand(
+			["node", "prodex", "migrate", "--copy"],
+			root
+		);
+		assert.equal(parseRes3.ok, false);
+		assert.match(parseRes3.errors.join("\n"), /does not accept "--copy"/);
+
+		// 3. scope --all --copy validation
+		const multiRes1 = await runProdexCommand(
+			["node", "prodex", "scope", "--all", "--copy"],
+			root
+		);
+		assert.equal(multiRes1.ok, false);
+		assert.match(
+			multiRes1.errors.join("\n"),
+			/--copy can only be used when exactly one artifact is generated/
+		);
+
+		// 4. scope -k key1,key2 --copy validation
+		const multiRes2 = await runProdexCommand(
+			["node", "prodex", "scope", "-k", "dashboard,auth", "--copy"],
+			root
+		);
+		assert.equal(multiRes2.ok, false);
+		assert.match(
+			multiRes2.errors.join("\n"),
+			/--copy can only be used when exactly one artifact is generated/
+		);
+
+		// 5. dry-run with copy does not execute clipboard logic
+		const dryRes = await runProdexCommand(
+			["node", "prodex", "pack", "--entry", "src/dashboard.ts", "--dry-run", "--copy"],
+			root
+		);
+		assert.equal(dryRes.ok, true);
+		assert.equal(dryRes.runs[0].copied, undefined);
+		assert.equal(dryRes.runs[0].copyWarning, undefined);
+	});
+});
+
 function usingTempProject(fn) {
 	const root = fs.mkdtempSync(path.join(os.tmpdir(), "prodex-test-"));
 	try {

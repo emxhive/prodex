@@ -121,6 +121,9 @@ function validateCliInput(commandName: string, flags: Partial<ProdexFlags>): str
 		if (flags.cmd !== undefined || flags.cmdTimeout !== undefined || flags.failOnCmdError !== undefined) {
 			errors.push(`Command "${commandName}" does not accept command attachment options.`);
 		}
+		if (flags.copy !== undefined) {
+			errors.push(`Command "${commandName}" does not accept "--copy".`);
+		}
 	}
 
 	return errors;

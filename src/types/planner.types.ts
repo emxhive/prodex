@@ -83,6 +83,7 @@ export interface ExecutionPlan {
 		format: "md" | "txt";
 	};
 	dryRun: boolean;
+	copy?: boolean;
 	scopeKey?: string;
 	attachmentOptions?: CommandAttachmentOptions;
 	gitOptions?: GitPlanOptions;
