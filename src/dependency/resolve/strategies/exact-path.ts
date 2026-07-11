@@ -1,6 +1,6 @@
 import path from "path";
 import { ResolutionRequest } from "../../request/types";
-import { SpecifierClassification, resolveRequestBasePath } from "../classify";
+import { SpecifierClassification, resolveRequestBasePath, isStaticPathEligible } from "../classify";
 import { StrategyOutcome } from "../types";
 import { WorkspaceIndex } from "../../workspace";
 import { normalizePath } from "../../../filesystem/path";
@@ -12,6 +12,11 @@ export function resolveExactPath(
 	index: WorkspaceIndex,
 	debugCollector?: DebugCollector
 ): StrategyOutcome {
+	const pathEligible = isStaticPathEligible(request);
+	if (pathEligible === false) {
+		return { type: 'no-decision', reason: 'Reference semantics are not eligible for static path resolution.' };
+	}
+
 	if (classification.type !== 'path') {
 		return { type: 'no-decision', reason: 'Not a path specifier.' };
 	}

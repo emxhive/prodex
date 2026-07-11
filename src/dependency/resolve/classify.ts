@@ -3,6 +3,7 @@ import { normalizePath } from "../../filesystem/path";
 import { WorkspaceIndex } from "../workspace";
 import { ResolutionRequest } from "../request/types";
 import { DebugCollector } from "../debug/collector";
+import { ReferenceSemantics } from "../types/reference-semantics";
 
 export type SpecifierClassification =
 	| { type: 'url'; specifier: string }
@@ -11,8 +12,87 @@ export type SpecifierClassification =
 	| { type: 'path'; specifier: string }
 	| { type: 'bare'; specifier: string };
 
+function translateSemantics(semantics: ReferenceSemantics, specifier: string): SpecifierClassification {
+	if (semantics.domain === 'file') {
+		if (semantics.resolution === 'absolute') {
+			return { type: 'path', specifier };
+		}
+		if (semantics.resolution === 'relative') {
+			if (semantics.anchor === 'runtime') {
+				return { type: 'bare', specifier };
+			}
+			return { type: 'path', specifier };
+		}
+		if (semantics.resolution === 'search') {
+			return { type: 'bare', specifier };
+		}
+	}
+	if (semantics.domain === 'uri') {
+		return { type: 'url', specifier };
+	}
+	if (semantics.domain === 'module') {
+		if (semantics.resolution === 'relative') {
+			return { type: 'path', specifier };
+		}
+		if (semantics.resolution === 'absolute') {
+			return { type: 'path', specifier };
+		}
+		return { type: 'bare', specifier };
+	}
+	if (semantics.domain === 'symbol') {
+		return { type: 'bare', specifier };
+	}
+	return { type: 'bare', specifier };
+}
+
+/**
+ * Returns true only for the four semantic combinations that are eligible for
+ * static path resolution:
+ *   file  + absolute
+ *   file  + relative + source
+ *   module + absolute
+ *   module + relative + source
+ *
+ * Explicitly not eligible (returns false):
+ *   file  + relative + runtime   (PHP runtime-relative, not resolved statically)
+ *   file  + search               (include_path search, not path-addressed)
+ *   module + logical             (package name, not path-addressed)
+ *   uri   + *                    (any URI domain)
+ *   symbol + *                   (any symbol domain)
+ *
+ * Returns undefined when no semantics are present (caller uses its own
+ * compatibility path and must not be blocked by this predicate).
+ */
+export function isStaticPathEligible(request: ResolutionRequest): boolean | undefined {
+	const semantics = request.semantics;
+	if (!semantics) return undefined;
+
+	if (semantics.domain === 'file') {
+		if (semantics.resolution === 'absolute') return true;
+		if (semantics.resolution === 'relative') {
+			return semantics.anchor === 'source';
+		}
+		return false; // search
+	}
+
+	if (semantics.domain === 'module') {
+		if (semantics.resolution === 'absolute') return true;
+		if (semantics.resolution === 'relative') {
+			return semantics.anchor === 'source';
+		}
+		return false; // logical
+	}
+
+	// uri, symbol — not eligible
+	return false;
+}
+
 export function classifySpecifier(request: ResolutionRequest, debugCollector?: DebugCollector): SpecifierClassification {
 	const specifier = request.specifier.trim();
+
+	if (request.semantics) {
+		return translateSemantics(request.semantics, specifier);
+	}
 
 	// 1. URL imports (starts with http://, https://, ftp://, file://)
 	if (/^(https?|ftp|file):\/\//.test(specifier)) {
@@ -86,11 +166,6 @@ export function classifySpecifier(request: ResolutionRequest, debugCollector?: D
 
 		// PHP Namespace check (contains backslash) - not external
 		if (specifier.includes('\\')) {
-			return { type: 'bare', specifier };
-		}
-
-		// Rust namespace check (contains ::) - not external
-		if (specifier.includes('::')) {
 			return { type: 'bare', specifier };
 		}
 

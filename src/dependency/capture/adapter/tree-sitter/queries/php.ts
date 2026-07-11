@@ -1,56 +1,68 @@
 import { CaptureQuery } from "../../../query/types";
 import { NormalizationTable } from "../../../normalization/types";
 
+import { classifyPhpFileSemantics } from "../../../helpers/php-file-semantics";
+
 export const PHP_NORMALIZATION_TABLE: NormalizationTable = {
 	"use.clause.name": {
 		kind: "use",
 		syntaxKind: "use-statement",
-		isDynamic: false
+		isDynamic: false,
+		resolveSemantics: () => ({ domain: 'symbol', resolution: 'logical' })
 	},
 	"use.group.clause.name": {
 		kind: "use",
 		syntaxKind: "grouped-use-statement",
-		isDynamic: false
+		isDynamic: false,
+		resolveSemantics: () => ({ domain: 'symbol', resolution: 'logical' })
 	},
 	"require.path": {
 		kind: "require",
 		syntaxKind: "require-literal",
-		isDynamic: false
+		isDynamic: false,
+		resolveSemantics: (specifier: string) => classifyPhpFileSemantics(specifier)
 	},
 	"require_once.path": {
 		kind: "require",
 		syntaxKind: "require-once-literal",
-		isDynamic: false
+		isDynamic: false,
+		resolveSemantics: (specifier: string) => classifyPhpFileSemantics(specifier)
 	},
 	"include.path": {
 		kind: "include",
 		syntaxKind: "include-literal",
-		isDynamic: false
+		isDynamic: false,
+		resolveSemantics: (specifier: string) => classifyPhpFileSemantics(specifier)
 	},
 	"include_once.path": {
 		kind: "include",
 		syntaxKind: "include-once-literal",
-		isDynamic: false
+		isDynamic: false,
+		resolveSemantics: (specifier: string) => classifyPhpFileSemantics(specifier)
 	},
 	"fq.class.new": {
 		kind: "reference",
 		syntaxKind: "fq-class-reference",
-		isDynamic: false
+		isDynamic: false,
+		resolveSemantics: () => ({ domain: 'symbol', resolution: 'logical' })
 	},
 	"fq.class.static": {
 		kind: "reference",
 		syntaxKind: "fq-class-reference",
-		isDynamic: false
+		isDynamic: false,
+		resolveSemantics: () => ({ domain: 'symbol', resolution: 'logical' })
 	},
 	"fq.class.attribute": {
 		kind: "reference",
 		syntaxKind: "fq-class-reference",
-		isDynamic: false
+		isDynamic: false,
+		resolveSemantics: () => ({ domain: 'symbol', resolution: 'logical' })
 	},
 	"fq.class.typehint": {
 		kind: "reference",
 		syntaxKind: "fq-class-reference",
-		isDynamic: false
+		isDynamic: false,
+		resolveSemantics: () => ({ domain: 'symbol', resolution: 'logical' })
 	}
 };
 

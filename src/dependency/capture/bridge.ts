@@ -30,7 +30,8 @@ export function edgesToRequests(
 			intent,
 			sourceFile: edge.sourceFile,
 			sourceLanguage: edge.sourceLanguage,
-			syntaxKind: edge.syntaxKind
+			syntaxKind: edge.syntaxKind,
+			semantics: edge.semantics
 		};
 
 		if (profile) {

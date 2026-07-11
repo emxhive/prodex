@@ -1,16 +1,20 @@
 import { CaptureQuery } from "../../../query/types";
 import { NormalizationTable } from "../../../normalization/types";
 
+import { classifyJsTsModuleSemantics } from "../../../helpers/js-ts-semantics";
+
 export const TSX_NORMALIZATION_TABLE: NormalizationTable = {
 	"import.source": {
 		kind: "import",
 		syntaxKind: "esm-import",
-		isDynamic: false
+		isDynamic: false,
+		resolveSemantics: (specifier: string) => classifyJsTsModuleSemantics(specifier)
 	},
 	"export.source": {
 		kind: "import",
 		syntaxKind: "esm-export",
-		isDynamic: false
+		isDynamic: false,
+		resolveSemantics: (specifier: string) => classifyJsTsModuleSemantics(specifier)
 	},
 	"import.dynamic": {
 		kind: "import",
@@ -20,7 +24,8 @@ export const TSX_NORMALIZATION_TABLE: NormalizationTable = {
 	"require.argument": {
 		kind: "require",
 		syntaxKind: "commonjs-require",
-		isDynamic: false
+		isDynamic: false,
+		resolveSemantics: (specifier: string) => classifyJsTsModuleSemantics(specifier)
 	}
 };
 

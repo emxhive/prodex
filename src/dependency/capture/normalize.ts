@@ -59,6 +59,10 @@ export function normalizeCaptures(
 				isDynamic
 			};
 
+			if (!isDynamic && rule.resolveSemantics) {
+				edge.semantics = rule.resolveSemantics(node.text);
+			}
+
 			if (isDynamic && node.text.includes('${')) {
 				edge.dynamicHint = {
 					pattern: node.text,

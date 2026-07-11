@@ -121,17 +121,15 @@ use lodash; // ignored
 			filePath: tempFile
 		});
 
-		// 1. Files resolved: helpers.php and bootstrap/app.php
-		assert.equal(res.files.length, 2);
-		assert.ok(res.files.includes(getResolveFile("helpers.php")));
-		assert.ok(res.files.includes(getResolveFile("bootstrap/app.php")));
+		// 1. Files resolved: none (relative/search paths are unresolved)
+		assert.equal(res.files.length, 0);
 
-		// 2. External resolved: lodash
-		// Note: since lodash is classified as external / bare in JS, but in PHP it falls to unmatched PSR-4 vendor,
-		// let's check how it resolves. Symfony\Component\Console has no prefix, so it is ignored.
-		// App\Models\MissingClass is matched but missing -> unresolved
-		assert.equal(res.unresolved.length, 1);
-		assert.equal(res.unresolved[0].specifier, "App\\Models\\MissingClass");
+		// 2. Unresolved: MissingClass, helpers.php, bootstrap/app.php
+		assert.equal(res.unresolved.length, 3);
+		const unresolvedSpecs = res.unresolved.map(u => u.specifier);
+		assert.ok(unresolvedSpecs.includes("App\\Models\\MissingClass"));
+		assert.ok(unresolvedSpecs.includes("./helpers.php"));
+		assert.ok(unresolvedSpecs.includes("bootstrap/app.php"));
 		assert.ok(res.ownership.some(o =>
 			o.kind === "local" &&
 			o.reason === "project-owned" &&

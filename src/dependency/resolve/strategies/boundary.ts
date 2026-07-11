@@ -12,6 +12,10 @@ export function resolveBoundary(
 	index: WorkspaceIndex,
 	debugCollector?: DebugCollector
 ): StrategyOutcome {
+	if (request.semantics && request.semantics.domain === 'symbol') {
+		return { type: 'no-decision', reason: 'Symbol reference is not applicable to boundary enforcement.' };
+	}
+
 	if (classification.type !== 'path') {
 		return { type: 'no-decision', reason: 'Not a path specifier.' };
 	}

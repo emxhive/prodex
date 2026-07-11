@@ -54,7 +54,8 @@ import "./c";`;
 		sourceLanguage: "typescript",
 		syntaxKind: "esm-import",
 		position: { line: 1, column: 19 },
-		isDynamic: false
+		isDynamic: false,
+		semantics: { domain: 'module', resolution: 'relative', anchor: 'source' }
 	});
 
 	assert.deepEqual(result.edges[1], {
@@ -64,7 +65,8 @@ import "./c";`;
 		sourceLanguage: "typescript",
 		syntaxKind: "esm-import",
 		position: { line: 2, column: 24 },
-		isDynamic: false
+		isDynamic: false,
+		semantics: { domain: 'module', resolution: 'relative', anchor: 'source' }
 	});
 
 	assert.deepEqual(result.edges[2], {
@@ -74,7 +76,8 @@ import "./c";`;
 		sourceLanguage: "typescript",
 		syntaxKind: "esm-import",
 		position: { line: 3, column: 8 },
-		isDynamic: false
+		isDynamic: false,
+		semantics: { domain: 'module', resolution: 'relative', anchor: 'source' }
 	});
 });
 
@@ -114,7 +117,8 @@ const h = import("./h");`;
 		sourceLanguage: "typescript",
 		syntaxKind: "commonjs-require",
 		position: { line: 1, column: 19 },
-		isDynamic: false
+		isDynamic: false,
+		semantics: { domain: 'module', resolution: 'relative', anchor: 'source' }
 	});
 
 	assert.deepEqual(result.edges[1], {
@@ -143,7 +147,8 @@ test("TS/TSX Capture: TS Import Equals Require", async () => {
 		sourceLanguage: "typescript",
 		syntaxKind: "esm-import",
 		position: { line: 1, column: 20 },
-		isDynamic: false
+		isDynamic: false,
+		semantics: { domain: 'module', resolution: 'relative', anchor: 'source' }
 	});
 });
 

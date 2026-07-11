@@ -89,9 +89,9 @@ const testCases = [
 		syntaxKind: "use-statement",
 		sourceFile: "app/Services/AlertService.php",
 		state: "active",
-		expectedStatus: "unresolved",
-		expectedLevel: "LX",
-		expectedStrategy: "unresolved-fallback"
+		expectedStatus: "resolved",
+		expectedLevel: "L10",
+		expectedStrategy: "php-namespace"
 	},
 	{
 		name: "L1 fallback: Python module-like specifiers are not external",

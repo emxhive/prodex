@@ -86,7 +86,8 @@ test("Tree-sitter Adapter Proof Slice Test Suite", async (t) => {
 			sourceLanguage: "javascript",
 			syntaxKind: "esm-import",
 			position: { line: 1, column: 27 },
-			isDynamic: false
+			isDynamic: false,
+			semantics: { domain: 'module', resolution: 'relative', anchor: 'source' }
 		});
 
 		assert.deepEqual(edges[1], {
@@ -96,7 +97,8 @@ test("Tree-sitter Adapter Proof Slice Test Suite", async (t) => {
 			sourceLanguage: "javascript",
 			syntaxKind: "commonjs-require",
 			position: { line: 2, column: 22 },
-			isDynamic: false
+			isDynamic: false,
+			semantics: { domain: 'module', resolution: 'logical' }
 		});
 
 		assert.deepEqual(edges[2], {
@@ -106,7 +108,8 @@ test("Tree-sitter Adapter Proof Slice Test Suite", async (t) => {
 			sourceLanguage: "javascript",
 			syntaxKind: "esm-import",
 			position: { line: 3, column: 21 },
-			isDynamic: false
+			isDynamic: false,
+			semantics: { domain: 'module', resolution: 'logical' }
 		});
 	});
 

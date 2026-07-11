@@ -9,21 +9,29 @@ import { Psr4Reader } from "../psr4-reader";
 import { createPhpPsr4Ownership } from "../../ownership/ecosystems/php";
 import { createPolicyDeniedOwnership, getDeniedDependencyPathMatch, isDeniedDependencyPath } from "../../ownership/vendor-deny";
 
+
 export function resolvePhpNamespace(
 	request: ResolutionRequest,
 	classification: SpecifierClassification,
 	index: WorkspaceIndex,
 	debugCollector?: DebugCollector
 ): StrategyOutcome {
-	// Only activate for php profile + bare classification
-	if (request.profile?.languageId !== "php" || classification.type !== "bare") {
-		return { type: "no-decision", reason: "Not a PHP namespace request." };
+	// Semantic gate: domain must be symbol
+	const isSymbolRef = request.semantics
+		? request.semantics.domain === 'symbol'
+		: classification.type === 'bare';  // compat
+
+	// Ecosystem gate: must be PHP
+	const isPhpEcosystem =
+		request.sourceLanguage === 'php' || request.profile?.languageId === 'php';
+
+	if (!isSymbolRef || !isPhpEcosystem) {
+		return { type: 'no-decision', reason: 'Not a PHP symbol reference.' };
 	}
 
 	const specifier = classification.specifier;
 	const psr4Metadata = Psr4Reader.readWithMetadata(index.root);
 	const psr4 = psr4Metadata.map;
-
 	// Find the longest matching prefix
 	const matchingNsKey = Object.keys(psr4)
 		.sort((a, b) => b.length - a.length)

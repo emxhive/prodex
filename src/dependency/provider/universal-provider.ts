@@ -176,12 +176,17 @@ export class UniversalDependencyProvider {
 				const classification = classifySpecifier(request);
 				
 				// Keep path-like unresolved dependencies, matched PSR-4 namespace mismatches, and matched L8 path aliases
-				const isPath = classification.type === "path";
+				const isPath = request.semantics
+					? (request.semantics.domain === 'file' ||
+					   (request.semantics.domain === 'module' &&
+					    (request.semantics.resolution === 'relative' || request.semantics.resolution === 'absolute')))
+					: classification.type === "path";
+				const isUnresolvedUri = request.semantics?.domain === 'uri';
 				const isMatchedPhpNamespace = request.sourceLanguage === "php" && res.strategy === "php-namespace";
 				const isMatchedAlias = res.level === "L8" && (res.strategy === "tsconfig-paths" || res.strategy === "prodex-alias");
 				const isOwnershipUnresolved = res.ownership?.kind === "unresolved";
 
-				if (isPath || isMatchedPhpNamespace || isMatchedAlias || isOwnershipUnresolved) {
+				if (isPath || isUnresolvedUri || isMatchedPhpNamespace || isMatchedAlias || isOwnershipUnresolved) {
 					result.unresolved.push({
 						specifier: request.specifier,
 						reason: res.reason

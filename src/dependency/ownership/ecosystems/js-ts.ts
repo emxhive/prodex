@@ -10,29 +10,70 @@ const NODE_BUILTINS = new Set<string>([
 	...builtinModules.map((name) => name.startsWith("node:") ? name.slice("node:".length) : name)
 ]);
 
-export function isJsTsBareDependencyEdge(request: ResolutionRequest): boolean {
-	if (request.intent !== "dependency-edge") return false;
+/**
+ * Authoritative check: is this request a JS/TS package-ownership candidate?
+ *
+ * Two paths, sharing a common package-candidate tail:
+ *
+ * Explicit-semantics path (request.semantics is set):
+ *   - intent must be 'dependency-edge'
+ *   - JS/TS ecosystem must be evidenced by language id or profile
+ *     (syntaxKind alone is not sufficient when semantics are present)
+ *   - semantic ownership applicability: domain must be 'module',
+ *     resolution must be 'logical' (relative and absolute go to path pipeline)
+ *
+ * Compatibility path (no request.semantics):
+ *   - intent must be 'dependency-edge'
+ *   - JS/TS evidenced by language id OR syntaxKind
+ *     (syntaxKind alone is permitted here for legacy callers)
+ *
+ * Both paths then apply the shared package-candidate specifier exclusions.
+ */
+export function isJsTsOwnershipCandidate(request: ResolutionRequest): boolean {
+	// 1. Intent is always required
+	if (request.intent !== 'dependency-edge') return false;
 
-	const sourceLanguage = request.sourceLanguage ?? request.profile?.languageId;
-	const isJsTsLanguage =
-		sourceLanguage === "javascript" ||
-		sourceLanguage === "typescript" ||
-		sourceLanguage === "tsx";
-	const isJsTsSyntax =
-		request.syntaxKind === "esm-import" ||
-		request.syntaxKind === "commonjs-require";
+	const lang = request.sourceLanguage ?? request.profile?.languageId;
+	const isJsTsLanguage = lang === 'javascript' || lang === 'typescript' || lang === 'tsx';
 
-	if (!isJsTsLanguage && !isJsTsSyntax) return false;
+	if (request.semantics) {
+		// --- Explicit-semantics path ---
+		// Ecosystem must come from language evidence only; syntaxKind is not accepted
+		if (!isJsTsLanguage) return false;
 
+		// Semantic ownership applicability: only module + logical reaches ownership
+		if (request.semantics.domain !== 'module') return false;
+		if (request.semantics.resolution !== 'logical') return false;
+		// (relative and absolute are path-addressed; they must not enter ownership)
+	} else {
+		// --- Compatibility path ---
+		// Language OR syntaxKind may establish JS/TS eligibility
+		const isJsTsSyntax =
+			request.syntaxKind === 'esm-import' || request.syntaxKind === 'commonjs-require';
+		if (!isJsTsLanguage && !isJsTsSyntax) return false;
+	}
+
+	// 2. Shared package-candidate specifier exclusions (both paths)
 	const specifier = request.specifier.trim();
 	if (!specifier) return false;
-	if (specifier.startsWith("require(") || specifier.startsWith("import(")) return false;
-	if (specifier.startsWith("#") || specifier.startsWith("@/") || specifier.startsWith("~/")) return false;
-	if (specifier.startsWith(".") || specifier.startsWith("/") || specifier.startsWith("\\")) return false;
-	if (/^[a-zA-Z]:[\\\/]/.test(specifier)) return false;
+	if (specifier.startsWith('require(') || specifier.startsWith('import(')) return false;
+	if (specifier.startsWith('#') || specifier.startsWith('@/') || specifier.startsWith('~/')) return false;
+	if (specifier.startsWith('.') || specifier.startsWith('/') || specifier.startsWith('\\')) return false;
+	if (/^[a-zA-Z]:[\\/]/.test(specifier)) return false;
 	if (/^(https?|ftp|file):\/\//.test(specifier)) return false;
-	if (specifier.includes("${")) return false;
+	if (specifier.includes('${')) return false;
 	return !!parsePackageSpecifierRoot(specifier);
+}
+
+/**
+ * Compatibility alias. Preserved for any callers outside the ownership
+ * pipeline that depend on this export. Semantically equivalent to
+ * isJsTsOwnershipCandidate for requests without explicit semantics.
+ *
+ * New code should call isJsTsOwnershipCandidate directly.
+ */
+export function isJsTsBareDependencyEdge(request: ResolutionRequest): boolean {
+	return isJsTsOwnershipCandidate(request);
 }
 
 export function classifyJsTsOwnership(

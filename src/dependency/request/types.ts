@@ -1,5 +1,6 @@
 import { LanguageProfile } from "../capture/detect/types";
 import { DependencyOwnershipResult } from "../ownership/types";
+import { ReferenceSemantics } from "../types/reference-semantics";
 
 export type ResolutionIntent = 'seed-target' | 'seed-entry' | 'dependency-edge';
 
@@ -42,6 +43,7 @@ export interface ResolutionRequest {
 	syntaxKind?: string;
 	profile?: LanguageProfile;
 	aliases?: Record<string, string>;
+	semantics?: ReferenceSemantics;
 }
 
 export interface ResolutionResult {

@@ -1,11 +1,11 @@
 import { ResolutionRequest } from "../request/types";
 import { WorkspaceIndex } from "../workspace";
 import { OwnershipManifestCache } from "./manifest-cache";
-import { classifyJsTsOwnership, isJsTsBareDependencyEdge } from "./ecosystems/js-ts";
+import { classifyJsTsOwnership, isJsTsOwnershipCandidate } from "./ecosystems/js-ts";
 import { DependencyOwnershipResult } from "./types";
 
 export function shouldRunOwnershipGate(request: ResolutionRequest): boolean {
-	return isJsTsBareDependencyEdge(request);
+	return isJsTsOwnershipCandidate(request);
 }
 
 export function classifyOwnership(
@@ -13,7 +13,7 @@ export function classifyOwnership(
 	index: WorkspaceIndex,
 	manifestCache: OwnershipManifestCache
 ): DependencyOwnershipResult {
-	if (isJsTsBareDependencyEdge(request)) {
+	if (isJsTsOwnershipCandidate(request)) {
 		return classifyJsTsOwnership(request, index, manifestCache);
 	}
 

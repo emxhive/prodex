@@ -69,6 +69,7 @@ export function normalizePhpCaptures(
 			specifier = specifier.slice(1);
 		}
 
+		const isDynamic = rule.isDynamic || node.isDynamic;
 		const edge: DependencyEdge = {
 			specifier,
 			kind: rule.kind,
@@ -76,8 +77,12 @@ export function normalizePhpCaptures(
 			sourceLanguage: "php",
 			syntaxKind: rule.syntaxKind,
 			position: node.startPosition,
-			isDynamic: rule.isDynamic || node.isDynamic
+			isDynamic
 		};
+
+		if (!isDynamic && rule.resolveSemantics) {
+			edge.semantics = rule.resolveSemantics(specifier);
+		}
 
 		edges.push(edge);
 	}

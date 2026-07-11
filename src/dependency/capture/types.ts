@@ -1,3 +1,5 @@
+import { ReferenceSemantics } from "../types/reference-semantics";
+
 export type EdgeKind =
 	| 'import'
 	| 'require'
@@ -25,6 +27,7 @@ export interface DependencyEdge {
 	position?: SourcePosition;   // location of the import statement
 	isDynamic?: boolean;         // true if the specifier is not statically known
 	dynamicHint?: DynamicEdgeHint;
+	semantics?: ReferenceSemantics;
 }
 
 export interface CaptureResult {

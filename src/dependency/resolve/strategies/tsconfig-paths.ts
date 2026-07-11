@@ -2,6 +2,7 @@ import path from "node:path";
 import { normalizePath } from "../../../filesystem/path";
 import { ResolutionRequest, ResolutionResult } from "../../request/types";
 import { SpecifierClassification, classifySpecifier, resolveRequestBasePath } from "../classify";
+import { ReferenceSemantics } from "../../types/reference-semantics";
 import { StrategyOutcome } from "../types";
 import { WorkspaceIndex } from "../../workspace";
 import { DebugCollector } from "../../debug/collector";
@@ -122,15 +123,25 @@ export function findNearestConfig(
 function resolveCandidatePath(
 	candidatePath: string,
 	request: ResolutionRequest,
-	classification: SpecifierClassification,
 	index: WorkspaceIndex,
 	debugCollector?: DebugCollector
 ): ResolutionResult | null {
-	const tempClassification = classifySpecifier({ ...request, specifier: candidatePath }, debugCollector);
+	const isAbsolute = path.isAbsolute(candidatePath) || /^[a-zA-Z]:[\\\/]/.test(candidatePath);
+	const targetSemantics: ReferenceSemantics = isAbsolute
+		? { domain: 'file', resolution: 'absolute' }
+		: { domain: 'file', resolution: 'relative', anchor: 'source' };
+
+	const tempRequest: ResolutionRequest = {
+		...request,
+		specifier: candidatePath,
+		semantics: targetSemantics
+	};
+
+	const tempClassification = classifySpecifier(tempRequest, debugCollector);
 
 	// L2: Boundary enforcement
 	const l2Outcome = resolveBoundary(
-		{ ...request, specifier: candidatePath },
+		tempRequest,
 		tempClassification,
 		index,
 		debugCollector
@@ -141,7 +152,7 @@ function resolveCandidatePath(
 
 	// L3: Exact path
 	const l3Outcome = resolveExactPath(
-		{ ...request, specifier: candidatePath },
+		tempRequest,
 		tempClassification,
 		index,
 		debugCollector
@@ -150,7 +161,7 @@ function resolveCandidatePath(
 
 	// L3.5: Source equivalent sibling
 	const l35Outcome = resolveSourceEquivSibling(
-		{ ...request, specifier: candidatePath },
+		tempRequest,
 		tempClassification,
 		index,
 		debugCollector
@@ -159,7 +170,7 @@ function resolveCandidatePath(
 
 	// L4: Caller priority extension
 	const l4Outcome = resolveCallerPriorityExt(
-		{ ...request, specifier: candidatePath },
+		tempRequest,
 		tempClassification,
 		index,
 		debugCollector
@@ -168,7 +179,7 @@ function resolveCandidatePath(
 
 	// L5: Workspace extension fallback
 	const l5Outcome = resolveWorkspaceExtFallback(
-		{ ...request, specifier: candidatePath },
+		tempRequest,
 		tempClassification,
 		index,
 		debugCollector
@@ -177,7 +188,7 @@ function resolveCandidatePath(
 
 	// L6: Directory entry
 	const l6Outcome = resolveDirectoryEntry(
-		{ ...request, specifier: candidatePath },
+		tempRequest,
 		tempClassification,
 		index,
 		debugCollector
@@ -201,16 +212,22 @@ export function resolveTsConfigPaths(
 ): StrategyOutcome {
 	const specifier = request.specifier.trim();
 
-	// Ignore normal relative path specifiers like ./x, ../x, and /x
-	const isRelativeOrAbsolute =
-		specifier.startsWith("./") ||
-		specifier.startsWith("../") ||
-		specifier.startsWith("/") ||
-		specifier.startsWith("\\") ||
-		/^[a-zA-Z]:[\\\/]/.test(specifier);
+	if (request.semantics) {
+		if (!(request.semantics.domain === 'module' && request.semantics.resolution === 'logical')) {
+			return { type: "no-decision", reason: "L8 paths/aliases only apply to logical module semantics." };
+		}
+	} else {
+		// Ignore normal relative path specifiers like ./x, ../x, and /x
+		const isRelativeOrAbsolute =
+			specifier.startsWith("./") ||
+			specifier.startsWith("../") ||
+			specifier.startsWith("/") ||
+			specifier.startsWith("\\") ||
+			/^[a-zA-Z]:[\\\/]/.test(specifier);
 
-	if (isRelativeOrAbsolute) {
-		return { type: "no-decision", reason: "Relative or absolute path specifier ignored by L8." };
+		if (isRelativeOrAbsolute) {
+			return { type: "no-decision", reason: "Relative or absolute path specifier ignored by L8." };
+		}
 	}
 
 	if (depth >= 5) {
@@ -258,7 +275,7 @@ export function resolveTsConfigPaths(
 					const rewrittenTarget = matchAliasPattern(specifier, key, resolvedTarget);
 
 					if (rewrittenTarget) {
-						const resolved = resolveCandidatePath(rewrittenTarget, request, classification, index, debugCollector);
+						const resolved = resolveCandidatePath(rewrittenTarget, request, index, debugCollector);
 						if (resolved) {
 							return {
 								type: "final",
@@ -288,6 +305,21 @@ export function resolveTsConfigPaths(
 		}
 
 		// 2. Precedence 2: nearest tsconfig.json / jsconfig.json
+		const lang = request.sourceLanguage ?? request.profile?.languageId;
+		let isJsTs =
+			lang === 'javascript' || lang === 'typescript' || lang === 'tsx';
+		if (!isJsTs && !lang) {
+			const file = request.sourceFile ?? request.origin?.path;
+			if (file) {
+				const ext = path.extname(file).toLowerCase();
+				isJsTs = ['.js', '.jsx', '.ts', '.tsx', '.mjs', '.cjs', '.d.ts'].includes(ext);
+			} else if (!request.semantics) {
+				isJsTs = true;
+			}
+		}
+		if (!isJsTs) {
+			return { type: "no-decision", reason: "TSConfig/JSConfig resolution requires JS/TS ecosystem applicability." };
+		}
 		const baseFile = resolveRequestBasePath(request, index);
 		if (baseFile) {
 			let configPath = findNearestConfig(baseFile, index, "tsconfig.json");
@@ -353,7 +385,7 @@ export function resolveTsConfigPaths(
 								}
 
 								// Target is path-like, resolve it
-								const resolved = resolveCandidatePath(rewrittenTarget, request, classification, index, debugCollector);
+								const resolved = resolveCandidatePath(rewrittenTarget, request, index, debugCollector);
 								if (resolved) {
 									if (resolved.status === "blocked") {
 										hasL2Blocked = resolved;
@@ -400,7 +432,7 @@ export function resolveTsConfigPaths(
 				// B. Match baseUrl
 				if (parsedConfig.baseUrl) {
 					const candidateBaseUrlPath = normalizePath(path.resolve(parsedConfig.baseUrl, specifier));
-					const resolved = resolveCandidatePath(candidateBaseUrlPath, request, classification, index, debugCollector);
+					const resolved = resolveCandidatePath(candidateBaseUrlPath, request, index, debugCollector);
 					if (resolved) {
 						if (resolved.status === "blocked") {
 							return {
