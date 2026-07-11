@@ -187,8 +187,10 @@ test("Tree-sitter Adapter Proof Slice Test Suite", async (t) => {
 		assert.equal(results[1].status, "external");
 		assert.equal(results[1].level, "L1");
 
-		// Assert: express resolves as external (L1)
-		assert.equal(results[2].status, "external");
+		// Assert: undeclared package is surfaced by ownership instead of flattened to external
+		assert.equal(results[2].status, "unresolved");
 		assert.equal(results[2].level, "L1");
+		assert.equal(results[2].strategy, "ownership-policy");
+		assert.equal(results[2].ownership.reason, "undeclared");
 	});
 });

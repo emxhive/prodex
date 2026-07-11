@@ -32,7 +32,9 @@ export async function resolveUniversalImports(params: ResolverParams): Promise<R
 
 	return {
 		files: depResult.files,
-		stats: { expected, resolved }
+		stats: { expected, resolved },
+		ownership: depResult.ownership,
+		diagnostics: depResult.diagnostics
 	};
 }
 

@@ -1,5 +1,7 @@
 // @ts-nocheck
 const assert = require("node:assert/strict");
+const fs = require("node:fs");
+const os = require("node:os");
 const path = require("node:path");
 const test = require("node:test");
 
@@ -124,5 +126,46 @@ test("Provider Integration: Traces dependencies through tsconfig paths and prode
 	assert.ok(relFiles.includes("src/main.ts"));
 	assert.ok(relFiles.includes("src/helper.ts"));
 	assert.ok(relFiles.includes("src/other-helper.ts"));
+});
+
+test("Provider Integration: Preserves suspicious ownership diagnostics through bridge", async () => {
+	resetProviderBridge();
+
+	const root = fs.mkdtempSync(path.join(os.tmpdir(), "prodex-provider-ownership-"));
+	try {
+		fs.mkdirSync(path.join(root, "src"), { recursive: true });
+		fs.writeFileSync(path.join(root, "package.json"), JSON.stringify({ name: "app" }, null, 2));
+		const entryFile = path.join(root, "src/main.ts").replace(/\\/g, "/");
+		fs.writeFileSync(entryFile, "import missing from 'not-declared';\nexport const main = true;\n");
+
+		const result = await collectTraceSources({
+			cfg: {
+				root,
+				exclude: ["node_modules/**"],
+				depth: 5,
+				maxFiles: 100,
+				output: {
+					dir: "dist",
+					versioned: false,
+					format: "txt"
+				},
+				entry: [entryFile],
+				include: [],
+				aliases: {},
+				scopes: {}
+			},
+			opts: {
+				entries: [entryFile]
+			}
+		});
+
+		assert.ok(result.files.includes(entryFile));
+		assert.ok(result.diagnostics.some(diagnostic =>
+			diagnostic.ownership?.reason === "undeclared" &&
+			diagnostic.ownership?.specifierRoot === "not-declared"
+		));
+	} finally {
+		fs.rmSync(root, { recursive: true, force: true });
+	}
 });
 

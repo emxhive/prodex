@@ -1,0 +1,6 @@
+{
+  "name": "external-filtering-fixture",
+  "dependencies": {
+    "lodash": "^4.17.21"
+  }
+}

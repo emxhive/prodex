@@ -14,6 +14,7 @@ export async function followChain(entryFiles: string[], cfg: ProdexConfig) {
 	const visited = new Set<string>();
 	const all: string[] = [];
 	const stats = newStats();
+	const diagnostics: NonNullable<ResolverResult["diagnostics"]> = [];
 
 	for (const file of entryFiles) {
 		await visitFile(file, 0);
@@ -22,6 +23,7 @@ export async function followChain(entryFiles: string[], cfg: ProdexConfig) {
 	return {
 		files: unique(all),
 		stats,
+		diagnostics,
 	};
 
 	async function visitFile(file: string, depth: number): Promise<void> {
@@ -54,6 +56,9 @@ export async function followChain(entryFiles: string[], cfg: ProdexConfig) {
 		if (!result) return;
 
 		mergeStats(stats, result.stats);
+		if (result.diagnostics?.length) {
+			diagnostics.push(...result.diagnostics);
+		}
 
 		for (const resolvedFile of result.files) {
 			if (isExcluded(resolvedFile, cfg.exclude, cfg.root)) continue;

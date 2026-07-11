@@ -1,4 +1,5 @@
 import type { ProdexConfig } from "./config.types";
+import type { DependencyOwnershipResult, OwnershipDiagnostic } from "../dependency/ownership/types";
 
 export interface JsResolverCtx {
 	kind: "js";
@@ -24,4 +25,6 @@ export interface ResolverResult {
 		expected: Set<string>;
 		resolved: Set<string>;
 	};
+	ownership?: DependencyOwnershipResult[];
+	diagnostics?: OwnershipDiagnostic[];
 }

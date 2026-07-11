@@ -8,6 +8,7 @@ const { PHP_PROFILE } = require("../dist/dependency/capture/profiles/php.js");
 const { JAVASCRIPT_PROFILE } = require("../dist/dependency/capture/profiles/javascript.js");
 const { TYPESCRIPT_PROFILE } = require("../dist/dependency/capture/profiles/typescript.js");
 const { TSX_PROFILE } = require("../dist/dependency/capture/profiles/tsx.js");
+const { isDeniedDependencyPath } = require("../dist/dependency/ownership/vendor-deny.js");
 
 // Resolve root path for fixtures
 const FIXTURES_DIR = path.resolve(__dirname, "fixtures/universal-resolution");
@@ -30,7 +31,9 @@ const testCases = [
 		state: "active",
 		expectedStatus: "external",
 		expectedLevel: "L1",
-		expectedStrategy: "external-filter"
+		expectedStrategy: "ownership-policy",
+		expectedOwnershipKind: "external",
+		expectedOwnershipReason: "declared-external"
 	},
 	{
 		name: "L1: external system module fs in dependency edge",
@@ -43,7 +46,9 @@ const testCases = [
 		state: "active",
 		expectedStatus: "external",
 		expectedLevel: "L1",
-		expectedStrategy: "external-filter"
+		expectedStrategy: "ownership-policy",
+		expectedOwnershipKind: "external",
+		expectedOwnershipReason: "platform-builtin"
 	},
 	{
 		name: "L1: external system module node:fs in dependency edge",
@@ -56,7 +61,9 @@ const testCases = [
 		state: "active",
 		expectedStatus: "external",
 		expectedLevel: "L1",
-		expectedStrategy: "external-filter"
+		expectedStrategy: "ownership-policy",
+		expectedOwnershipKind: "external",
+		expectedOwnershipReason: "platform-builtin"
 	},
 	{
 		name: "L1: URL imports are resolved as external",
@@ -709,6 +716,13 @@ for (const tc of testCases) {
 				assert.deepEqual(resultCandidatesSorted, expectedAbsList);
 			}
 
+			if (tc.expectedOwnershipKind) {
+				assert.equal(result.ownership?.kind, tc.expectedOwnershipKind);
+			}
+			if (tc.expectedOwnershipReason) {
+				assert.equal(result.ownership?.reason, tc.expectedOwnershipReason);
+			}
+
 			// Validate resolution start/complete debug events are emitted and carry context
 			const events = debugCollector.getEvents();
 			const reqEvent = events.find(e => e.category === "resolve:request");
@@ -1039,6 +1053,121 @@ test("4J-A Unit: alias target outside root is blocked", async () => {
 		// Mapped outside workspace root boundary -> blocked
 		assert.equal(res.status, "blocked");
 		assert.equal(res.level, "L8");
+	} finally {
+		fs.rmSync(root, { recursive: true, force: true });
+	}
+});
+
+test("4J-B Unit: undeclared JS/TS bare package is ownership unresolved", async () => {
+	const root = fs.mkdtempSync(path.join(os.tmpdir(), "prodex-ownership-undeclared-"));
+	try {
+		fs.mkdirSync(path.join(root, "src"), { recursive: true });
+		fs.writeFileSync(path.join(root, "package.json"), JSON.stringify({ name: "app" }, null, 2));
+		const sourceFile = path.join(root, "src/main.ts").replace(/\\/g, "/");
+		fs.writeFileSync(sourceFile, "import missing from 'not-declared';\n");
+
+		const index = await indexWorkspace(root);
+		const resolver = new UniversalResolver(index);
+		const result = resolver.resolve({
+			specifier: "not-declared",
+			intent: "dependency-edge",
+			sourceFile,
+			sourceLanguage: "typescript",
+			syntaxKind: "esm-import",
+			profile: TYPESCRIPT_PROFILE
+		});
+
+		assert.equal(result.status, "unresolved");
+		assert.equal(result.strategy, "ownership-policy");
+		assert.equal(result.ownership.kind, "unresolved");
+		assert.equal(result.ownership.reason, "undeclared");
+	} finally {
+		fs.rmSync(root, { recursive: true, force: true });
+	}
+});
+
+test("4J-B Unit: local workspace package exact import resolves only package index", async () => {
+	const root = fs.mkdtempSync(path.join(os.tmpdir(), "prodex-ownership-local-index-"));
+	try {
+		const packageRoot = path.join(root, "packages/ui");
+		fs.mkdirSync(packageRoot, { recursive: true });
+		fs.mkdirSync(path.join(root, "src"), { recursive: true });
+		fs.writeFileSync(path.join(root, "package.json"), JSON.stringify({ name: "app" }, null, 2));
+		fs.writeFileSync(path.join(packageRoot, "package.json"), JSON.stringify({ name: "@myorg/ui" }, null, 2));
+		fs.writeFileSync(path.join(packageRoot, "index.ts"), "export const ui = true;\n");
+		const sourceFile = path.join(root, "src/main.ts").replace(/\\/g, "/");
+		fs.writeFileSync(sourceFile, "import { ui } from '@myorg/ui';\n");
+
+		const index = await indexWorkspace(root);
+		const resolver = new UniversalResolver(index);
+		const result = resolver.resolve({
+			specifier: "@myorg/ui",
+			intent: "dependency-edge",
+			sourceFile,
+			sourceLanguage: "typescript",
+			syntaxKind: "esm-import",
+			profile: TYPESCRIPT_PROFILE
+		});
+
+		assert.equal(result.status, "resolved");
+		assert.equal(result.strategy, "ownership-local");
+		assert.equal(result.ownership.kind, "local");
+		assert.equal(result.ownership.reason, "project-owned");
+		assert.equal(result.file, path.join(packageRoot, "index.ts").replace(/\\/g, "/"));
+	} finally {
+		fs.rmSync(root, { recursive: true, force: true });
+	}
+});
+
+test("4J-B Unit: local workspace package subpath resolves only under matched package root", async () => {
+	const root = fs.mkdtempSync(path.join(os.tmpdir(), "prodex-ownership-local-subpath-"));
+	try {
+		const packageRoot = path.join(root, "packages/ui");
+		fs.mkdirSync(path.join(packageRoot, "src"), { recursive: true });
+		fs.mkdirSync(path.join(root, "src"), { recursive: true });
+		fs.writeFileSync(path.join(root, "package.json"), JSON.stringify({ name: "app" }, null, 2));
+		fs.writeFileSync(path.join(packageRoot, "package.json"), JSON.stringify({ name: "@myorg/ui" }, null, 2));
+		fs.writeFileSync(path.join(packageRoot, "src/Button.ts"), "export const Button = true;\n");
+		fs.writeFileSync(path.join(root, "src/Button.ts"), "export const Wrong = true;\n");
+		const sourceFile = path.join(root, "src/main.ts").replace(/\\/g, "/");
+		fs.writeFileSync(sourceFile, "import { Button } from '@myorg/ui/src/Button';\n");
+
+		const index = await indexWorkspace(root);
+		const resolver = new UniversalResolver(index);
+		const result = resolver.resolve({
+			specifier: "@myorg/ui/src/Button",
+			intent: "dependency-edge",
+			sourceFile,
+			sourceLanguage: "typescript",
+			syntaxKind: "esm-import",
+			profile: TYPESCRIPT_PROFILE
+		});
+
+		assert.equal(result.status, "resolved");
+		assert.equal(result.strategy, "ownership-local");
+		assert.equal(result.file, path.join(packageRoot, "src/Button.ts").replace(/\\/g, "/"));
+		assert.notEqual(result.file, path.join(root, "src/Button.ts").replace(/\\/g, "/"));
+	} finally {
+		fs.rmSync(root, { recursive: true, force: true });
+	}
+});
+
+test("4J-B Unit: vendor denial is path-segment-aware and enforced by index", async () => {
+	const root = fs.mkdtempSync(path.join(os.tmpdir(), "prodex-ownership-deny-"));
+	try {
+		fs.mkdirSync(path.join(root, "src"), { recursive: true });
+		fs.mkdirSync(path.join(root, "node_modules/pkg"), { recursive: true });
+		fs.writeFileSync(path.join(root, "src/node_modules_helper.ts"), "export const ok = true;\n");
+		fs.writeFileSync(path.join(root, "node_modules/pkg/index.ts"), "export const denied = true;\n");
+
+		const helperPath = path.join(root, "src/node_modules_helper.ts").replace(/\\/g, "/");
+		const deniedPath = path.join(root, "node_modules/pkg/index.ts").replace(/\\/g, "/");
+		const index = await indexWorkspace(root);
+
+		assert.equal(isDeniedDependencyPath(helperPath, root), false);
+		assert.equal(isDeniedDependencyPath(deniedPath, root), true);
+		assert.equal(index.filesByAbsolute.has(helperPath), true);
+		assert.equal(index.filesByAbsolute.has(deniedPath), false);
 	} finally {
 		fs.rmSync(root, { recursive: true, force: true });
 	}

@@ -3,6 +3,7 @@ import path from "path";
 import { normalizePath } from "../../filesystem/path";
 import { isExcluded } from "../../filesystem/exclude";
 import { ResolutionDebugEvent } from "../debug/types";
+import { isDeniedDependencyPath } from "../ownership/vendor-deny";
 
 export interface FileInfo {
 	absolutePath: string;
@@ -58,6 +59,7 @@ export class WorkspaceIndexer {
 
 		// Helper to check if directory should be skipped
 		const isDirExcluded = (dirPath: string): boolean => {
+			if (isDeniedDependencyPath(dirPath, normRoot)) return true;
 			if (isExcluded(dirPath, exclude, normRoot)) return true;
 			const dummyChild = path.join(dirPath, "dummy_child_file_for_exclude_check.txt");
 			return isExcluded(dummyChild, exclude, normRoot);
@@ -85,6 +87,9 @@ export class WorkspaceIndexer {
 					}
 					immediateDirs.push(fullPath);
 				} else if (entry.isFile()) {
+					if (isDeniedDependencyPath(fullPath, normRoot)) {
+						continue;
+					}
 					if (isExcluded(fullPath, exclude, normRoot)) {
 						continue;
 					}

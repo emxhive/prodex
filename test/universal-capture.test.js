@@ -227,9 +227,11 @@ test("Integration: bridge -> UniversalResolver with polyglot-basic fixture", asy
 	assert.equal(results[1].level, "L3");
 	assert.equal(results[1].file, getFixtureFile("polyglot-basic", "src/shared/logger.ts"));
 
-	// Assert external resolved as external at L1
-	assert.equal(results[2].status, "external");
+	// Assert undeclared bare package is surfaced by ownership at L1
+	assert.equal(results[2].status, "unresolved");
 	assert.equal(results[2].level, "L1");
+	assert.equal(results[2].strategy, "ownership-policy");
+	assert.equal(results[2].ownership.reason, "undeclared");
 
 	// Assert dynamic resolved as unresolved LX (unresolved-dynamic)
 	assert.equal(results[3].status, "unresolved");

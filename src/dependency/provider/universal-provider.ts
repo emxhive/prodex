@@ -17,6 +17,7 @@ import { UniversalResolver } from "../resolve/resolver";
 import { indexWorkspace, WorkspaceIndex } from "../workspace";
 import { classifySpecifier } from "../resolve/classify";
 import { logger } from "../../diagnostics/logger";
+import { DependencyOwnershipResult, OwnershipDiagnostic, OwnershipManifestCache } from "../ownership";
 
 export interface UniversalDependencyRequest {
 	root: string;
@@ -29,7 +30,8 @@ export interface UniversalDependencyResult {
 	files: string[];
 	external: string[];
 	unresolved: Array<{ specifier: string; reason?: string }>;
-	diagnostics: Array<{ kind: string; message: string }>;
+	ownership: DependencyOwnershipResult[];
+	diagnostics: OwnershipDiagnostic[];
 }
 
 export interface UniversalDependencyProviderOptions {
@@ -44,6 +46,7 @@ export interface UniversalDependencyProviderOptions {
 export class UniversalDependencyProvider {
 	private orchestrator: UniversalCaptureOrchestrator;
 	private indexCache = new Map<string, WorkspaceIndex>();
+	private ownershipManifestCache = new OwnershipManifestCache();
 
 	private constructor(orchestrator: UniversalCaptureOrchestrator) {
 		this.orchestrator = orchestrator;
@@ -99,6 +102,7 @@ export class UniversalDependencyProvider {
 			files: [],
 			external: [],
 			unresolved: [],
+			ownership: [],
 			diagnostics: []
 		};
 
@@ -145,7 +149,7 @@ export class UniversalDependencyProvider {
 		const index = await this.getOrBuildIndex(root, exclude);
 
 		// 4. Resolve specifier requests
-		const resolver = new UniversalResolver(index);
+		const resolver = new UniversalResolver(index, undefined, this.ownershipManifestCache);
 		const requests = edgesToRequests(captureResult.edges, {
 			profile: detection.profile,
 			aliases: req.aliases
@@ -153,6 +157,16 @@ export class UniversalDependencyProvider {
 
 		for (const request of requests) {
 			const res = resolver.resolve(request);
+			if (res.ownership) {
+				result.ownership.push(res.ownership);
+				if (shouldSurfaceOwnershipDiagnostic(res.ownership)) {
+					result.diagnostics.push({
+						kind: `ownership-${res.ownership.reason}`,
+						message: res.ownership.message ?? res.reason ?? `Dependency ownership classified "${request.specifier}" as ${res.ownership.kind}/${res.ownership.reason}.`,
+						ownership: res.ownership
+					});
+				}
+			}
 
 			if (res.status === "resolved" && res.file) {
 				result.files.push(res.file);
@@ -165,8 +179,9 @@ export class UniversalDependencyProvider {
 				const isPath = classification.type === "path";
 				const isMatchedPhpNamespace = request.sourceLanguage === "php" && res.strategy === "php-namespace";
 				const isMatchedAlias = res.level === "L8" && (res.strategy === "tsconfig-paths" || res.strategy === "prodex-alias");
+				const isOwnershipUnresolved = res.ownership?.kind === "unresolved";
 
-				if (isPath || isMatchedPhpNamespace || isMatchedAlias) {
+				if (isPath || isMatchedPhpNamespace || isMatchedAlias || isOwnershipUnresolved) {
 					result.unresolved.push({
 						specifier: request.specifier,
 						reason: res.reason
@@ -174,6 +189,16 @@ export class UniversalDependencyProvider {
 				} else {
 					logger.debug(`[universal-provider] Ignored unresolved specifier: ${request.specifier} (strategy: ${res.strategy})`);
 				}
+			} else if (res.status === "blocked") {
+				result.unresolved.push({
+					specifier: request.specifier,
+					reason: res.reason
+				});
+				result.diagnostics.push({
+					kind: "resolver-blocked",
+					message: res.reason ?? `Dependency resolution blocked for "${request.specifier}".`,
+					ownership: res.ownership
+				});
 			}
 		}
 
@@ -198,5 +223,14 @@ export class UniversalDependencyProvider {
 
 	clearCache(): void {
 		this.indexCache.clear();
+		this.ownershipManifestCache.clear();
 	}
+}
+
+function shouldSurfaceOwnershipDiagnostic(ownership: DependencyOwnershipResult): boolean {
+	if (ownership.kind !== "unresolved") return false;
+	return ownership.reason === "undeclared" ||
+		ownership.reason === "policy-denied" ||
+		ownership.reason === "unknown" ||
+		ownership.reason === "unsupported";
 }

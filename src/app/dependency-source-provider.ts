@@ -66,6 +66,9 @@ export async function collectDependencySources(
 			outputName: plan.outputName,
 		},
 	});
+	for (const diagnostic of traceResult.diagnostics ?? []) {
+		if (diagnostic.message) warnings.push(diagnostic.message);
+	}
 
 	return {
 		files: traceResult.files,

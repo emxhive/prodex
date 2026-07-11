@@ -1,4 +1,5 @@
 import { LanguageProfile } from "../capture/detect/types";
+import { DependencyOwnershipResult } from "../ownership/types";
 
 export type ResolutionIntent = 'seed-target' | 'seed-entry' | 'dependency-edge';
 
@@ -54,4 +55,5 @@ export interface ResolutionResult {
 	reason?: string;
 	attempted?: string[];
 	follow?: boolean;
+	ownership?: DependencyOwnershipResult;
 }

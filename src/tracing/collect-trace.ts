@@ -24,5 +24,6 @@ export async function collectTraceSources({ cfg, opts }: CollectSourcesParams): 
 	return {
 		files,
 		stats: result?.stats ?? { expected: new Set(), resolved: new Set() },
+		diagnostics: result?.diagnostics ?? [],
 	};
 }
