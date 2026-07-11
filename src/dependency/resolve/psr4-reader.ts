@@ -5,21 +5,29 @@ export interface Psr4Map {
 	[prefix: string]: string | string[];
 }
 
+export interface Psr4ReadResult {
+	composerPath: string;
+	map: Record<string, string | string[]>;
+}
+
 export class Psr4Reader {
-	private static cache = new Map<string, Record<string, string | string[]>>();
+	private static cache = new Map<string, Psr4ReadResult>();
 
 	static read(root: string): Record<string, string | string[]> {
+		return this.readWithMetadata(root).map;
+	}
+
+	static readWithMetadata(root: string): Psr4ReadResult {
 		const cached = this.cache.get(root);
-		if (cached) {
-			return cached;
-		}
+		if (cached) return cached;
 
 		const composerPath = path.join(root, "composer.json");
 		const map: Record<string, string | string[]> = {};
+		const result = { composerPath, map };
 
 		if (!fs.existsSync(composerPath)) {
-			this.cache.set(root, map);
-			return map;
+			this.cache.set(root, result);
+			return result;
 		}
 
 		try {
@@ -42,8 +50,8 @@ export class Psr4Reader {
 			// Fail silently, return empty mapping
 		}
 
-		this.cache.set(root, map);
-		return map;
+		this.cache.set(root, result);
+		return result;
 	}
 
 	static clearCache(): void {

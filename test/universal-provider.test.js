@@ -124,6 +124,13 @@ use lodash; // ignored
 		// App\Models\MissingClass is matched but missing -> unresolved
 		assert.equal(res.unresolved.length, 1);
 		assert.equal(res.unresolved[0].specifier, "App\\Models\\MissingClass");
+		assert.ok(res.ownership.some(o =>
+			o.kind === "local" &&
+			o.reason === "project-owned" &&
+			o.ecosystem === "php" &&
+			o.specifier === "App\\Models\\MissingClass"
+		));
+		assert.ok(!res.diagnostics.some(d => d.kind === "ownership-undeclared"));
 
 		// Symfony and lodash (PHP unmatched vendor) should be ignored
 		assert.ok(!res.unresolved.some(u => u.specifier.includes("Symfony")));

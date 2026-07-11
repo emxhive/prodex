@@ -1,5 +1,7 @@
 // @ts-nocheck
 const assert = require("node:assert/strict");
+const fs = require("node:fs");
+const os = require("node:os");
 const path = require("node:path");
 const test = require("node:test");
 
@@ -39,6 +41,16 @@ test("PHP Resolution: Namespace class resolves correctly via PSR-4", async () =>
 	assert.equal(result.level, "L10");
 	assert.equal(result.strategy, "php-namespace");
 	assert.equal(result.file, getFixtureFile("src/Models/User.php"));
+	assert.equal(result.ownership.kind, "local");
+	assert.equal(result.ownership.reason, "project-owned");
+	assert.equal(result.ownership.ecosystem, "php");
+	assert.equal(result.ownership.specifier, "App\\Models\\User");
+	assert.equal(result.ownership.specifierRoot, "App\\");
+	assert.equal(result.ownership.sourceFile, getFixtureFile("src/Services/OrderService.php"));
+	assert.equal(result.ownership.evidence.composerPath, getFixtureFile("composer.json"));
+	assert.equal(result.ownership.evidence.matchedPrefix, "App\\");
+	assert.deepEqual(result.ownership.evidence.mappedDirs, [getFixtureFile("src")]);
+	assert.equal(result.ownership.evidence.resolvedFile, getFixtureFile("src/Models/User.php"));
 });
 
 test("PHP Resolution: Grouped namespace resolves correctly", async () => {
@@ -103,6 +115,14 @@ test("PHP Resolution: Namespace matches PSR-4 but file not found is unresolved",
 	assert.equal(result.level, "L10");
 	assert.equal(result.strategy, "php-namespace");
 	assert.ok(result.reason.includes("file not found"));
+	assert.equal(result.ownership.kind, "local");
+	assert.equal(result.ownership.reason, "project-owned");
+	assert.equal(result.ownership.ecosystem, "php");
+	assert.equal(result.ownership.specifierRoot, "App\\");
+	assert.equal(result.ownership.evidence.composerPath, getFixtureFile("composer.json"));
+	assert.equal(result.ownership.evidence.matchedPrefix, "App\\");
+	assert.deepEqual(result.ownership.evidence.mappedDirs, [getFixtureFile("src")]);
+	assert.equal(result.ownership.evidence.resolvedFile, undefined);
 });
 
 test("PHP Resolution: Vendor namespace with no PSR-4 prefix falls to LX unresolved", async () => {
@@ -124,6 +144,79 @@ test("PHP Resolution: Vendor namespace with no PSR-4 prefix falls to LX unresolv
 	assert.equal(result.status, "unresolved");
 	assert.equal(result.level, "LX");
 	assert.equal(result.strategy, "unresolved-fallback");
+	assert.notEqual(result.ownership?.reason, "undeclared");
+});
+
+test("PHP Resolution: PSR-4 mapping to vendor is not project-owned", async () => {
+	const root = fs.mkdtempSync(path.join(os.tmpdir(), "prodex-php-psr4-vendor-"));
+	try {
+		fs.mkdirSync(path.join(root, "src"), { recursive: true });
+		fs.mkdirSync(path.join(root, "vendor/vendorish/src"), { recursive: true });
+		fs.writeFileSync(path.join(root, "composer.json"), JSON.stringify({
+			autoload: {
+				"psr-4": {
+					"Vendorish\\": "vendor/vendorish/src/"
+				}
+			}
+		}, null, 2));
+		fs.writeFileSync(path.join(root, "vendor/vendorish/src/Foo.php"), "<?php namespace Vendorish; class Foo {}\n");
+		const sourceFile = path.join(root, "src/Caller.php").replace(/\\/g, "/");
+		fs.writeFileSync(sourceFile, "<?php use Vendorish\\Foo;\n");
+
+		const index = await indexWorkspace(root);
+		const resolver = new UniversalResolver(index);
+		const requests = edgesToRequests([{
+			specifier: "Vendorish\\Foo",
+			kind: "use",
+			sourceFile,
+			sourceLanguage: "php",
+			syntaxKind: "use-statement"
+		}], { profile: PHP_PROFILE });
+		const result = resolver.resolve(requests[0]);
+
+		assert.notEqual(result.ownership?.kind, "local");
+		assert.notEqual(result.ownership?.reason, "project-owned");
+		assert.equal(result.ownership?.reason, "policy-denied");
+	} finally {
+		fs.rmSync(root, { recursive: true, force: true });
+	}
+});
+
+test("PHP Resolution: PSR-4 mapping outside root is not project-owned", async () => {
+	const root = fs.mkdtempSync(path.join(os.tmpdir(), "prodex-php-psr4-outside-"));
+	const outside = path.join(path.dirname(root), `${path.basename(root)}-shared`);
+	try {
+		fs.mkdirSync(path.join(root, "src"), { recursive: true });
+		fs.mkdirSync(outside, { recursive: true });
+		fs.writeFileSync(path.join(root, "composer.json"), JSON.stringify({
+			autoload: {
+				"psr-4": {
+					"Shared\\": "../shared/"
+				}
+			}
+		}, null, 2));
+		fs.writeFileSync(path.join(outside, "Thing.php"), "<?php namespace Shared; class Thing {}\n");
+		const sourceFile = path.join(root, "src/Caller.php").replace(/\\/g, "/");
+		fs.writeFileSync(sourceFile, "<?php use Shared\\Thing;\n");
+
+		const index = await indexWorkspace(root);
+		const resolver = new UniversalResolver(index);
+		const requests = edgesToRequests([{
+			specifier: "Shared\\Thing",
+			kind: "use",
+			sourceFile,
+			sourceLanguage: "php",
+			syntaxKind: "use-statement"
+		}], { profile: PHP_PROFILE });
+		const result = resolver.resolve(requests[0]);
+
+		assert.notEqual(result.ownership?.kind, "local");
+		assert.notEqual(result.ownership?.reason, "project-owned");
+		assert.equal(result.level, "LX");
+	} finally {
+		fs.rmSync(root, { recursive: true, force: true });
+		fs.rmSync(outside, { recursive: true, force: true });
+	}
 });
 
 test("PHP Resolution: Literal relative paths resolve correctly via L3", async () => {
