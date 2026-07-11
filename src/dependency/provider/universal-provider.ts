@@ -159,9 +159,9 @@ export class UniversalDependencyProvider {
 			const res = resolver.resolve(request);
 			if (res.ownership) {
 				result.ownership.push(res.ownership);
-				if (shouldSurfaceOwnershipDiagnostic(res.ownership)) {
+				if (shouldSurfaceOwnershipDiagnostic(res.ownership, res.status)) {
 					result.diagnostics.push({
-						kind: `ownership-${res.ownership.reason}`,
+						kind: getOwnershipDiagnosticKind(res.ownership, res.status),
 						message: res.ownership.message ?? res.reason ?? `Dependency ownership classified "${request.specifier}" as ${res.ownership.kind}/${res.ownership.reason}.`,
 						ownership: res.ownership
 					});
@@ -227,10 +227,18 @@ export class UniversalDependencyProvider {
 	}
 }
 
-function shouldSurfaceOwnershipDiagnostic(ownership: DependencyOwnershipResult): boolean {
+function shouldSurfaceOwnershipDiagnostic(ownership: DependencyOwnershipResult, status?: string): boolean {
+	if (status === "unresolved" && ownership.kind === "local" && ownership.reason === "project-owned") return true;
 	if (ownership.kind !== "unresolved") return false;
 	return ownership.reason === "undeclared" ||
 		ownership.reason === "policy-denied" ||
 		ownership.reason === "unknown" ||
 		ownership.reason === "unsupported";
+}
+
+function getOwnershipDiagnosticKind(ownership: DependencyOwnershipResult, status?: string): string {
+	if (status === "unresolved" && ownership.kind === "local" && ownership.reason === "project-owned") {
+		return "ownership-project-owned-unresolved";
+	}
+	return `ownership-${ownership.reason}`;
 }

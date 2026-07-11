@@ -1,5 +1,7 @@
 // @ts-nocheck
 const assert = require("node:assert/strict");
+const fs = require("node:fs");
+const os = require("node:os");
 const path = require("node:path");
 const test = require("node:test");
 
@@ -91,6 +93,13 @@ test("Universal Provider: PHP namespace PSR-4 mapping & stats mapping rules", as
 	assert.equal(res.files[0], getResolveFile("src/Models/User.php"));
 	assert.equal(res.external.length, 0);
 	assert.equal(res.unresolved.length, 0);
+	assert.ok(res.ownership.some(o =>
+		o.kind === "local" &&
+		o.reason === "project-owned" &&
+		o.ecosystem === "php" &&
+		o.specifier === "App\\Models\\User"
+	));
+	assert.equal(res.diagnostics.some(d => d.kind === "ownership-project-owned-unresolved"), false);
 });
 
 test("Universal Provider: PHP require/include literals and external/vendor namespaces mapping", async () => {
@@ -98,7 +107,6 @@ test("Universal Provider: PHP require/include literals and external/vendor names
 
 	// We'll write a temporary file containing require literals, external, matched-but-missing namespace, and vendor namespaces
 	const tempFile = getResolveFile("temp-provider-test.php");
-	const fs = require("node:fs");
 	fs.writeFileSync(tempFile, `<?php
 require './helpers.php';
 require 'bootstrap/app.php';
@@ -130,14 +138,67 @@ use lodash; // ignored
 			o.ecosystem === "php" &&
 			o.specifier === "App\\Models\\MissingClass"
 		));
+		assert.ok(res.diagnostics.some(d =>
+			d.kind === "ownership-project-owned-unresolved" &&
+			d.ownership?.specifier === "App\\Models\\MissingClass"
+		));
 		assert.ok(!res.diagnostics.some(d => d.kind === "ownership-undeclared"));
 
 		// Symfony and lodash (PHP unmatched vendor) should be ignored
 		assert.ok(!res.unresolved.some(u => u.specifier.includes("Symfony")));
 		assert.ok(!res.unresolved.some(u => u.specifier.includes("lodash")));
+		assert.ok(!res.diagnostics.some(d => d.message.includes("Symfony") || d.message.includes("lodash")));
 	} finally {
 		if (fs.existsSync(tempFile)) {
 			fs.unlinkSync(tempFile);
 		}
+	}
+});
+
+test("Universal Provider: Laravel-shaped route imports local controller and keeps framework namespace quiet", async () => {
+	const provider = await setupProvider();
+	const root = fs.mkdtempSync(path.join(os.tmpdir(), "prodex-laravel-shaped-"));
+
+	try {
+		fs.mkdirSync(path.join(root, "routes"), { recursive: true });
+		fs.mkdirSync(path.join(root, "app/Http/Controllers"), { recursive: true });
+		fs.writeFileSync(path.join(root, "composer.json"), JSON.stringify({
+			require: {
+				"laravel/framework": "^11.0"
+			},
+			autoload: {
+				"psr-4": {
+					"App\\": "app/"
+				}
+			}
+		}, null, 2));
+		fs.writeFileSync(path.join(root, "app/Http/Controllers/HomeController.php"), `<?php
+namespace App\\Http\\Controllers;
+class HomeController {}
+`);
+		const routeFile = path.join(root, "routes/web.php").replace(/\\/g, "/");
+		fs.writeFileSync(routeFile, `<?php
+use App\\Http\\Controllers\\HomeController;
+use Illuminate\\Support\\Facades\\Route;
+`);
+
+		const res = await provider.resolve({
+			root,
+			filePath: routeFile,
+			exclude: ["vendor/**"]
+		});
+
+		const controllerPath = path.join(root, "app/Http/Controllers/HomeController.php").replace(/\\/g, "/");
+		assert.deepEqual(res.files, [controllerPath]);
+		assert.ok(res.ownership.some(o =>
+			o.kind === "local" &&
+			o.reason === "project-owned" &&
+			o.ecosystem === "php" &&
+			o.specifier === "App\\Http\\Controllers\\HomeController"
+		));
+		assert.equal(res.unresolved.some(u => u.specifier.includes("Illuminate")), false);
+		assert.equal(res.diagnostics.some(d => d.message.includes("Illuminate")), false);
+	} finally {
+		fs.rmSync(root, { recursive: true, force: true });
 	}
 });

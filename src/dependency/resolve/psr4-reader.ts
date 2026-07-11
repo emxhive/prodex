@@ -8,6 +8,8 @@ export interface Psr4Map {
 export interface Psr4ReadResult {
 	composerPath: string;
 	map: Record<string, string | string[]>;
+	requirePackageNames: string[];
+	requireDevPackageNames: string[];
 }
 
 export class Psr4Reader {
@@ -23,7 +25,12 @@ export class Psr4Reader {
 
 		const composerPath = path.join(root, "composer.json");
 		const map: Record<string, string | string[]> = {};
-		const result = { composerPath, map };
+		const result: Psr4ReadResult = {
+			composerPath,
+			map,
+			requirePackageNames: [],
+			requireDevPackageNames: []
+		};
 
 		if (!fs.existsSync(composerPath)) {
 			this.cache.set(root, result);
@@ -34,6 +41,8 @@ export class Psr4Reader {
 			const content = fs.readFileSync(composerPath, "utf8");
 			const json = JSON.parse(content);
 			const psr4 = json?.autoload?.["psr-4"] || {};
+			result.requirePackageNames = collectPackageNames(json?.require);
+			result.requireDevPackageNames = collectPackageNames(json?.["require-dev"]);
 
 			for (const ns in psr4) {
 				// Normalize namespace suffix: strip trailing backslash
@@ -57,4 +66,9 @@ export class Psr4Reader {
 	static clearCache(): void {
 		this.cache.clear();
 	}
+}
+
+function collectPackageNames(deps: unknown): string[] {
+	if (!deps || typeof deps !== "object" || Array.isArray(deps)) return [];
+	return Object.keys(deps).sort();
 }
