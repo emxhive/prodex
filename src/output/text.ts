@@ -24,7 +24,10 @@ export function renderTxt(payload: ArtifactPayload): string {
 	const sectionToc = (payload.sections ?? []).map((sec) => "## - Section: " + sec.title);
 	const fileToc = sorted.map((file) => "## - File: " + rel(file.path, root));
 	const tocParts = isFileFirst ? [...fileToc, ...sectionToc] : [...sectionToc, ...fileToc];
-	const toc = ["##==== Combined Scope ====", ...contextLines, ...tocParts].join("\n") + "\n\n";
+	const tocTitle = payload.metadata?.mode === "command-only"
+		? "##==== Command-only Artifact ===="
+		: "##==== Combined Scope ====";
+	const toc = [tocTitle, ...contextLines, ...tocParts].join("\n") + "\n\n";
 
 	const genericSections = (payload.sections ?? [])
 		.map((sec) => {

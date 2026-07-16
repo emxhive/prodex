@@ -57,7 +57,7 @@ export async function executeRun(
 	const filteredSections = rawSections.filter(hasMeaningfulSectionContent);
 
 	const hasContent = collectResult.files.length > 0 || filteredSections.length > 0;
-	if (!hasContent) {
+	if (!hasContent && !plan.allowEmptyCollection) {
 		return {
 			ok: false,
 			root: plan.root,

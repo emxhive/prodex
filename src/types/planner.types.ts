@@ -83,6 +83,7 @@ export interface ExecutionPlan {
 		format: "md" | "txt";
 	};
 	dryRun: boolean;
+	allowEmptyCollection?: boolean;
 	copy?: boolean;
 	scopeKey?: string;
 	attachmentOptions?: CommandAttachmentOptions;

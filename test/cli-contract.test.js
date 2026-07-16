@@ -100,7 +100,8 @@ test("pack specific validation rules are enforced", async () => {
 		// pack command fails because no source was provided
 		const packNoSource = await runProdexCommand(["node", "prodex", "pack"], root);
 		assert.equal(packNoSource.ok, false);
-		assert.match(packNoSource.errors.join("\n"), /Command "pack" requires at least one source/);
+		assert.match(packNoSource.errors.join("\n"), /Command "pack" requires at least one source or command/);
+		assert.match(packNoSource.errors.join("\n"), /--cmd/);
 
 		const result = await runProdexCommand(["node", "prodex", "pack", "--scope", "missing"], root);
 		assert.equal(result.ok, false);
@@ -113,6 +114,10 @@ test("trace specific validation rules are enforced", async () => {
 	const traceNoTarget = await runProdexCommand(["node", "prodex", "trace"], repoRoot);
 	assert.equal(traceNoTarget.ok, false);
 	assert.match(traceNoTarget.errors.join("\n"), /Command "trace" requires --target/);
+
+	const traceCmdNoTarget = await runProdexCommand(["node", "prodex", "trace", "--cmd", "node -e \"console.log('no target')\""], repoRoot);
+	assert.equal(traceCmdNoTarget.ok, false);
+	assert.match(traceCmdNoTarget.errors.join("\n"), /Command "trace" requires --target/);
 
 	// trace with --entry fails with the removal message
 	const traceWithEntry = await runProdexCommand(["node", "prodex", "trace", "--entry", "src/index.ts"], repoRoot);
@@ -847,6 +852,177 @@ test("dry-run does not execute commands and reports planned commands", async () 
 		const stdout = captureStdout(() => reportCommandResult(result));
 		assert.match(stdout, /Planned command attachments to run in sequence/);
 		assert.match(stdout, /node -e "console\.log\('should-not-run'\)"/);
+	});
+});
+
+test("command-only pack writes markdown artifact with zero-file indexing and reporter output", async () => {
+	await usingTempProjectAsync(async (root) => {
+		writeJson(path.join(root, "prodex.json"), baseConfig());
+
+		const result = await runProdexCommand(
+			[
+				"node",
+				"prodex",
+				"pack",
+				"--cmd",
+				"node -e \"console.log('cmd1')\"",
+				"--cmd",
+				"node -e \"console.log('cmd2')\"",
+				"--format",
+				"md",
+				"-n",
+				"cmd-only"
+			],
+			root
+		);
+
+		assert.equal(result.ok, true);
+		assert.equal(result.exitCode, 0);
+		assert.equal(result.runs[0].mode, "command-only");
+		assert.deepEqual(result.runs[0].files, []);
+		assert.deepEqual(result.runs[0].entries, []);
+		assert.deepEqual(result.runs[0].includes, []);
+		assert.match(path.basename(result.runs[0].outputPath), /^cmd-only-trace_\d{6}-\d{4}\.md$/);
+
+		const content = fs.readFileSync(result.runs[0].outputPath, "utf8");
+		assert.match(content, /<!-- PRODEX_FILE_COUNT: 0 -->/);
+		assert.match(content, /<!-- PRODEX_COMMAND_OUTPUT_COUNT: 2 -->/);
+		assert.ok(content.indexOf("cmd1") < content.indexOf("cmd2"));
+		assert.doesNotMatch(content, /## Files/);
+		assert.doesNotMatch(content, /` File:/);
+		assert.doesNotMatch(content, /#### 1/);
+		assert.match(content, /- \[Command 1: node -e "console\.log\('cmd1'\)"\]\(#cmd-1\) L\d+-L\d+/);
+		assert.match(content, /- \[Command 2: node -e "console\.log\('cmd2'\)"\]\(#cmd-2\) L\d+-L\d+/);
+		assert.match(content, /<a id="cmd-1"><\/a>/);
+		assert.match(content, /<a id="cmd-2"><\/a>/);
+		assert.match(content, /\[Back to top\]\(#index\) \| \[Next\]\(#cmd-2\)/);
+		assert.match(content, /\[Previous\]\(#cmd-1\) \| \[Back to top\]\(#index\)/);
+
+		const lines = content.split("\n");
+		const listStartIdx = lines.findIndex(l => l.trim() === "<!-- PRODEX_INDEX_LIST_START -->");
+		const listEndIdx = lines.findIndex(l => l.trim() === "<!-- PRODEX_INDEX_LIST_END -->");
+		const indexRangeLines = lines.slice(listStartIdx + 1, listEndIdx);
+		const ranges = [];
+		for (const line of indexRangeLines) {
+			const m = line.match(/L(\d+)-L(\d+)/);
+			if (m) ranges.push({ start: parseInt(m[1], 10), end: parseInt(m[2], 10) });
+		}
+		assert.equal(ranges.length, 2);
+		assert.ok(ranges[0].end < ranges[1].start);
+
+		const stdout = captureStdout(() => reportCommandResult(result));
+		assert.match(stdout, /cmd-only\s+command-only\s+0 files\s+0\.\d+ MB\s+prodex\/cmd-only-trace_/);
+	});
+});
+
+test("command-only pack writes honest txt artifact without fake file entries", async () => {
+	await usingTempProjectAsync(async (root) => {
+		writeJson(path.join(root, "prodex.json"), baseConfig());
+
+		const result = await runProdexCommand(
+			["node", "prodex", "pack", "--cmd", "node -e \"console.log('txt-only')\"", "--format", "txt", "-n", "cmd-txt"],
+			root
+		);
+
+		assert.equal(result.ok, true);
+		assert.equal(result.runs[0].mode, "command-only");
+		assert.match(path.basename(result.runs[0].outputPath), /^cmd-txt-trace_\d{6}-\d{4}\.txt$/);
+
+		const content = fs.readFileSync(result.runs[0].outputPath, "utf8");
+		assert.match(content, /##==== Command-only Artifact ====/);
+		assert.doesNotMatch(content, /##==== Combined Scope ====/);
+		assert.doesNotMatch(content, /## - File:/);
+		assert.doesNotMatch(content, /##==== path:/);
+		assert.doesNotMatch(content, /##region /);
+		assert.match(content, /##==== Command Attachments ====/);
+		assert.match(content, /txt-only/);
+	});
+});
+
+test("command-only dry-run reports planned commands without executing", async () => {
+	await usingTempProjectAsync(async (root) => {
+		writeJson(path.join(root, "prodex.json"), baseConfig());
+		const marker = path.join(root, "dry-run-marker.txt");
+		const command = "node -e \"require('fs').writeFileSync('dry-run-marker.txt','x')\"";
+
+		const result = await runProdexCommand(
+			["node", "prodex", "pack", "--cmd", command, "--dry-run", "-n", "cmd-dry"],
+			root
+		);
+
+		assert.equal(result.ok, true);
+		assert.equal(result.runs[0].mode, "command-only");
+		assert.deepEqual(result.runs[0].files, []);
+		assert.deepEqual(result.runs[0].plannedCommands, [command]);
+		assert.equal(fs.existsSync(marker), false);
+
+		const stdout = captureStdout(() => reportCommandResult(result));
+		assert.match(stdout, /Planned command attachments to run in sequence/);
+		assert.match(stdout, /cmd-dry\s+command-only\s+0 files\s+0\.00 MB\s+dry-run/);
+	});
+});
+
+test("command-only pack preserves default, strict, and timeout command semantics", async () => {
+	await usingTempProjectAsync(async (root) => {
+		writeJson(path.join(root, "prodex.json"), baseConfig());
+
+		const defaultFailure = await runProdexCommand(
+			["node", "prodex", "pack", "--cmd", "node -e \"process.exit(4)\"", "--format", "txt", "-n", "cmd-default-fail"],
+			root
+		);
+		assert.equal(defaultFailure.ok, true);
+		assert.equal(defaultFailure.exitCode, 0);
+		let content = fs.readFileSync(defaultFailure.runs[0].outputPath, "utf8");
+		assert.match(content, /Status: failed/);
+		assert.match(content, /Exit Code: 4/);
+
+		const strictFailure = await runProdexCommand(
+			["node", "prodex", "pack", "--cmd", "node -e \"process.exit(5)\"", "--fail-on-cmd-error", "--format", "txt", "-n", "cmd-strict-fail"],
+			root
+		);
+		assert.equal(strictFailure.ok, false);
+		assert.equal(strictFailure.exitCode, 1);
+		assert.ok(strictFailure.runs[0].outputPath);
+		content = fs.readFileSync(strictFailure.runs[0].outputPath, "utf8");
+		assert.match(content, /Status: failed/);
+		assert.match(content, /Exit Code: 5/);
+
+		const timeout = await runProdexCommand(
+			["node", "prodex", "pack", "--cmd", "node -e \"setTimeout(() => {}, 10000)\"", "--cmd-timeout", "1", "--format", "txt", "-n", "cmd-timeout"],
+			root
+		);
+		assert.equal(timeout.ok, true);
+		content = fs.readFileSync(timeout.runs[0].outputPath, "utf8");
+		assert.match(content, /Status: timed-out/);
+		assert.match(content, /Timeout State: Yes/);
+	});
+});
+
+test("command attachments do not rescue explicitly requested sources that resolve to no files", async () => {
+	await usingTempProjectAsync(async (root) => {
+		writeJson(path.join(root, "prodex.json"), baseConfig());
+		const marker = path.join(root, "missing-source-marker.txt");
+
+		const result = await runProdexCommand(
+			[
+				"node",
+				"prodex",
+				"pack",
+				"-i",
+				"missing/**/*.ts",
+				"--cmd",
+				"node -e \"require('fs').writeFileSync('missing-source-marker.txt','x')\"",
+				"--format",
+				"txt"
+			],
+			root
+		);
+
+		assert.equal(result.ok, false);
+		assert.equal(result.exitCode, 1);
+		assert.equal(result.runs[0].outputPath, undefined);
+		assert.match(result.runs[0].errors.join("\n"), /No files or metadata sections matched/);
+		assert.equal(fs.existsSync(marker), false);
 	});
 });
 

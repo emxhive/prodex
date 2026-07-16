@@ -26,9 +26,12 @@ export function buildPackPlan(params: {
 	const hasCliEntry = flags.entry && flags.entry.length > 0;
 	const hasCliInclude = flags.include && flags.include.length > 0;
 	const hasCliScope = flags.scope && flags.scope.length > 0;
+	const hasCollectionSource = !!hasCliEntry || !!hasCliInclude || !!hasCliScope;
+	const hasValidCommandAttachment = !errors.length && (attachmentOptions?.commands.length ?? 0) > 0;
+	const allowEmptyCollection = !hasCollectionSource && hasValidCommandAttachment;
 
-	if (!hasCliEntry && !hasCliInclude && !hasCliScope) {
-		errors.push('Command "pack" requires at least one source: --entry, --include, or --scope.');
+	if (!hasCollectionSource && !hasValidCommandAttachment) {
+		errors.push('Command "pack" requires at least one source or command: --entry, --include, --scope, or --cmd.');
 		return [];
 	}
 
@@ -74,6 +77,7 @@ export function buildPackPlan(params: {
 			format: flags.format ?? defaultOutput.format,
 		},
 		dryRun: !!flags.dryRun,
+		allowEmptyCollection,
 		copy: !!flags.copy,
 		attachmentOptions,
 	};

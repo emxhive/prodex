@@ -5,7 +5,7 @@ import type { ChainResult } from "./tracing.types";
 import type { ArtifactSection, FileSnapshot } from "./artifact.types";
 
 export type ProdexCommandKind = "pack" | "trace" | "scope" | "git" | "grep";
-export type ProdexRunMode = "trace" | "include-only" | "mixed" | "git" | "grep";
+export type ProdexRunMode = "trace" | "include-only" | "mixed" | "command-only" | "git" | "grep";
 
 export interface SourceCollectionResult {
 	files: string[];

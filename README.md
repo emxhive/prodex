@@ -40,6 +40,9 @@ prodex scope -k billing
 # Attach test output beside the code
 prodex scope -k auth --cmd "npm test -- auth"
 
+# Capture command output without collecting files
+prodex pack --cmd "dart analyze"
+
 # Collect explicit files without dependency tracing
 prodex pack -i src/config/database.ts,src/models/User.ts,docs/schema.md
 
@@ -155,7 +158,7 @@ Saved named selections in `prodex.json`. See [Saved Scopes](#saved-scopes).
 
 ### Pack
 
-`prodex pack` accepts `--include` for direct file collection, `--entry` to trace imports from an entry file, or both together. It is the same tracing engine as `prodex trace` with the option to mix in explicit files in the same run.
+`prodex pack` accepts `--include` for direct file collection, `--entry` to trace imports from an entry file, or both together. It is the same tracing engine as `prodex trace` with the option to mix in explicit files in the same run. It can also produce a command-only artifact when `--cmd` is supplied without file sources.
 
 ### Command Output
 
@@ -253,9 +256,12 @@ Add `--cmd` to any run to capture shell command output and embed it in the docum
 prodex scope -k auth --cmd "npm test -- auth"
 prodex git --against origin/main --cmd "npm run lint"
 prodex pack -e src/index.ts --cmd "npm run build"
+prodex pack --cmd "dart analyze"
 ```
 
-`--cmd` is repeatable. Commands run sequentially after files are collected, and each output is included as a separate section.
+`--cmd` is repeatable. Commands run sequentially after files are collected, and each output is included as a separate section. For `prodex pack`, `--cmd` may be used without `--entry`, `--include`, or `--scope` to create a command-only artifact.
+
+If a file source is explicitly requested but resolves to no files, Prodex still treats that as a collection failure and does not run attached commands.
 
 By default, a failed command adds a warning but still produces the output file. Use `--fail-on-cmd-error` to exit with an error instead.
 
@@ -403,6 +409,7 @@ prodex scope [root] --list
 ```bash
 prodex pack [root] -i <glob>
 prodex pack [root] -e <entry> -i <glob>
+prodex pack [root] --cmd <command>
 ```
 
 | Flag | Short | Type | Description |
@@ -414,7 +421,7 @@ prodex pack [root] -e <entry> -i <glob>
 | `--name` | `-n` | string | Output filename |
 | `--format` | `-F` | `md`/`txt` | Output format |
 | `--depth` | | number | Maximum tracing depth |
-| `--cmd` | | list | Command to run and embed. Repeatable. |
+| `--cmd` | | list | Command to run and embed. Repeatable; valid without file sources for command-only pack artifacts. |
 | `--fail-on-cmd-error` | | boolean | Exit nonzero if an attached command fails |
 | `--dry-run` | | boolean | Preview without writing output |
 | `--copy` | | boolean | Copy generated artifact file to clipboard for pasting as an attachment |

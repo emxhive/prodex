@@ -143,6 +143,9 @@ export const COMMAND_HELP_FLAGS = {
 } as const satisfies Record<CommandHelpTopic, readonly PublicHelpFlagName[]>;
 
 export const FLAG_DESCRIPTION_OVERRIDES = {
+	pack: {
+		cmd: "Run command sequentially for evidence capture. Repeatable; valid without file sources.",
+	},
 	trace: {
 		name: "Output basename for this trace.",
 		depth: "Dependency traversal depth. Defaults to configured depth.",

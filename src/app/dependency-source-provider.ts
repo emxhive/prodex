@@ -26,13 +26,24 @@ export async function collectDependencySources(
 
 	const entries = resolveResult.entries;
 	const includes = plan.include ?? [];
-	const mode = getRunMode(entries.length, includes.length);
+	const mode = getRunMode(entries.length, includes.length, !!plan.allowEmptyCollection);
 
 	if (errors.length) {
 		return { files: [], entries, includes, mode, warnings, errors };
 	}
 
 	if (!entries.length && !includes.length) {
+		if (plan.allowEmptyCollection) {
+			return {
+				files: [],
+				entries,
+				includes,
+				mode,
+				warnings,
+				errors,
+			};
+		}
+
 		return {
 			files: [],
 			entries,
@@ -81,8 +92,9 @@ export async function collectDependencySources(
 	};
 }
 
-function getRunMode(entryCount: number, includePatternCount: number): "trace" | "include-only" | "mixed" {
+function getRunMode(entryCount: number, includePatternCount: number, allowEmptyCollection: boolean): "trace" | "include-only" | "mixed" | "command-only" {
 	if (entryCount && includePatternCount) return "mixed";
 	if (entryCount) return "trace";
+	if (allowEmptyCollection) return "command-only";
 	return "include-only";
 }
